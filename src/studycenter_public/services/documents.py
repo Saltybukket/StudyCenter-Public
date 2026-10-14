@@ -79,18 +79,16 @@ def ocr_pixmap(pixmap, settings):
     if not settings.tesseract or not Path(settings.tesseract).exists():
         return None, "OCR nötig; Tesseract in dieser Installation konfigurieren."
     if settings.temp_directory:reject_links(settings.temp_directory)
-    with tempfile.TemporaryDirectory(dir=settings.temp_directory) as directory:
-        png = Path(directory) / "page.png"
-        pixmap.save(png)
-        try:
-            result = subprocess.run([settings.tesseract, str(png), "stdout", "-l", settings.ocr_lang], capture_output=True, timeout=120, encoding="utf-8", errors="replace", env=settings.process_env, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            if result.returncode:
-                return None, f"OCR fehlgeschlagen; Sprachdaten {settings.ocr_lang} prüfen."
-            if not result.stdout.strip():
-                return None, "OCR hat keinen lesbaren Text gefunden; Seitenansicht prüfen."
-            return result.stdout.strip(), None
-        except (OSError, subprocess.TimeoutExpired):
-            return None, "OCR konnte nicht ausgeführt werden."
+    try:
+        result = subprocess.run([settings.tesseract, "stdin", "stdout", "-l", settings.ocr_lang], input=pixmap.tobytes("png"), capture_output=True, timeout=120, env=settings.process_env, cwd=settings.working_directory, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if result.returncode:
+            return None, f"OCR fehlgeschlagen; Sprachdaten {settings.ocr_lang} prüfen."
+        text = result.stdout.decode("utf-8", errors="replace").strip()
+        if not text:
+            return None, "OCR hat keinen lesbaren Text gefunden; Seitenansicht prüfen."
+        return text, None
+    except (OSError, subprocess.TimeoutExpired):
+        return None, "OCR konnte nicht ausgeführt werden."
 
 
 def paper_grid(page, drawings, *, explicit=False):
@@ -237,17 +235,19 @@ class OCRSettings:
     ocr_lang: str = 'eng'
     temp_directory: str | None = None
     process_env: dict | None = None
+    working_directory: str | None = None
 
 
 def default_ocr(paths):
     from ..platform.components import component_root
-    root = component_root(paths) / 'ocr'
-    executable = root / ('tesseract.exe' if os.name == 'nt' else 'usr/bin/tesseract')
+    root = reject_links(component_root(paths) / 'ocr').resolve()
+    executable = reject_links(root / ('tesseract.exe' if os.name == 'nt' else 'usr/bin/tesseract'))
+    languages = reject_links(root / ('tessdata' if os.name == 'nt' else 'usr/share/tesseract-ocr/5/tessdata'))
     environment = dict(os.environ)
-    environment['TESSDATA_PREFIX'] = str(root / ('tessdata' if os.name == 'nt' else 'usr/share/tesseract-ocr/5/tessdata'))
+    environment['TESSDATA_PREFIX'] = 'tessdata' if os.name == 'nt' else str(languages)
     if os.name != 'nt':
         environment['LD_LIBRARY_PATH'] = str(root / 'usr/lib/x86_64-linux-gnu')
-    return OCRSettings(str(executable) if executable.is_file() else None, 'eng+deu', process_env=environment)
+    return OCRSettings(str(executable) if executable.is_file() else None, 'eng+deu', process_env=environment, working_directory=str(root) if os.name == 'nt' else None)
 
 
 class DocumentService:

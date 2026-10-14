@@ -20,8 +20,16 @@ import urllib.request
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
-SYSTEM_CHROME = Path('/opt/google/chrome/chrome')
+SYSTEM_CHROME_NAME = '/opt/google/chrome/chrome'
+SYSTEM_CHROME = Path(SYSTEM_CHROME_NAME)
 PROFILE_POLICY = Path('/etc/apparmor.d/chrome')
+# Exact observed VM 38652957431; this is a disposable UI consumer admission,
+# never permission for the production source browser. The matching image recipe
+# sets /opt to 0777: actions/runner-images tag ubuntu24/20261004.327,
+# images/ubuntu/scripts/build/configure-system.sh, lines 10-13.
+KNOWN_UI_IMAGE = '20261004.327.1'
+KNOWN_UI_CHROME_VERSION = '154.0.8037.97-1'
+KNOWN_UI_CHROME_SHA256 = '6c792041b07547a662e1b17974d1dc34a3db630379b45d9d89ddd7e3e68cc587'
 NAMESPACE_VALUES = (
     'kernel/apparmor_restrict_unprivileged_userns',
     'kernel/unprivileged_userns_clone', 'user/max_user_namespaces',
@@ -85,10 +93,15 @@ def confinement_snapshot():
     for name in NAMESPACE_VALUES:
         path = Path('/proc/sys') / name
         values[name] = path.read_text().strip() if path.exists() else None
-    policy = {'present': PROFILE_POLICY.is_file(), 'sha256': digest(PROFILE_POLICY) if PROFILE_POLICY.is_file() else None}
-    if PROFILE_POLICY.is_file():
+    regular = PROFILE_POLICY.exists() and stat.S_ISREG(PROFILE_POLICY.lstat().st_mode)
+    policy = {'present': regular, 'sha256': digest(PROFILE_POLICY) if regular else None}
+    if regular:
         metadata = PROFILE_POLICY.stat()
-        policy['root_controlled'] = metadata.st_uid == 0 and not metadata.st_mode & 0o022
+        policy['file_uid'] = metadata.st_uid
+        policy['mode'] = oct(metadata.st_mode & 0o7777)
+        policy['root_controlled'] = all(not candidate.is_symlink() and candidate.stat().st_uid == 0
+                                        and not candidate.stat().st_mode & 0o022
+                                        for candidate in (PROFILE_POLICY, *PROFILE_POLICY.parents))
     loaded = read_audit('/sys/kernel/security/apparmor/profiles')
     policy['loaded_chrome_profiles'] = sorted(line for line in loaded.splitlines() if re.match(r'^chrome(?:\s|/)', line))
     return {'namespace_restrictions': values, 'existing_chrome_policy': policy}
@@ -120,10 +133,51 @@ def inventory():
                     if version.returncode == 0:
                         package_version = version.stdout.strip()
             entry.update({'resolved': str(actual), 'ELF': elf, 'regular_file': True, 'mode': oct(info.st_mode & 0o7777), 'root_controlled': controlled,
+                          'file_uid': info.st_uid, 'file_gid': info.st_gid,
+                          'setid': bool(info.st_mode & (stat.S_ISUID | stat.S_ISGID)), 'executable': os.access(actual, os.X_OK),
+                          'ancestor_metadata': [{'path': str(candidate), 'uid': candidate.stat().st_uid,
+                                                 'directory': stat.S_ISDIR(candidate.stat().st_mode),
+                                                 'mode': oct(candidate.stat().st_mode & 0o7777)} for candidate in actual.parents],
                           'sha256': digest(actual), 'package_version': package_version,
                           'package_owner': owner.stdout.strip()[:300] if owner.returncode == 0 else None})
         result.append(entry)
     return result
+
+
+def candidate_eligibility(entry, image_version):
+    regular = bool(entry.get('path') == SYSTEM_CHROME_NAME and entry.get('resolved') == SYSTEM_CHROME_NAME
+                   and entry.get('regular_file') is True and entry.get('ELF') is True
+                   and entry.get('file_uid') == 0 and entry.get('setid') is False and entry.get('executable') is True
+                   and entry.get('package_owner') == 'google-chrome-stable: ' + SYSTEM_CHROME_NAME)
+    strict = regular and entry.get('root_controlled') is True
+    ancestors = entry.get('ancestor_metadata', [])
+    known_writable_ui = bool(regular and entry.get('root_controlled') is False and entry.get('mode') == '0o777'
+                            and image_version == KNOWN_UI_IMAGE and entry.get('package_version') == KNOWN_UI_CHROME_VERSION
+                            and entry.get('sha256') == KNOWN_UI_CHROME_SHA256
+                            and [ancestor.get('path') for ancestor in ancestors] == ['/opt/google/chrome', '/opt/google', '/opt', '/']
+                            and all(ancestor.get('uid') == 0 and ancestor.get('directory') is True for ancestor in ancestors))
+    return strict, strict or known_writable_ui
+
+
+def confinement_eligible(snapshot):
+    policy = snapshot.get('existing_chrome_policy', {})
+    return bool(policy.get('present') and policy.get('root_controlled') and policy.get('loaded_chrome_profiles'))
+
+
+def chrome_label(label):
+    return label.startswith('chrome ') or label.startswith('chrome//')
+
+
+def renderer_sandbox_eligible(renderers):
+    return bool(renderers) and all(value['Seccomp'] == 2 and value['NoNewPrivs'] == 1
+                                   and value['different_user_namespace'] and chrome_label(value['AppArmor_label'])
+                                   for value in renderers)
+
+
+def invalidate_passes(result, reason):
+    for name in ('UI_lane', 'source_lane'):
+        if result[name]['status'] == 'PASS':
+            result[name] = dict(result[name], status='OPEN', verification_reason=reason)
 
 
 def wait_for(predicate, process=None, timeout=40):
@@ -274,7 +328,7 @@ def sandbox_evidence(context, profile):
     browser_pid = int(next(info['id'] for info in processes if info['type'] == 'browser'))
     own_browser_process(browser_pid, profile)
     browser_label = read_audit(f'/proc/{browser_pid}/attr/current').strip()
-    if not (browser_label.startswith('chrome ') or browser_label.startswith('chrome//')):
+    if not chrome_label(browser_label):
         raise RuntimeError('Actual own Chrome process is not using the attested existing Chrome profile.')
     renderers = []
     for info in processes:
@@ -284,10 +338,11 @@ def sandbox_evidence(context, profile):
         status = read_audit(f'/proc/{pid}/status')
         fields = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
         renderer = {'pid': pid, 'Seccomp': int(fields['Seccomp'].strip()), 'NoNewPrivs': int(fields['NoNewPrivs'].strip()),
+                    'AppArmor_label': read_audit(f'/proc/{pid}/attr/current').strip(),
                     'different_user_namespace': read_audit(f'/proc/{pid}/ns/user', link=True) != own_namespace,
                     'different_pid_namespace': read_audit(f'/proc/{pid}/ns/pid', link=True) != own_pid_namespace}
         renderers.append(renderer)
-    if not any(value['Seccomp'] == 2 and value['NoNewPrivs'] == 1 and value['different_user_namespace'] for value in renderers):
+    if not renderer_sandbox_eligible(renderers):
         raise RuntimeError('Own renderer sandbox process evidence is incomplete.')
     version.close()
     return {'version': browser.version, 'executable': executable, 'own_profile': True, 'namespace_sandbox': namespace,
@@ -378,17 +433,26 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
     try:
         result['existing_browser_inventory'] = inventory()
         result['prerequisites'] = {name: {'status': 'AVAILABLE' if shutil.which(name) else 'BLOCKED'} for name in ('Xvfb', 'xauth', 'xdg-open')}
-        selected = next((entry for entry in result['existing_browser_inventory'] if entry['path'] == str(SYSTEM_CHROME) and entry.get('ELF') and entry.get('root_controlled') and entry.get('package_owner')), None)
-        if not selected:
-            result['prerequisites']['regular_system_Chrome'] = {'status': 'BLOCKED'}
-            result['UI_lane'] = result['source_lane'] = {'status': 'BLOCKED', 'reason': 'No attested regular system Chrome; no browser was installed or substituted.'}
-            return result
-        result['selected_system_browser_sha256'] = selected['sha256']
-        result['prerequisites']['regular_system_Chrome'] = {'status': 'AVAILABLE'}
         before = confinement_snapshot(); result['confinement_before'] = before
-        policy = before['existing_chrome_policy']
-        if not policy['present'] or not policy.get('root_controlled') or not policy['loaded_chrome_profiles']:
-            result['UI_lane'] = result['source_lane'] = {'status': 'BLOCKED', 'reason': 'Existing loaded regular Chrome AppArmor policy is not attested; no policy was installed or changed.'}
+        selected = next(entry for entry in result['existing_browser_inventory'] if entry['path'] == SYSTEM_CHROME_NAME)
+        source_allowed, ui_allowed = candidate_eligibility(selected, result['runner_image'])
+        result['browser_admission'] = {'mode': selected.get('mode'), 'root_controlled': selected.get('root_controlled', False),
+            'source_eligible': source_allowed, 'UI_eligible': ui_allowed,
+            'known_writable_image_UI_only': ui_allowed and not source_allowed,
+            'production_source_approval': False if not source_allowed else 'not claimed by this controller',
+            'image_recipe': 'actions/runner-images ubuntu24/20261004.327 configure-system.sh lines 10-13'}
+        result['selected_system_browser_sha256'] = selected.get('sha256')
+        result['prerequisites']['strict_source_Chrome'] = {'status': 'AVAILABLE' if source_allowed else 'BLOCKED'}
+        result['prerequisites']['independent_UI_Chrome'] = {'status': 'AVAILABLE' if ui_allowed else 'BLOCKED'}
+        if not source_allowed:
+            result['source_lane'] = {'status': 'BLOCKED', 'reason': 'Fixed system Chrome does not satisfy the unchanged strict source ownership gate; no source browser started.'}
+        if not ui_allowed:
+            result['UI_lane'] = {'status': 'BLOCKED', 'reason': 'No strict system Chrome or exact known image/package/ELF UI candidate; no browser installed or substituted.'}
+        if not confinement_eligible(before):
+            for name in ('UI_lane', 'source_lane'):
+                result[name] = dict(result[name], status='BLOCKED', confinement_reason='Existing loaded root-controlled Chrome AppArmor policy is not attested; no policy changed.')
+            return result
+        if not source_allowed and not ui_allowed:
             return result
         if executable:
             executable = Path(executable).resolve(strict=True)
@@ -409,18 +473,20 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
         with ExitStack() as stack:
             from playwright.sync_api import sync_playwright
             playwright = stack.enter_context(sync_playwright())
-            try:
-                result['source_lane'] = source_probe(playwright, fixture, environment, stack)
-            except Exception as error:
-                result['source_lane'] = {'status': 'OPEN', 'error': error_message(error)}
-            display_environment = start_xvfb(fixture, environment, stack)
-            if not display_environment or not shutil.which('xdg-open'):
-                result['UI_lane'] = {'status': 'BLOCKED', 'reason': 'No preinstalled Xvfb/xauth/xdg-open; no installation performed.'}
-            else:
+            if source_allowed:
                 try:
-                    backend = backend_start(fixture, display_environment, executable, stack)
-                    base = backend[0]
-                    result['UI_lane'] = ui_probe(playwright, fixture, display_environment, base, stack)
+                    result['source_lane'] = source_probe(playwright, fixture, environment, stack)
+                except Exception as error:
+                    result['source_lane'] = {'status': 'OPEN', 'error': error_message(error)}
+            if ui_allowed:
+                try:
+                    display_environment = start_xvfb(fixture, environment, stack)
+                    if not display_environment or not shutil.which('xdg-open'):
+                        result['UI_lane'] = {'status': 'BLOCKED', 'reason': 'No preinstalled Xvfb/xauth/xdg-open; no installation performed.'}
+                    else:
+                        backend = backend_start(fixture, display_environment, executable, stack)
+                        base = backend[0]
+                        result['UI_lane'] = ui_probe(playwright, fixture, display_environment, base, stack)
                 except Exception as error:
                     result['UI_lane'] = {'status': 'OPEN', 'error': error_message(error)}
         if backend is not None:
@@ -431,8 +497,10 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
         result['system_browser_and_confinement_unchanged'] = before == after and browser_after == selected
         if not result['system_browser_and_confinement_unchanged']:
             result['system_state_gate'] = 'OPEN: observed system state changed'
+            invalidate_passes(result, 'Observed system browser or confinement changed.')
     except Exception as error:
         result['probe_error'] = error_message(error)
+        invalidate_passes(result, 'Probe or final verification did not complete.')
     finally:
         if before is not None and 'confinement_after' not in result:
             try:
@@ -440,6 +508,7 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
                 result['system_browser_and_confinement_unchanged'] = before == result['confinement_after'] and digest(SYSTEM_CHROME) == result.get('selected_system_browser_sha256')
             except Exception as error:
                 result['post_audit_error'] = error_message(error)
+                invalidate_passes(result, 'Final read-only system verification did not complete.')
         (fixture / 'system-browser-vm-result.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
         print(json.dumps(result, indent=2), flush=True)
         summary = os.environ.get('GITHUB_STEP_SUMMARY')

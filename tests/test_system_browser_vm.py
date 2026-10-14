@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import stat
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('system_browser_vm_controller', ROOT / 'scripts/smoke_system_browser_vm.py')
@@ -24,7 +26,8 @@ def test_child_home_xdg_and_temp_are_owned_without_changing_parent(tmp_path):
     original = dict(parent)
     global_environment = dict(os.environ)
     child = controller.isolated_child(tmp_path, parent)
-    assert child is not parent and parent == original and dict(os.environ) == global_environment
+    global_unchanged = dict(os.environ) == global_environment
+    assert child is not parent and parent == original and global_unchanged
     names = ('HOME', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'TMPDIR')
     paths = {Path(child[name]) for name in names}
     assert len(paths) == len(names)
@@ -35,3 +38,80 @@ def test_child_home_xdg_and_temp_are_owned_without_changing_parent(tmp_path):
     assert Path(child['CHROME_LOG_FILE']).parent == tmp_path
     assert all(name not in child for name in ('LD_LIBRARY_PATH', 'LD_PRELOAD', 'CHROME_DEVEL_SANDBOX', 'PYTHONHOME', 'PYTHONPATH', 'VIRTUAL_ENV'))
     assert child['PATH'] == original['PATH']
+
+
+def known_runner_browser():
+    """Synthetic metadata, never permission to call require_vm or launch anything."""
+    return {'path': '/opt/google/chrome/chrome', 'resolved': '/opt/google/chrome/chrome',
+            'regular_file': True, 'ELF': True, 'file_uid': 0, 'file_gid': 0, 'setid': False,
+            'executable': True, 'mode': '0o777', 'root_controlled': False,
+            'ancestor_metadata': [{'path': path, 'uid': 0, 'directory': True, 'mode': '0o777'}
+                                  for path in ['/opt/google/chrome', '/opt/google', '/opt', '/']],
+            'package_owner': 'google-chrome-stable: /opt/google/chrome/chrome',
+            'package_version': '154.0.8037.97-1',
+            'sha256': '6c792041b07547a662e1b17974d1dc34a3db630379b45d9d89ddd7e3e68cc587'}
+
+
+def test_known_writable_image_allows_only_independent_ui():
+    source_allowed, ui_allowed = controller.candidate_eligibility(known_runner_browser(), '20261004.327.1')
+    assert source_allowed is False
+    assert ui_allowed is True
+
+
+@pytest.mark.parametrize('field,value', [
+    ('path', '/synthetic-other/chrome'), ('resolved', '/synthetic-other/chrome'),
+    ('regular_file', False), ('ELF', False), ('file_uid', 1001), ('setid', True),
+    ('executable', False), ('mode', '0o775'), ('package_owner', 'synthetic-package: /opt/google/chrome/chrome'),
+    ('package_version', '154.0.8037.98-1'), ('sha256', '0' * 64),
+    ('ancestor_metadata', [{'path': '/opt', 'uid': 1001, 'mode': '0o777'}]),
+])
+def test_writable_ui_exception_never_accepts_other_candidate(field, value):
+    entry = known_runner_browser()
+    entry[field] = value
+    assert controller.candidate_eligibility(entry, '20261004.327.1') == (False, False)
+
+
+def test_other_image_does_not_inherit_writable_ui_exception():
+    assert controller.candidate_eligibility(known_runner_browser(), '20261005.1') == (False, False)
+
+
+def test_normal_strict_browser_keeps_both_lanes_eligible():
+    entry = known_runner_browser()
+    entry.update(root_controlled=True, mode='0o755')
+    assert controller.candidate_eligibility(entry, '20261004.327.1') == (True, True)
+
+
+@pytest.mark.parametrize('policy', [
+    {}, {'present': False, 'root_controlled': True, 'loaded_chrome_profiles': ['chrome (unconfined)']},
+    {'present': True, 'root_controlled': False, 'loaded_chrome_profiles': ['chrome (unconfined)']},
+    {'present': True, 'root_controlled': True, 'loaded_chrome_profiles': []},
+])
+def test_unknown_confinement_never_allows_either_probe(policy):
+    assert controller.confinement_eligible({'existing_chrome_policy': policy}) is False
+
+
+def test_present_unchanged_loaded_policy_is_only_a_prelaunch_gate():
+    assert controller.confinement_eligible({'existing_chrome_policy': {
+        'present': True, 'root_controlled': True, 'loaded_chrome_profiles': ['chrome (unconfined)'],
+    }}) is True
+
+
+@pytest.mark.parametrize('field,value', [('AppArmor_label', 'unconfined'), ('Seccomp', 0),
+                                       ('NoNewPrivs', 0), ('different_user_namespace', False)])
+def test_each_actual_renderer_must_have_label_and_sandbox_evidence(field, value):
+    good = {'AppArmor_label': 'chrome (unconfined)', 'Seccomp': 2, 'NoNewPrivs': 1,
+            'different_user_namespace': True}
+    bad = dict(good)
+    bad[field] = value
+    assert controller.renderer_sandbox_eligible([good]) is True
+    assert controller.renderer_sandbox_eligible([good, bad]) is False
+    assert controller.renderer_sandbox_eligible([]) is False
+
+
+def test_late_verification_failure_never_keeps_ui_pass_or_opens_blocked_source():
+    result = {'UI_lane': {'status': 'PASS', 'overview_rendered': True},
+              'source_lane': {'status': 'BLOCKED', 'reason': 'Strict source ownership failed'}}
+    controller.invalidate_passes(result, 'Actual system metadata changed')
+    assert result['UI_lane']['status'] == 'OPEN'
+    assert result['UI_lane']['overview_rendered'] is True
+    assert result['source_lane'] == {'status': 'BLOCKED', 'reason': 'Strict source ownership failed'}
