@@ -1,5 +1,6 @@
 """Native onedir builds with manifests, licenses, and optional own OCR components."""
 import argparse
+import ast
 import hashlib
 import importlib.metadata
 import json
@@ -13,6 +14,38 @@ import tomllib
 
 ROOT=Path(__file__).resolve().parents[1]
 APP='StudyCenter-Public'
+
+
+def build_environment(platform, vc_dir=None):
+    environment=os.environ.copy()
+    if platform=='windows':
+        system=Path(environment.get('SystemRoot',environment.get('SYSTEMROOT','C:/Windows')))
+        directories=([Path(vc_dir).resolve()] if vc_dir else [])+[Path(sys.executable).parent,Path(sys.base_prefix),system/'System32',system]
+    else:directories=[Path(sys.executable).parent,Path('/usr/bin'),Path('/bin')]
+    environment['PATH']=os.pathsep.join(map(str,directories))
+    environment.pop('PYTHONHOME',None)
+    environment['PYTHONPATH']=str(ROOT/'src')
+    environment['PYINSTALLER_CONFIG_DIR']=str(ROOT/'build'/'pyinstaller-cache'/platform)
+    own_cache=ROOT/'build'/'component-cache'/platform
+    for variable,suffix in (('XDG_CACHE_HOME','xdg'),('HF_HOME','huggingface'),('HF_HUB_CACHE','huggingface/hub'),('HF_XET_CACHE','huggingface/xet'),('HF_ASSETS_CACHE','huggingface/assets')):
+        environment[variable]=str(own_cache/suffix)
+    for variable in ('HF_HUB_DISABLE_XET','HF_HUB_DISABLE_TELEMETRY','HF_HUB_OFFLINE'):environment[variable]='1'
+    return environment
+
+
+def verify_native_origins(toc_file, allowed_roots):
+    roots=[Path(path).resolve() for path in allowed_roots]
+    entries=ast.literal_eval(Path(toc_file).read_text(encoding='utf-8'))
+    # COLLECT-00.toc has varied between PyInstaller versions; visit its lists.
+    def walk(value):
+        if isinstance(value,(list,tuple)):
+            if len(value)==3 and isinstance(value[0],str) and isinstance(value[1],str) and isinstance(value[2],str) and value[2] in {'BINARY','EXTENSION'}:
+                source=Path(value[1]).resolve()
+                if not any(source.is_relative_to(root) for root in roots):
+                    raise ValueError('Native dependency came from an unapproved build directory: '+value[0])
+            else:
+                for item in value:walk(item)
+    walk(entries)
 
 
 def file_hash(path):
@@ -152,7 +185,7 @@ def collect_licenses(bundle):
     (bundle/'THIRD-PARTY.json').write_text(json.dumps(distributions,sort_keys=True,indent=2),encoding='utf-8')
 
 
-def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None):
+def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=None):
     snapshot=source_inputs(source_commit)
     version=tomllib.loads((ROOT/'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
     platform='windows' if sys.platform=='win32' else 'linux'
@@ -165,19 +198,13 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None):
     command += ['--collect-binaries','ctranslate2','--collect-binaries','onnxruntime','--hidden-import','ctranslate2.models','--hidden-import','onnxruntime.capi.onnxruntime_pybind11_state']
     if sys.platform=='win32':command += ['--windowed','--collect-all','webview','--collect-all','pystray']
     command += [str(ROOT/'packaging'/'frozen_entry.py')]
-    environment=os.environ.copy()
-    environment['PYTHONPATH']=str(ROOT/'src')
-    environment['PYINSTALLER_CONFIG_DIR']=str(ROOT/'build'/'pyinstaller-cache'/platform)
-    own_cache=ROOT/'build'/'component-cache'/platform
-    environment['XDG_CACHE_HOME']=str(own_cache/'xdg')
-    environment['HF_HOME']=str(own_cache/'huggingface')
-    environment['HF_HUB_CACHE']=str(own_cache/'huggingface'/'hub')
-    environment['HF_XET_CACHE']=str(own_cache/'huggingface'/'xet')
-    environment['HF_ASSETS_CACHE']=str(own_cache/'huggingface'/'assets')
-    environment['HF_HUB_DISABLE_XET']='1'
-    environment['HF_HUB_DISABLE_TELEMETRY']='1'
-    environment['HF_HUB_OFFLINE']='1'
+    environment=build_environment(platform,vc_dir)
     subprocess.run(command,cwd=ROOT,env=environment,check=True)
+    if sys.platform=='win32':
+        system=Path(environment.get('SystemRoot',environment.get('SYSTEMROOT','C:/Windows')))
+        allowed=[Path(sys.prefix),Path(sys.base_prefix),system]
+        if vc_dir:allowed.append(Path(vc_dir))
+        verify_native_origins(ROOT/'build'/platform/APP/'COLLECT-00.toc',allowed)
     bundle=destination/APP
     for relative in ('web/static','web/templates','resources'):
         origin=ROOT/'src'/'studycenter_public'/relative
@@ -202,7 +229,7 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--ocr-dir',type=Path);parser.add_argument('--iscc',type=Path);parser.add_argument('--browsers-dir',type=Path);parser.add_argument('--source-commit')
-    args=parser.parse_args();build(args.ocr_dir,args.iscc,args.browsers_dir,args.source_commit)
+    parser=argparse.ArgumentParser();parser.add_argument('--ocr-dir',type=Path);parser.add_argument('--iscc',type=Path);parser.add_argument('--browsers-dir',type=Path);parser.add_argument('--source-commit');parser.add_argument('--vc-dir',type=Path)
+    args=parser.parse_args();build(args.ocr_dir,args.iscc,args.browsers_dir,args.source_commit,args.vc_dir)
 
 if __name__=='__main__':main()

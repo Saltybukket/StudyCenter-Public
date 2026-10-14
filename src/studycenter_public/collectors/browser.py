@@ -70,7 +70,7 @@ class BrowserManager:
             # Default headless Chromium uses Playwright's dedicated Headless Shell.
             # Setting channel='chromium' would select the full browser instead.
             self.context = await self.playwright.chromium.launch_persistent_context(
-                str(self.profile), headless=not visible, accept_downloads=True,
+                str(self.profile), headless=not visible, chromium_sandbox=True, accept_downloads=True,
                 args=['--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
             self.visible = visible
             if not visible:

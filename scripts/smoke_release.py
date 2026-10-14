@@ -16,6 +16,11 @@ import urllib.request
 from uuid import uuid4
 
 
+def sandbox_screenshot_script(package, screenshot, channel):
+    channel_option=('channel:'+json.dumps(channel)+',') if channel else ''
+    return "const fs=require('fs');const {chromium}=require("+json.dumps(str(package))+");(async()=>{const browser=await chromium.launch({headless:true,chromiumSandbox:true,"+channel_option+"args:['--host-resolver-rules=MAP * ~NOTFOUND']});const page=await browser.newPage();await page.setContent('<html><body>Synthetic bundled screenshot</body></html>');await page.screenshot({path:"+json.dumps(str(screenshot))+"});await browser.close();})().catch(error=>{console.error(error);process.exitCode=1;});"
+
+
 def smoke(executable,output=None,ocr=True):
     executable=Path(executable).resolve()
     root=Path(output).resolve() if output else Path(tempfile.mkdtemp(prefix='studycenter-public-package-smoke-'))
@@ -42,9 +47,9 @@ def smoke(executable,output=None,ocr=True):
     environment['PLAYWRIGHT_BROWSERS_PATH']=str(executable.parent/'components'/'browsers')
     for name,channel in (('shell',None),('chromium','chromium')):
         screenshot=root/('synthetic-'+name+'.png')
-        command=[str(node),str(driver/'package'/'cli.js'),'screenshot','--timeout','15000']
-        if channel:command += ['--channel',channel]
-        command += ['data:text/html,<html><body>Synthetic bundled screenshot</body></html>',str(screenshot)]
+        script=root/('sandbox-screenshot-'+name+'.js')
+        script.write_text(sandbox_screenshot_script(driver/'package',screenshot,channel),encoding='utf-8')
+        command=[str(node),str(script)]
         subprocess.run(command,check=True,timeout=60,env=environment)
         assert screenshot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
     data=root/'HTTP test ü space';data.mkdir(exist_ok=True)

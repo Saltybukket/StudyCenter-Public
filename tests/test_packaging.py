@@ -89,4 +89,50 @@ class PackagingContract(unittest.TestCase):
    with zipfile.ZipFile(archive,'w') as output:output.writestr('chrome-win/../../neighbor.txt','synthetic forbidden')
    with self.assertRaisesRegex(ValueError,'Unsafe'):extract_snapshot(archive,root/'runtime','chrome-win','windows')
    self.assertEqual(neighbor.read_text(),'synthetic preserved')
+ def test_frozen_browser_diagnostics_require_sandbox(self):
+  specification=importlib.util.spec_from_file_location('frozen_diagnostic_fixture',pathlib.Path(__file__).parents[1]/'packaging/frozen_entry.py')
+  module=importlib.util.module_from_spec(specification);specification.loader.exec_module(module)
+  for channel in (None,'chromium'):
+   options=module.browser_launch_options(channel)
+   self.assertIs(options['chromium_sandbox'],True)
+   self.assertNotIn('--no-sandbox',options.get('args',[]))
+ def test_real_screenshot_probe_requires_sandbox_in_both_channels(self):
+  from scripts.smoke_release import sandbox_screenshot_script
+  for channel in (None,'chromium'):
+   script=sandbox_screenshot_script('synthetic/package','synthetic.png',channel)
+   self.assertIn('chromiumSandbox:true',script);self.assertNotIn('--no-sandbox',script);self.assertNotIn('cli.js',script)
+   if channel is None:self.assertNotIn('channel:',script)
+ def test_installer_preflight_checks_identity_and_ancestors_before_mutation(self):
+  script=(pathlib.Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
+  self.assertNotIn('Assigned(DataDirectoryPage)',script)
+  for required in ('GetFileAttributesW','StrictPublicIdentity','ProgramDirectoryProblem','installation-files.txt','GetSHA256OfFile'):
+   self.assertIn(required,script)
+  prepare=script.split('function PrepareToInstall',1)[1].split('function InitializeUninstall',1)[0]
+  self.assertLess(prepare.index('ProgramDirectoryProblem'),prepare.index('Exec('))
+  self.assertLess(prepare.index('DataDirectoryProblem'),prepare.index('Exec('))
+  data=script.split('function DataDirectoryProblem',1)[1].split('function PrepareToInstall',1)[0]
+  self.assertLess(data.index('StrictPublicIdentity'),data.index('ForceDirectories('))
+  uninstall=script.split('function InitializeUninstall',1)[1]
+  self.assertLess(uninstall.index('ProgramDirectoryProblem'),uninstall.index('Exec('))
+ def test_installer_enumeration_captures_native_errors_and_fails_closed(self):
+  script=(pathlib.Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
+  self.assertIn("FindFirstFileW@kernel32.dll",script);self.assertIn("FindNextFileW@kernel32.dll",script)
+  self.assertIn('Search.Error := DLLGetLastError;',script)
+  self.assertIn('if Search.Error <> 18 then exit;',script)
+  self.assertIn('(Search.Error <> 2) and (Search.Error <> 18) then Result := True',script)
+ def test_native_builder_path_excludes_inherited_development_directories(self):
+  from scripts.build_release import build_environment
+  from unittest.mock import patch
+  with patch.dict(os.environ,{'PATH':'synthetic-foreign-development-runtime'},clear=False):
+   environment=build_environment('windows')
+  self.assertNotIn('synthetic-foreign',environment['PATH'])
+  self.assertIn(str(pathlib.Path(sys.executable).parent),environment['PATH'])
+ def test_collected_native_dependency_from_foreign_directory_blocks_package(self):
+  from scripts.build_release import verify_native_origins
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);own=root/'own';own.mkdir();foreign=root/'unrelated';foreign.mkdir();toc=root/'COLLECT-00.toc'
+   toc.write_text(repr([('native.dll',str(own/'native.dll'),'BINARY')]))
+   verify_native_origins(toc,[own])
+   toc.write_text(repr([('native.dll',str(foreign/'native.dll'),'BINARY')]))
+   with self.assertRaisesRegex(ValueError,'unapproved'):verify_native_origins(toc,[own])
 if __name__=='__main__':unittest.main()

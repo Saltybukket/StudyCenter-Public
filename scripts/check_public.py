@@ -14,7 +14,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_PARTS = {'.env', '.local', '.venv', 'browser-profiles', '__pycache__'}
 RULES = {
-    'credential': re.compile(rb'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)'),
+    'credential': re.compile(rb'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----)'),
     'personal path': re.compile(rb'(?:[A-Za-z]:[\\/](?:Users|Projects)[\\/]|/home/[a-z][a-z0-9_-]+/)', re.I),
     'private identity': re.compile(rb'(?:CampusBoard|campusboard|CAMPUSBOARD_|Saltybukket/CampusBoard|OpenAI\.Codex_[A-Za-z0-9]+)'),
     'personal mail': re.compile(rb'(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{1,64}@(?:student\.)?tugraz\.at', re.I),
@@ -41,7 +41,9 @@ def check(name, content, artifacts=False):
         # Removing every NUL would join unrelated PE strings into invented keys.
         variants.extend(content[offset:].decode('utf-16-le',errors='replace').encode('utf-8') for offset in (0,1))
     for rule, pattern in RULES.items():
-        if any(pattern.search(value) for value in variants): problems.append(rule)
+        relevant = (value for value in variants
+                    if rule != 'personal mail' or b'tugraz.at' in value.lower())
+        if any(pattern.search(value) for value in relevant): problems.append(rule)
     return [(name, p) for p in problems]
 
 def archive_members(path):

@@ -2,6 +2,10 @@
 from studycenter_public.__main__ import main
 
 
+def browser_launch_options(channel):
+    return {'headless':True,'channel':channel,'chromium_sandbox':True,'args':['--host-resolver-rules=MAP * ~NOTFOUND']}
+
+
 def component_check(argv):
     """Opt-in diagnostic exercises bundled native components with synthetic content."""
     import argparse
@@ -31,7 +35,7 @@ def component_check(argv):
         async with async_playwright() as driver:
             for name,channel in (('dedicated_headless_shell',None),('full_chromium','chromium')):
                 phase('launch '+name)
-                browser=await driver.chromium.launch(headless=True,channel=channel,args=['--no-sandbox','--disable-gpu','--host-resolver-rules=MAP * ~NOTFOUND'])
+                browser=await driver.chromium.launch(**browser_launch_options(channel))
                 page=await browser.new_page();await page.set_content('<html><title>Synthetic package browser</title><body>Own bundled driver</body></html>')
                 if await page.title()!='Synthetic package browser':raise RuntimeError('Bundled browser did not render synthetic content')
                 result[name]={'version':browser.version,'rendered':True}

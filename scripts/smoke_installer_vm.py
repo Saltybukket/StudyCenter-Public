@@ -46,15 +46,49 @@ def run(installer=None):
         subprocess.run([str(compiler()),'/DAppVersion='+version,'/DBundleDir='+str(bundle),'/DOutputDir='+str(root),str(ROOT/'packaging/windows/installer.iss')],check=True)
         installer=next(root.glob('*-setup.exe'))
     command=[str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(program),'/DATADIR='+str(data),'/TASKS=startup,desktopicon']
+    def show_log(log):
+        text=log.read_text(encoding='utf-8-sig',errors='replace') if log.exists() else 'Inno did not create its own setup log.'
+        for variable in ('RUNNER_TEMP','USERPROFILE','APPDATA','GITHUB_WORKSPACE'):
+            value=os.environ.get(variable)
+            if value:text=text.replace(value,'<'+variable+'>')
+        print(text[-20000:],flush=True)
+    def rejected_destination(label, candidate_program, candidate_data, preserved):
+        def snapshot(directory):
+            import hashlib
+            return {str(path.relative_to(directory)):hashlib.sha256(path.read_bytes()).hexdigest() for path in directory.rglob('*') if path.is_file()}
+        before=snapshot(preserved)
+        rejected=[str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(candidate_program),'/DATADIR='+str(candidate_data),'/LOG='+str(root/(label+'-rejected.log'))]
+        result=subprocess.run(rejected,check=False,timeout=180)
+        if result.returncode!=7:
+            show_log(root/(label+'-rejected.log'))
+            raise RuntimeError('Destination preflight did not refuse '+label+' before installation: exit '+str(result.returncode))
+        if snapshot(preserved)!=before:raise RuntimeError('Destination refusal changed unrelated files during '+label)
+    foreign_data=root/'Foreign data';foreign_data.mkdir();(foreign_data/'instance.json').write_text(json.dumps({'application':'Other.Application','nested':{'application':'StudyCenter.Public'},'instance_id':str(uuid4()),'host_id':'urn:uuid:'+str(uuid4())}));(foreign_data/'preserve.txt').write_text('Synthetic unrelated content')
+    rejected_destination('foreign-data-marker',root/'Never-created program',foreign_data,foreign_data)
+    if (root/'Never-created program').exists():raise RuntimeError('Foreign data refusal created a program directory')
+    foreign_program=root/'Foreign program';foreign_program.mkdir();(foreign_program/'StudyCenter-Public.exe').write_bytes(b'Synthetic foreign named executable');(foreign_program/'matching.dll').write_bytes(b'Synthetic foreign library')
+    rejected_destination('foreign-program',foreign_program,root/'Never-created data',foreign_program)
+    if (root/'Never-created data').exists():raise RuntimeError('Foreign program refusal created a data directory')
+    import _winapi
+    junction=root/'Redirected ancestor';_winapi.CreateJunction(str(foreign_data),str(junction))
+    rejected_destination('data-junction',root/'Never-created program',junction/'Child',foreign_data)
+    rejected_destination('program-junction',junction/'Child',root/'Never-created data',foreign_data)
+    denied=root/'Own unreadable fixture';denied.mkdir();preserved=denied/'preserve.txt';preserved.write_text('Synthetic unrelated ACL fixture')
+    account=os.environ['USERDOMAIN']+'\\'+os.environ['USERNAME']
+    subprocess.run(['icacls',str(denied),'/deny',account+':(RD)'],check=True,capture_output=True)
+    try:
+        refused=subprocess.run([str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(root/'Never-created program'),'/DATADIR='+str(denied),'/LOG='+str(root/'unreadable-rejected.log')],check=False,timeout=180)
+        if refused.returncode!=7:
+            show_log(root/'unreadable-rejected.log')
+            raise RuntimeError('Unreadable directory was treated as empty: exit '+str(refused.returncode))
+    finally:
+        subprocess.run(['icacls',str(denied),'/remove:d',account],check=True,capture_output=True)
+    if preserved.read_text()!='Synthetic unrelated ACL fixture' or (root/'Never-created program').exists():raise RuntimeError('Unreadable-folder refusal altered foreign data or created a program folder')
     def install(label):
         log=root/(label+'-setup.log')
         outcome=subprocess.run(command+['/LOG='+str(log)],check=False,timeout=180)
         if outcome.returncode:
-            text=log.read_text(encoding='utf-8-sig',errors='replace') if log.exists() else 'Inno did not create its own setup log.'
-            for variable in ('RUNNER_TEMP','USERPROFILE','APPDATA','GITHUB_WORKSPACE'):
-                value=os.environ.get(variable)
-                if value:text=text.replace(value,'<'+variable+'>')
-            print(text[-20000:],flush=True)
+            show_log(log)
             raise RuntimeError('Own VM installer failed during '+label+' with exit '+str(outcome.returncode))
     install('first-install')
     executable=program/'StudyCenter-Public.exe'
@@ -90,7 +124,7 @@ def run(installer=None):
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,registry):raise RuntimeError('Own uninstall registration remains after uninstall')
     except FileNotFoundError:pass
-    result={'installer_install':True,'installed_smoke':True,'update_preserves_identity_database':True,'backup_before_update':True,'uninstall_retains_data':True,'own_shortcuts_removed':True,'environment':'ephemeral GitHub windows-2022 runner','windows10_live':False,'windows11_live':False}
+    result={'installer_install':True,'foreign_marker_refused_without_writes':True,'foreign_program_refused_without_exec_or_overwrite':True,'reparse_ancestors_refused_without_writes':True,'installed_smoke':True,'update_preserves_identity_database':True,'backup_before_update':True,'uninstall_retains_data':True,'own_shortcuts_removed':True,'environment':'ephemeral GitHub windows-2022 runner','windows10_live':False,'windows11_live':False}
     (root/'installer-vm-result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result));return result
 
 

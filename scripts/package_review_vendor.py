@@ -22,6 +22,9 @@ def review(bundle,names):
                 variants=[('bytes',raw)]+[('utf16-'+str(offset),raw[offset:].decode('utf-16-le',errors='replace').encode('utf-8')) for offset in (0,1)]
                 for mode,data in variants:
                     for rule,pattern in RULES.items():
+                        # The bounded-mail regex is expensive on binary runs;
+                        # its literal domain is a necessary condition.
+                        if rule=='personal mail' and b'tugraz.at' not in data.lower():continue
                         for match in pattern.finditer(data):
                             context=data[max(0,match.start()-60):match.start()]+b'<MATCH>'+data[match.end():match.end()+60]
                             for other in RULES.values():context=other.sub(b'<REDACTED>',context)

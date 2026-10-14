@@ -1,4 +1,18 @@
 {
+  "_internal/av.libs/libgnutls-e2125fb5.so.30.42.0": {
+    "match_sha256": [
+      "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
+      "33ea101ddbe7c33be8f143a2779736d0264a4f4c8f323331a4aa9a1f72d8ab2a",
+      "8bcac7908eb950419537b91e19adc83ce2c9cbfdacf4f81157fdadfec11f7017"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/c8/97/5fb45934ac64e8afc2c6869a7dcb8cb2af1ddab09a725367548856cbb59f/av-19.0.1-cp312-abi3-manylinux_2_28_x86_64.whl",
+    "published_wheel_sha256": "1bea5b6134209305199bce7627ac3d33964de2cf2b09c77d08e7f67cf8bd4170",
+    "reason": "Byte-identical PyAV 19.0.1 published Linux wheel library. All 12 complete embedded private-key blocks independently equal public GnuTLS 3.8.13 lib/crypto-selftests-pk.c cryptographic self-test fixtures; no installation credentials. Whole-file SHA256 only.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "f594c721830c189c27aa8866c021f76872a3afb2444cef89998ebc3c78385b6f"
+  },
   "_internal/clr_loader/ffi/dlls/amd64/ClrLoader.dll": {
     "match_sha256": [
       "2c357bd898d74d706c1e97b4b45268a45c3e3298aa8a1a3418b5e2340131fb28"
@@ -32,6 +46,18 @@
     ],
     "sha256": "1d4332a447cab13dec8e3a533ad579e0e562b79e40822c931f33769758fc7156"
   },
+  "_internal/hf_xet/hf_xet.abi3.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/a3/4c/2bf3b66c215d409655f28de1622393dde04c9461280d48c7924bb3b2decd/hf_xet-1.7.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "published_wheel_sha256": "2814a6e999d13464c4d679b788cc5d784eb5a4edfc638a31f10e9a11ab531ef8",
+    "reason": "Byte-identical pinned published Linux wheel. All matches are public upstream build-directory paths or the wheel SBOM source-build identifier; no developer-local data. Whole-file SHA256 only.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "a4e40058860f3ad4ca9b0193d47b47e0e7bf8ca7e5ae0735696274c6c4c1706b"
+  },
   "_internal/hf_xet/hf_xet.pyd": {
     "match_sha256": [
       "af7ea99f2a7de2009fbe4e508e640ee2489d6ebfea3559bb8ff50f1ea0adc17d"
@@ -42,6 +68,66 @@
       "personal path"
     ],
     "sha256": "246516c4a365fcd9befa6f901a82ec3478bcdf7952c04fba2d0926024711ccc2"
+  },
+  "_internal/libgnutls-e2125fb5.so.30.42.0": {
+    "match_sha256": [
+      "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
+      "33ea101ddbe7c33be8f143a2779736d0264a4f4c8f323331a4aa9a1f72d8ab2a",
+      "8bcac7908eb950419537b91e19adc83ce2c9cbfdacf4f81157fdadfec11f7017"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/c8/97/5fb45934ac64e8afc2c6869a7dcb8cb2af1ddab09a725367548856cbb59f/av-19.0.1-cp312-abi3-manylinux_2_28_x86_64.whl",
+    "published_wheel_sha256": "1bea5b6134209305199bce7627ac3d33964de2cf2b09c77d08e7f67cf8bd4170",
+    "reason": "Byte-identical PyAV 19.0.1 published Linux wheel library. All 12 complete embedded private-key blocks independently equal public GnuTLS 3.8.13 lib/crypto-selftests-pk.c cryptographic self-test fixtures; no installation credentials. Whole-file SHA256 only.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "f594c721830c189c27aa8866c021f76872a3afb2444cef89998ebc3c78385b6f"
+  },
+  "_internal/libpython3.12.so.1.0": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c",
+      "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "c7c1a2206db0fa089f8a252d1652d5ccb82669774dbb599427082ffc9eaaae85"
+  },
+  "_internal/onnxruntime/capi/onnxruntime_pybind11_state.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
+      "33ea101ddbe7c33be8f143a2779736d0264a4f4c8f323331a4aa9a1f72d8ab2a",
+      "8bcac7908eb950419537b91e19adc83ce2c9cbfdacf4f81157fdadfec11f7017"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/6c/44/1e9e762b95b7da0a8424913a1ed7c38cdaf88624a3c41ddba24ebac88bc9/onnxruntime-1.31.0-cp312-cp312-manylinux_2_28_x86_64.whl",
+    "published_wheel_sha256": "5e129d6c56abd53e659cb70f00a108d6824086470ff99c2e47a82e5786563db3",
+    "reason": "Byte-identical ONNX Runtime 1.31.0 published Linux wheel. Matched strings are static PEM key-format parser headers next to key-format names/error messages, without developer credentials. Whole-file SHA256 only.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "2377ce1c968f274da1e694680ea8dc19fdc619bd61c192d8b2dff3362710ec4e"
+  },
+  "_internal/playwright/driver/node": {
+    "archive_sha256": "ad21bc07516b187965a7521c5cf0df0bd657b17482eaad74335272d35a2b07de",
+    "match_sha256": [
+      "110866d8328fb766fd778c88b93403e2b393c19125d5d701546a6b09e667ccb7",
+      "1e7c017bc74628c980b88248087458ff6765e84398780064eddf65127b889d79",
+      "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+      "3256aadfc630c45624e410f7dd0edb6efbaa7ba3368cd19fdb5f6e1ded24ac4e",
+      "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+      "5af88591a9019b40850956f2788290c2fe4e383e6c0561934f3bfd800f9bdd2f",
+      "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/27/9c/103a5037789062bdab27c7dca53f3ca6b075b572ab2cd96eec825b3aec4e/playwright-1.63.0-py3-none-manylinux1_x86_64.whl",
+    "reason": "All contexts reviewed: upstream /home/iojs public build metadata, embedded V8 profiler demonstration loopback symbol-server URL, UTF-16 ICU Petropavlovsk-Kamtschatka timezone translations. Exact published Playwright wheel member; no developer credentials or personal deployment endpoint.",
+    "rules": [
+      "credential",
+      "personal path",
+      "private endpoint"
+    ],
+    "sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c"
   },
   "_internal/playwright/driver/node.exe": {
     "match_sha256": [
@@ -82,6 +168,589 @@
     ],
     "sha256": "49e3534652d91c79cb33017de4e0acedb9c9a98724c580d4f3ff023e9490a578"
   },
+  "_internal/python3.12/lib-dynload/_asyncio.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "c2a676ca3022690aa9073dea62e46bb1ef5cd6fc3b17f3bd9b7fecdc2294d7f1"
+  },
+  "_internal/python3.12/lib-dynload/_bisect.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "c2d55b658ee80dfbf36db3ec80a34ce3d8fb6c9cd81cb9a779424027245516ed"
+  },
+  "_internal/python3.12/lib-dynload/_blake2.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "6745c768acb20488083d4ed521259bd41f6678c67de2c235c3c921de991fb1cf"
+  },
+  "_internal/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "a628e71c359006d65d58b988e82ab686f07c23a78d7dd5bb63a3efa584f4ac5d"
+  },
+  "_internal/python3.12/lib-dynload/_codecs_cn.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "cdad3c716d3e82c0e3a2dc471e9ba57ce2c39842223451651664f1119c09ae5f"
+  },
+  "_internal/python3.12/lib-dynload/_codecs_hk.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "a50826f3cd55b7ec6ea56aa1c1b36dc187949e278a2bc637127896257a2a1e32"
+  },
+  "_internal/python3.12/lib-dynload/_codecs_iso2022.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "5861ef6992180d0f4ed25d0afee12bbb8bb95e16cbf2c62eecd9ea801bf74f67"
+  },
+  "_internal/python3.12/lib-dynload/_codecs_jp.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "7b1b25681d466c5a4d2bc325616462d09507a426377a1c0caa385ea254b53807"
+  },
+  "_internal/python3.12/lib-dynload/_codecs_kr.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "16ac7ab8b7c3204d4670dfe9e6d3d574bfb6ffdab88ce4851fba8b6e4a4ec977"
+  },
+  "_internal/python3.12/lib-dynload/_codecs_tw.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "ef9e5d701121d080bfb3026f2aca3bafd9f447805382d3a2cd6e9127c3bea773"
+  },
+  "_internal/python3.12/lib-dynload/_contextvars.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "fc8ef497a56ce290230f43419182ddbc6e3e5d1046946886cab3073fe65be27e"
+  },
+  "_internal/python3.12/lib-dynload/_csv.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "6d4450b1bc221d7a56f334253d670074e1d170c1ace4abf6204b5fb95017cf9e"
+  },
+  "_internal/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "672f11fa2652a247354739280e88201bed9a34182c7d4bafda58667a88deed12"
+  },
+  "_internal/python3.12/lib-dynload/_datetime.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "589743cf282b0bfe958e8bebee2c41978629fc9fe0b74ca3ef29f132a28475e2"
+  },
+  "_internal/python3.12/lib-dynload/_decimal.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "284c5ae349e3d2744617928d4f3a37614683bf0613cadf99ae4c344542a281bd"
+  },
+  "_internal/python3.12/lib-dynload/_elementtree.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "89b61a0414768370273e1c327e57cf172e6d56bb8051161e1244dad7805ffc99"
+  },
+  "_internal/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "1bb098ac25d38c813b516cc7e322d37e768f44f23da067a67c601b28308bfdac"
+  },
+  "_internal/python3.12/lib-dynload/_heapq.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "5e7a8b9fd298bab06adaf1ad8daa6e06aa249ac962966398fa9ebfa13ef16174"
+  },
+  "_internal/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "5ff47d06d591f625a019461f37574be8027bfade33dc0ebfca9a35b995adadb9"
+  },
+  "_internal/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "737adad154e85d70e656f84455da42b42590d6283683c26d2fdde2ee98f59f5b"
+  },
+  "_internal/python3.12/lib-dynload/_md5.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "11721dd9356065d15f538c1eee606f5f43c7cbc23d04b11ce483245a3b9b7853"
+  },
+  "_internal/python3.12/lib-dynload/_multibytecodec.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "fa60df70772b3f616d38fed1d216804568c128e67e0f944fa33ed5f48e874db1"
+  },
+  "_internal/python3.12/lib-dynload/_multiprocessing.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "8848072a44a4465a6b0e882e699abe94c5a83f62c9b392d8dc33288c8ab22158"
+  },
+  "_internal/python3.12/lib-dynload/_opcode.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "52947161a51df81dd70a682218b4c57f020920f055076812494586be56d93854"
+  },
+  "_internal/python3.12/lib-dynload/_pickle.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "8e8d573df4b42fc3b4660459c019ce666b1d68444ab6fefd05a208e9cdd52d6b"
+  },
+  "_internal/python3.12/lib-dynload/_posixshmem.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "defb374292272e08c709e24e5274855f7206940a5de25a1a296b79a44f2891d5"
+  },
+  "_internal/python3.12/lib-dynload/_posixsubprocess.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "3f85a9e9fcf0729ac0c8ddb64e53ee2274cd07b0bdfc37c0d92a6276e250dd03"
+  },
+  "_internal/python3.12/lib-dynload/_queue.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "018e75a59b42f565f111f2b408f8bb76ae2c02cfb54a122e37003669a6296379"
+  },
+  "_internal/python3.12/lib-dynload/_random.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "48748384fdb545103bd5e58e6004fd8a3136b83ed5b088cb4375eec56300440a"
+  },
+  "_internal/python3.12/lib-dynload/_sha1.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "d0931e64303992cf8ac68c4d659e9ce16a4d87feaec75c18a53bb0c7b2d0e00e"
+  },
+  "_internal/python3.12/lib-dynload/_sha2.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "a6122a22f46d6165d58039d859b1434d2895d9fe8b40f2236c260f5558993082"
+  },
+  "_internal/python3.12/lib-dynload/_sha3.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "7a720906e0ebf35fce8deb1b292e6fb29e19db778fe79a7f429ec7df3d2a171f"
+  },
+  "_internal/python3.12/lib-dynload/_socket.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "ac40d6cae54a2c6d725fd61560fb47b21e207d2a23799828947059165da4afdc"
+  },
+  "_internal/python3.12/lib-dynload/_sqlite3.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "cb2f28a75d8d0fdb200602c1bad39ba8822505d21aedc662733aad35e7752457"
+  },
+  "_internal/python3.12/lib-dynload/_ssl.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "60fa240e6e915ecf590929efbb0f1f75481161fd8078af6ac7aa961a2421937e"
+  },
+  "_internal/python3.12/lib-dynload/_statistics.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "4078354af996a92eb53467f6d16d975b6fc19da6a1acc2bfd39f17ed492184cc"
+  },
+  "_internal/python3.12/lib-dynload/_struct.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "457b6f0460e98cbe100a0138f6600ce5c9a4c1ca0c4c542bff905f465b05a9a2"
+  },
+  "_internal/python3.12/lib-dynload/_uuid.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "7189d6998573c4878fdd8fc7cc4bc76c393016b27dad5f95e7638d19c745c774"
+  },
+  "_internal/python3.12/lib-dynload/_zoneinfo.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "a80cf8cc4dabbdc1f89a4127a2c28821574d225b0f4bdce37048a2febf08a137"
+  },
+  "_internal/python3.12/lib-dynload/array.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "0f370c8dc290f511c6b559313dd2c1d910a553989b05c346be08416d14b3c1bd"
+  },
+  "_internal/python3.12/lib-dynload/binascii.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "df77bbab820eb85e1d4cdcc42a3bcdbdbeef4c8f9b55d0f0bf8fca672de12a01"
+  },
+  "_internal/python3.12/lib-dynload/fcntl.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "a5745b7e269256baaa6c30c90c2a40812bf8f28b4ad76429a675d5e97166a4a4"
+  },
+  "_internal/python3.12/lib-dynload/grp.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "2bd6422b210e521ff340a7523245d7f20c2b5d9da2d39645d78da6c4b79e4363"
+  },
+  "_internal/python3.12/lib-dynload/math.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "ad1c821cfd82fd4a662f755e553f8315083f457739823bfd3c5e83234cf26c21"
+  },
+  "_internal/python3.12/lib-dynload/mmap.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "2aa9013f285372e424862aa3d6f39815114ffe32c510d599c54e2b5a2ac01be1"
+  },
+  "_internal/python3.12/lib-dynload/pyexpat.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "e57a73f810b078e8fa55cd052affb1806f4b2158b0573e71e9f8ca643fdb447e"
+  },
+  "_internal/python3.12/lib-dynload/readline.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "e84071687d0a0eea6996ee1329de88ce51b6f3bd6d6e3613f9b763019cd97165"
+  },
+  "_internal/python3.12/lib-dynload/resource.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "9af3086f06c26e3017411da440ac34916211e8d7463cf229095a43e3365a927b"
+  },
+  "_internal/python3.12/lib-dynload/select.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "e8a8a5828baa8f0b96a51933dc268f124876703dea201979ec6e72422876fe70"
+  },
+  "_internal/python3.12/lib-dynload/syslog.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "791133fea6a72715157e009a9c70cc13656bba14cffb8646c8cd3127ace7b6cf"
+  },
+  "_internal/python3.12/lib-dynload/termios.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "29f4f05ad77c87e1c6ecbbc3e2fc9fb7967913be34143aff2cbd331a5461c4a5"
+  },
+  "_internal/python3.12/lib-dynload/unicodedata.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "312ba042d7adaf04b421d835589d1756c1defdbda709eaaa5e53bad66b266613"
+  },
+  "_internal/python3.12/lib-dynload/zlib.cpython-312-x86_64-linux-gnu.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "f42d25a1ff3271d581c15f7fd9870415535806b66d738717d7d1212123c19cac"
+  },
   "_internal/python312.dll": {
     "match_sha256": [
       "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
@@ -104,6 +773,30 @@
     ],
     "sha256": "f2151350525864528ac0664f461ea49444b787834f05a0c96f34fb3ac2690046"
   },
+  "_internal/tokenizers-0.23.3.dist-info/sboms/tokenizers-python.cyclonedx.json": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/3a/40/6706b82693715581457c6d5423eaa7faae576bb0526c5738a57085eb4449/tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "published_wheel_sha256": "376851d22bcf9d650a5c3090bb83e6cf9e895fbf0595369fa4cd43c1f69b5f87",
+    "reason": "Byte-identical pinned published Linux wheel. All matches are public upstream build-directory paths or the wheel SBOM source-build identifier; no developer-local data. Whole-file SHA256 only.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "6faa23324b2b53b4a8da9b451a675610cc45e1a23e8c5bb0740c080064e1ba0d"
+  },
+  "_internal/tokenizers/tokenizers.abi3.so": {
+    "match_sha256": [
+      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c"
+    ],
+    "origin": "https://files.pythonhosted.org/packages/3a/40/6706b82693715581457c6d5423eaa7faae576bb0526c5738a57085eb4449/tokenizers-0.23.3-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "published_wheel_sha256": "376851d22bcf9d650a5c3090bb83e6cf9e895fbf0595369fa4cd43c1f69b5f87",
+    "reason": "Byte-identical pinned published Linux wheel. All matches are public upstream build-directory paths or the wheel SBOM source-build identifier; no developer-local data. Whole-file SHA256 only.",
+    "rules": [
+      "personal path"
+    ],
+    "sha256": "4b1458a379296762a034d3bc89299c0c35b4eefb0577acca922f481b262c65a1"
+  },
   "_internal/tokenizers/tokenizers.pyd": {
     "match_sha256": [
       "af7ea99f2a7de2009fbe4e508e640ee2489d6ebfea3559bb8ff50f1ea0adc17d"
@@ -125,6 +818,104 @@
       "personal path"
     ],
     "sha256": "27803c780847139cb6230aae16ef2b9eed3f7944ca863f6a3f9751aa53ee648f"
+  },
+  "components/browsers/chromium-1243/chrome-linux64/chrome": {
+    "archive_sha256": "73fa8a59532ca84586601926c1d6364c0de520b8676f77c7589685280d730ae3",
+    "match_sha256": [
+      "03f6d7ba09b0531a178059659f12e65ab6a75adddf2f548b1f37624d55d95fba",
+      "0d1b867e82bf79bd933c6799bedae8d7f35fa863f1804454c039b52f1c7a92e9",
+      "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+      "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+      "20df5159fc5ddd09f5a27f4ac4e919bc9809dfd4b755c00ad84c79267886be7d",
+      "2b7f16923cc63096ab083b81c9bf5cb65c872970fc8e463582a016067e1d9ab3",
+      "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+      "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+      "4acfdf5012e9606b0ab7bae7180d3272ce5cd258fd1ae9e835674b240c17ca8f",
+      "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+      "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+      "779e9d798cf7d635128a9618b32a464ec4e242bf1ae9ff1fad0cdc2491ac33d6",
+      "8c43e5d715cf998951c725b3aa626c84aeaa721a129892b002342f7e12f75b05",
+      "92811b6d23a6c65320ebb6a290af81022b4d964a7bde54a0e989b22f175e3b5d",
+      "94c6941fd13041981afecd44e6cedeeb7d2b7c8754ad3a261e5b3ba05d4b0cf8",
+      "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+      "9ad8b611733ec9fa79d1c7f50b6274adca3929652b344db611a6c055303c5e29",
+      "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+      "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+      "cac85d07b335c73404f211de0684c1e2c6f1ff5a7ce7dd4d348a5cbf7399548e",
+      "cb9f20dbbf9ea998c158338187320bf2f09c796397ae798f43746a9f9aa4ba92",
+      "d38b45dc85d986f0a8c86829e83c45f5c908ce8570abfeaae549b8d3efc31d4a",
+      "ef126f92d9e63097c42496620d09b49469106822113ba84717beb33b17ec48c5",
+      "f37698a753954c07207dfbf7017e4310c0fb96f0bc673d018e7fec8797e97794",
+      "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c",
+      "f4525459ddb1cd1bb8f63b116723f9476e384f12e109056762dd1b3421a2b8c4"
+    ],
+    "origin": "https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/1718777/chrome-linux.zip",
+    "reason": "All matched contexts reviewed: UI color/task-mask switches, Vulkan VUID identifiers, locale code tables and Autofill switch strings; public Chromium security/Quad9/Chromecast home URL paths; built-in victim.test VRP loopback example. No personal paths, credential or deployment endpoint. Exact primary archive member.",
+    "rules": [
+      "credential",
+      "personal path",
+      "private endpoint"
+    ],
+    "sha256": "2405f1161795494030e4fff2c5600a69ef550095d7226b8c267250d90857c55b"
+  },
+  "components/browsers/chromium-1243/chrome-linux64/icudtl.dat": {
+    "archive_sha256": "73fa8a59532ca84586601926c1d6364c0de520b8676f77c7589685280d730ae3",
+    "match_sha256": [
+      "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+      "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+      "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+    ],
+    "origin": "https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/1718777/chrome-linux.zip",
+    "reason": "All UTF-16 matches are ICU timezone translations of Petropavlovsk-Kamtschatka; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "02a01b3188b6a41a756f7322fdb5e6b5ca6573b327b01dfc8ed662d571a6f769"
+  },
+  "components/browsers/chromium-1243/chrome-linux64/libvk_swiftshader.so": {
+    "archive_sha256": "73fa8a59532ca84586601926c1d6364c0de520b8676f77c7589685280d730ae3",
+    "match_sha256": [
+      "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+      "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+      "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+      "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+      "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+      "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+      "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+      "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+      "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+      "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
+    ],
+    "origin": "https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/1718777/chrome-linux.zip",
+    "reason": "All matches are Vulkan/SpirV validation VUID identifiers containing Mask- followed by identifier characters; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "ed378136f9821298d8a5bfa8b7d8c13ecbfe7ba147259e675141e18b099d4b08"
+  },
+  "components/browsers/chromium-1243/chrome-linux64/libvulkan.so.1": {
+    "archive_sha256": "73fa8a59532ca84586601926c1d6364c0de520b8676f77c7589685280d730ae3",
+    "match_sha256": [
+      "76b519c63ca24a76c7561030611c0e96ee75dcff615f2833470782bfcac9d521"
+    ],
+    "origin": "https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/1718777/chrome-linux.zip",
+    "reason": "All matches are Vulkan/SpirV validation VUID identifiers containing Mask- followed by identifier characters; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "b22dbdf55cfcf5e8ab937117d818dee51b64de377b873eef7638ec16a4762cc9"
+  },
+  "components/browsers/chromium-1243/chrome-linux64/locales/nl.pak": {
+    "archive_sha256": "73fa8a59532ca84586601926c1d6364c0de520b8676f77c7589685280d730ae3",
+    "match_sha256": [
+      "b63a9c3461f66ae4cb07d15db80c07a71a9d3bc89448b651b10009a0fdcd06f5"
+    ],
+    "origin": "https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64/1718777/chrome-linux.zip",
+    "reason": "Dutch ChromeOS kiosk translation text joins sk- with following words; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "a9e697332965a30e9c630620563cea2f3257fd3f399c85e9724b39238f4f6b8f"
   },
   "components/browsers/chromium-1243/chrome-win64/chrome.dll": {
     "match_sha256": [
@@ -209,6 +1000,92 @@
       "credential"
     ],
     "sha256": "0ddf3ef0d813a5e82251ca94c7ca8d1aec5210a209805c7fec910e7686e9e1f6"
+  },
+  "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell": {
+    "archive_sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
+    "match_sha256": [
+      "03f6d7ba09b0531a178059659f12e65ab6a75adddf2f548b1f37624d55d95fba",
+      "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+      "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+      "20df5159fc5ddd09f5a27f4ac4e919bc9809dfd4b755c00ad84c79267886be7d",
+      "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+      "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+      "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+      "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+      "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+      "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+      "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+      "f37698a753954c07207dfbf7017e4310c0fb96f0bc673d018e7fec8797e97794",
+      "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c",
+      "f4e6f08a511f31bf6758cb6059044c98cc64f9b8c81bd5272752a76817982ccc"
+    ],
+    "origin": "https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip",
+    "reason": "All matched contexts reviewed: UI color/task-mask switches, Vulkan VUID identifiers, locale code tables and Autofill switch strings; public Chromium security/Quad9/Chromecast home URL paths; built-in victim.test VRP loopback example. No personal paths, credential or deployment endpoint. Exact primary archive member.",
+    "rules": [
+      "credential",
+      "personal path",
+      "private endpoint"
+    ],
+    "sha256": "ded93a9c9a53a1ae040f08124badcca95c938e9d5015ff340c3b5538c41bf39e"
+  },
+  "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/icudtl.dat": {
+    "archive_sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
+    "match_sha256": [
+      "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+      "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+      "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+    ],
+    "origin": "https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip",
+    "reason": "All UTF-16 matches are ICU timezone translations of Petropavlovsk-Kamtschatka; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "a3c6d7824935e87fed17e94c2d84b7683ef360ebc5c4ea92e2ca70f361bc9314"
+  },
+  "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/libvk_swiftshader.so": {
+    "archive_sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
+    "match_sha256": [
+      "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+      "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+      "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+      "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+      "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+      "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+      "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+      "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+      "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+      "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
+    ],
+    "origin": "https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip",
+    "reason": "All matches are Vulkan/SpirV validation VUID identifiers containing Mask- followed by identifier characters; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "1d5d7ab9c4c1499041aa44ea7a2ae3da3ca9812cd8bda9b5ac920ae158adb163"
+  },
+  "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/libvulkan.so.1": {
+    "archive_sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
+    "match_sha256": [
+      "76b519c63ca24a76c7561030611c0e96ee75dcff615f2833470782bfcac9d521"
+    ],
+    "origin": "https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip",
+    "reason": "All matches are Vulkan/SpirV validation VUID identifiers containing Mask- followed by identifier characters; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "c53295a113b0bb075be6624ced1a5056acabefc4d49c2d2ff3fbbc76854880ea"
+  },
+  "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/locales/nl.pak": {
+    "archive_sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
+    "match_sha256": [
+      "b63a9c3461f66ae4cb07d15db80c07a71a9d3bc89448b651b10009a0fdcd06f5"
+    ],
+    "origin": "https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip",
+    "reason": "Dutch ChromeOS kiosk translation text joins sk- with following words; no credential. Exact primary archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "4c185fbd18414413bada0c5a00e69207ef173449c87be003ff1c63af738b72d0"
   },
   "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe": {
     "match_sha256": [
@@ -304,5 +1181,117 @@
       "credential"
     ],
     "sha256": "a0e7eea75814708ce5c9b2a83998b14ac1268b70cccc2c22686f4ab585a3aac1"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libgnutls.so.30": {
+    "archive_sha256": "b8944756260c5ea6b7fac019745f931f905aa7a4df0763676b1b25c911b692e2",
+    "match_sha256": [
+      "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
+      "33ea101ddbe7c33be8f143a2779736d0264a4f4c8f323331a4aa9a1f72d8ab2a",
+      "8bcac7908eb950419537b91e19adc83ce2c9cbfdacf4f81157fdadfec11f7017"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/pool/main/g/gnutls28/libgnutls30t64_3.8.3-1.1ubuntu3.6_amd64.deb",
+    "reason": "All nine complete static PEM keys independently normalized and matched exact GnuTLS 3.8.3 lib/crypto-selftests-pk.c public self-test fixtures, not developer credentials. Exact signed-index Ubuntu archive member.",
+    "rules": [
+      "credential"
+    ],
+    "selftest_key_sha256": [
+      "0cf33c13d303e8ab0ffa0fa21f27f00b51086dafda41fec58384d124e8dad745",
+      "2bfa4c3730a66da436330979ca13109780dab82c5b32003249f954b6fa07e0f9",
+      "47d77015037acde08d2ad6d8fac481b480d8ccc9135ce9b25498631bdb35bf8e",
+      "4a093700dd4814816b6f6fecbf52cd7fb805307f560b9d703e2a3775120f65e2",
+      "5d44988349e039cd438af188915a257804f4627dea037de293adec71142109c4",
+      "653d2b40b68f9501c47c7ba5384a3fac66f23c3b7fe2eb5ecca4ba2269626fd9",
+      "a4ad8c592f38228cf7cdaef02c113dab7d0b1954c3bcf4c4ff865fb946465508",
+      "b062b43678f40701f1c50838fe60b0640053ece7deb1546171a3a14bfc43adaf",
+      "cdf5993de8b60a9750bfa5ec55eec579e0213e9b9031bd23e345d992b0c01c31"
+    ],
+    "selftest_source_archive_sha256": "f74fc5954b27d4ec6dfbb11dea987888b5b124289a3703afcada0ee520f4173e",
+    "sha256": "ddbae2995750875c07bc218d12a062d73f8250678f54dedda7e9be5068781c98"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libgnutls.so.30.37.1": {
+    "archive_sha256": "b8944756260c5ea6b7fac019745f931f905aa7a4df0763676b1b25c911b692e2",
+    "match_sha256": [
+      "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
+      "33ea101ddbe7c33be8f143a2779736d0264a4f4c8f323331a4aa9a1f72d8ab2a",
+      "8bcac7908eb950419537b91e19adc83ce2c9cbfdacf4f81157fdadfec11f7017"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/pool/main/g/gnutls28/libgnutls30t64_3.8.3-1.1ubuntu3.6_amd64.deb",
+    "reason": "All nine complete static PEM keys independently normalized and matched exact GnuTLS 3.8.3 lib/crypto-selftests-pk.c public self-test fixtures, not developer credentials. Exact signed-index Ubuntu archive member.",
+    "rules": [
+      "credential"
+    ],
+    "selftest_key_sha256": [
+      "0cf33c13d303e8ab0ffa0fa21f27f00b51086dafda41fec58384d124e8dad745",
+      "2bfa4c3730a66da436330979ca13109780dab82c5b32003249f954b6fa07e0f9",
+      "47d77015037acde08d2ad6d8fac481b480d8ccc9135ce9b25498631bdb35bf8e",
+      "4a093700dd4814816b6f6fecbf52cd7fb805307f560b9d703e2a3775120f65e2",
+      "5d44988349e039cd438af188915a257804f4627dea037de293adec71142109c4",
+      "653d2b40b68f9501c47c7ba5384a3fac66f23c3b7fe2eb5ecca4ba2269626fd9",
+      "a4ad8c592f38228cf7cdaef02c113dab7d0b1954c3bcf4c4ff865fb946465508",
+      "b062b43678f40701f1c50838fe60b0640053ece7deb1546171a3a14bfc43adaf",
+      "cdf5993de8b60a9750bfa5ec55eec579e0213e9b9031bd23e345d992b0c01c31"
+    ],
+    "selftest_source_archive_sha256": "f74fc5954b27d4ec6dfbb11dea987888b5b124289a3703afcada0ee520f4173e",
+    "sha256": "ddbae2995750875c07bc218d12a062d73f8250678f54dedda7e9be5068781c98"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libicudata.so.74": {
+    "archive_sha256": "c9a70989678660eed9a1e904c74fa043da8bec8e2036856fc16e31ced79b04f8",
+    "match_sha256": [
+      "110866d8328fb766fd778c88b93403e2b393c19125d5d701546a6b09e667ccb7",
+      "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+      "3256aadfc630c45624e410f7dd0edb6efbaa7ba3368cd19fdb5f6e1ded24ac4e",
+      "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+      "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu74_74.2-1ubuntu3.1_amd64.deb",
+    "reason": "All UTF-16 matches are ICU timezone translations of Petropavlovsk-Kamtschatka; no credential. Exact signed-index Ubuntu archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "ddbb3718b8bd9cbd780e5ab08b4503c30a6c4fa0706ebe5d074ed6b596c1714e"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libicudata.so.74.2": {
+    "archive_sha256": "c9a70989678660eed9a1e904c74fa043da8bec8e2036856fc16e31ced79b04f8",
+    "match_sha256": [
+      "110866d8328fb766fd778c88b93403e2b393c19125d5d701546a6b09e667ccb7",
+      "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+      "3256aadfc630c45624e410f7dd0edb6efbaa7ba3368cd19fdb5f6e1ded24ac4e",
+      "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+      "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu74_74.2-1ubuntu3.1_amd64.deb",
+    "reason": "All UTF-16 matches are ICU timezone translations of Petropavlovsk-Kamtschatka; no credential. Exact signed-index Ubuntu archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "ddbb3718b8bd9cbd780e5ab08b4503c30a6c4fa0706ebe5d074ed6b596c1714e"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libssh.so.4": {
+    "archive_sha256": "2448ce5f99e49721d12f8b227f2472dd08ed7a78184dd819fd03a42693024a16",
+    "match_sha256": [
+      "03d104c669e3c7b6be7f989db8b12c8b910d3be8c1e2a73c9369d3cc0ba803b5",
+      "3ba30ddc57c5e012f28276fa224e3485067a139cd220da03b730060afb01b2b9",
+      "b12c7307b55a67d1701d94890611bf9605785942351afe051978e0a23888ab47"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/pool/main/libs/libssh/libssh-4_0.10.6-2ubuntu0.5_amd64.deb",
+    "reason": "All contexts reviewed: OpenSSH FIDO certificate algorithm identifiers containing sk-ecdsa and the OpenSSH PEM parser header constant. No private key material. Exact signed-index Ubuntu archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "b82bd54edb908605b8142be1a6d242df65501af0e9bb7581cc36ebf4d8a5ecfd"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libssh.so.4.9.6": {
+    "archive_sha256": "2448ce5f99e49721d12f8b227f2472dd08ed7a78184dd819fd03a42693024a16",
+    "match_sha256": [
+      "03d104c669e3c7b6be7f989db8b12c8b910d3be8c1e2a73c9369d3cc0ba803b5",
+      "3ba30ddc57c5e012f28276fa224e3485067a139cd220da03b730060afb01b2b9",
+      "b12c7307b55a67d1701d94890611bf9605785942351afe051978e0a23888ab47"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/pool/main/libs/libssh/libssh-4_0.10.6-2ubuntu0.5_amd64.deb",
+    "reason": "All contexts reviewed: OpenSSH FIDO certificate algorithm identifiers containing sk-ecdsa and the OpenSSH PEM parser header constant. No private key material. Exact signed-index Ubuntu archive member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "b82bd54edb908605b8142be1a6d242df65501af0e9bb7581cc36ebf4d8a5ecfd"
   }
 }

@@ -126,3 +126,64 @@ async def test_cancel_retains_pending_links_and_encoded_mutations_are_excluded()
     assert result.pending == [('https://example.org/course/next', 1)]
     assert 'https://example.org/course/%65nrol.php' in result.excluded
     await collector.close()
+
+
+@pytest.mark.parametrize('visible', [False, True])
+def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, visible):
+    from types import SimpleNamespace
+    import playwright.async_api
+    import studycenter_public.collectors.browser as browser
+    import studycenter_public.platform.components as components
+
+    data = tmp_path / 'data'
+    profiles = data / 'profiles'
+    profiles.mkdir(parents=True)
+    options = []
+
+    class Context:
+        async def route(self, *args):
+            pass
+        async def close(self):
+            pass
+
+    class Chromium:
+        async def launch_persistent_context(self, profile, **kwargs):
+            options.append(kwargs)
+            assert profile == str(profiles / 'tu-browser')
+            return Context()
+
+    class Playwright:
+        chromium = Chromium()
+        async def stop(self):
+            pass
+
+    class Starter:
+        async def start(self):
+            return Playwright()
+
+    async def immediate_thread(function, *args):
+        return function(*args)
+
+    def complete_immediately(coroutine):
+        try:
+            coroutine.send(None)
+        except StopIteration as done:
+            return done.value
+        finally:
+            coroutine.close()
+        raise AssertionError('Options seam unexpectedly attempted background I/O')
+
+    monkeypatch.setattr(playwright.async_api, 'async_playwright', Starter)
+    monkeypatch.setattr(components, 'configure_browser_runtime', lambda paths: None)
+    monkeypatch.setattr(browser, 'restrict_permissions', lambda path: None)
+    monkeypatch.setattr(browser, 'resolve_public', lambda host: ['93.184.216.34'])
+    monkeypatch.setattr(browser.asyncio, 'to_thread', immediate_thread)
+    manager = browser.BrowserManager(SimpleNamespace(data=data, profiles=profiles))
+    complete_immediately(manager._launch(visible))
+    assert len(options) == 1
+    assert options[0].get('chromium_sandbox') is True
+    assert options[0]['headless'] is (not visible)
+    assert 'channel' not in options[0]
+    assert not any('no-sandbox' in argument or 'disable-setuid-sandbox' in argument
+                   for argument in options[0]['args'])
+    complete_immediately(manager.close())
