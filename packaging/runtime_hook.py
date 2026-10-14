@@ -2,20 +2,25 @@
 import os
 from pathlib import Path
 import sys
+from studycenter_public.platform.paths import read_owned_identity, reject_links
 
-os.environ['PLAYWRIGHT_BROWSERS_PATH']=str(Path(sys.executable).resolve().parent/'components'/'browsers')
+program=reject_links(Path(sys.executable)).resolve().parent
 chosen=None
 if '--data-dir' in sys.argv:
     position=sys.argv.index('--data-dir')
-    if position+1<len(sys.argv):chosen=Path(sys.argv[position+1]).expanduser().resolve()
-chosen=chosen or (Path(os.environ['STUDYCENTER_PUBLIC_DATA_DIR']).expanduser().resolve() if os.environ.get('STUDYCENTER_PUBLIC_DATA_DIR') else None)
-if chosen:cache=chosen/'cache'/'speech-library'
+    if position+1<len(sys.argv):chosen=reject_links(Path(sys.argv[position+1]).expanduser()).resolve()
+chosen=chosen or (reject_links(Path(os.environ['STUDYCENTER_PUBLIC_DATA_DIR']).expanduser()).resolve() if os.environ.get('STUDYCENTER_PUBLIC_DATA_DIR') else None)
+if chosen:
+    if chosen==program or chosen.is_relative_to(program) or program.is_relative_to(chosen):
+        raise ValueError('Nutzerdaten brauchen einen eigenen Ordner außerhalb der Programmdateien.')
+    read_owned_identity(chosen)
+    cache=chosen/'cache'/'speech-library'
 elif sys.platform=='win32':cache=Path(os.environ.get('LOCALAPPDATA',Path.home()/'AppData/Local'))/'StudyCenter-Public'/'Cache'/'speech-library'
 else:cache=Path(os.environ.get('XDG_CACHE_HOME',Path.home()/'.cache'))/'studycenter-public'/'speech-library'
-os.environ['HF_HOME']=str(cache)
-os.environ['HF_HUB_CACHE']=str(cache/'hub')
-os.environ['HF_XET_CACHE']=str(cache/'xet')
-os.environ['HF_ASSETS_CACHE']=str(cache/'assets')
+library_paths={'HF_HOME':cache,'HF_HUB_CACHE':cache/'hub','HF_XET_CACHE':cache/'xet','HF_ASSETS_CACHE':cache/'assets'}
+for path in library_paths.values():reject_links(path)
+os.environ['PLAYWRIGHT_BROWSERS_PATH']=str(reject_links(program/'components'/'browsers'))
+os.environ.update({name:str(path) for name,path in library_paths.items()})
 os.environ['HF_HUB_DISABLE_XET']='1'
 os.environ['HF_HUB_DISABLE_TELEMETRY']='1'
 # The application's explicit, checksummed model downloader owns network requests.

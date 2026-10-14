@@ -52,13 +52,34 @@ def run(installer=None):
             value=os.environ.get(variable)
             if value:text=text.replace(value,'<'+variable+'>')
         print(text[-20000:],flush=True)
+    def setup_run(command, log):
+        try:return subprocess.run(command,check=False,timeout=180)
+        except subprocess.TimeoutExpired:
+            show_log(log)
+            raise
+    # Own tiny packages exercise prerequisite refusal before any target write.
+    # They never execute their synthetic placeholder application.
+    for label,requirement in (
+        ('missing-system-runtime','studycenter-public-synthetic-missing.dll|required'),
+        ('missing-system-export','vcruntime140.dll|StudyCenterPublicSyntheticMissingExport'),
+    ):
+        fixture=root/label;fixture.mkdir();payload=fixture/'payload';payload.mkdir()
+        (payload/'StudyCenter-Public.exe').write_bytes(b'Synthetic placeholder; prerequisite refusal prevents execution')
+        (payload/'SYSTEM-RUNTIME-REQUIREMENTS.iss').write_text("const SystemRuntimeRequirements = '"+requirement+"';\n")
+        subprocess.run([str(compiler()),'/DBundleDir='+str(payload),'/DOutputDir='+str(fixture),str(ROOT/'packaging/windows/installer.iss')],check=True)
+        setup=next(fixture.glob('*-setup.exe'));target=fixture/'Never-created program';target_data=fixture/'Never-created data';log=fixture/'refusal.log'
+        outcome=setup_run([str(setup),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(target),'/DATADIR='+str(target_data),'/LOG='+str(log)],log)
+        if outcome.returncode!=7:
+            show_log(log)
+            raise RuntimeError('System prerequisite refusal failed: '+label+' exit '+str(outcome.returncode))
+        if target.exists() or target_data.exists():raise RuntimeError('System prerequisite refusal wrote destination folders')
     def rejected_destination(label, candidate_program, candidate_data, preserved):
         def snapshot(directory):
             import hashlib
             return {str(path.relative_to(directory)):hashlib.sha256(path.read_bytes()).hexdigest() for path in directory.rglob('*') if path.is_file()}
         before=snapshot(preserved)
         rejected=[str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(candidate_program),'/DATADIR='+str(candidate_data),'/LOG='+str(root/(label+'-rejected.log'))]
-        result=subprocess.run(rejected,check=False,timeout=180)
+        result=setup_run(rejected,root/(label+'-rejected.log'))
         if result.returncode!=7:
             show_log(root/(label+'-rejected.log'))
             raise RuntimeError('Destination preflight did not refuse '+label+' before installation: exit '+str(result.returncode))
@@ -77,7 +98,7 @@ def run(installer=None):
     account=os.environ['USERDOMAIN']+'\\'+os.environ['USERNAME']
     subprocess.run(['icacls',str(denied),'/deny',account+':(RD)'],check=True,capture_output=True)
     try:
-        refused=subprocess.run([str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(root/'Never-created program'),'/DATADIR='+str(denied),'/LOG='+str(root/'unreadable-rejected.log')],check=False,timeout=180)
+        refused=setup_run([str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(root/'Never-created program'),'/DATADIR='+str(denied),'/LOG='+str(root/'unreadable-rejected.log')],root/'unreadable-rejected.log')
         if refused.returncode!=7:
             show_log(root/'unreadable-rejected.log')
             raise RuntimeError('Unreadable directory was treated as empty: exit '+str(refused.returncode))
@@ -86,7 +107,7 @@ def run(installer=None):
     if preserved.read_text()!='Synthetic unrelated ACL fixture' or (root/'Never-created program').exists():raise RuntimeError('Unreadable-folder refusal altered foreign data or created a program folder')
     def install(label):
         log=root/(label+'-setup.log')
-        outcome=subprocess.run(command+['/LOG='+str(log)],check=False,timeout=180)
+        outcome=setup_run(command+['/LOG='+str(log)],log)
         if outcome.returncode:
             show_log(log)
             raise RuntimeError('Own VM installer failed during '+label+' with exit '+str(outcome.returncode))
@@ -113,7 +134,11 @@ def run(installer=None):
     smoke(executable,root/'Updated installed smoke')
     uninstaller=program/'unins000.exe'
     running=start_own_instance()
-    subprocess.run([str(uninstaller),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'],check=True,timeout=180)
+    uninstall_log=root/'own-uninstall.log'
+    outcome=setup_run([str(uninstaller),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG='+str(uninstall_log)],uninstall_log)
+    if outcome.returncode:
+        show_log(uninstall_log)
+        raise RuntimeError('Own VM uninstall failed with exit '+str(outcome.returncode))
     running.wait(timeout=30)
     if executable.exists():raise RuntimeError('Own application executable remains after uninstall')
     if json.loads((data/'instance.json').read_text())!=before or (data/'studycenter-public.sqlite3').read_bytes()!=database:raise RuntimeError('Uninstall removed or changed preserved own user data')

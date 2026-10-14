@@ -63,11 +63,11 @@ jobs:
       - name: Freeze Windows bundle
         if: runner.os == 'Windows'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA"'
+        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
       - name: Freeze Linux bundle
         if: runner.os == 'Linux'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA"'
+        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
       - name: Synthetic Windows package smoke
         if: runner.os == 'Windows'
         shell: bash

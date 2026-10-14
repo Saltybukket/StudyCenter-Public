@@ -11,12 +11,24 @@ and the package's `licenses/` directory by the native build.
 
 Portable OCR includes Tesseract (Apache-2.0), Leptonica and required image/runtime
 dependencies, with their own notices and recorded distribution sources/checksums.
-No system OCR installer or uninstaller is included. Portable Chromium and its
-Headless Shell are bound to the pinned Playwright driver version and include their
-upstream licenses. Optional Whisper weights are downloaded only after explicit
+No system OCR installer or uninstaller is included. Full unbranded Chromium
+snapshots and Chromium Headless Shell have separate pinned archive/source commits
+and complete original notices; the bundled Playwright driver is version-pinned
+independently. Windows Dawn's DirectX compiler retains its original NCSA/LLVM
+notices. The WebView2 SDK files retain their Microsoft BSD-3-Clause license and
+NOTICE, separate from an installed Evergreen runtime. Optional Whisper weights are downloaded only after explicit
 selection from pinned source revisions and are checked against the recorded hashes.
 
 Release source and build instructions correspond to the public release tag.
 The package manifest records the SHA256 of shipped files; release checksums cover
 the resulting distributions. Licensing records are provenance information, not an
 invented legal or security certification.
+
+This beta omits Microsoft CRT/UCRT, API-set forwarding DLLs and the Windows SDK
+D3DCompiler payload. Existing compatible x64 Windows system components are checked
+as prerequisites. Two unsigned NumPy consumers have their DLL import-name bytes
+changed to the canonical system name, with exact original/patched hashes and the
+reproducible public recipe recorded in `SYSTEM-RUNTIME-RECIPE.json`. No Microsoft
+system-runtime binary, Redistributable installer or local renamed Microsoft DLL is shipped by
+that recipe. A future one-click prerequisite flow requires a separately verified
+official Microsoft distribution path; no Visual Studio entitlement is inferred.

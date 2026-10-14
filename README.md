@@ -6,10 +6,10 @@ Installation beginnt leer. Eigene Einträge und Dateiimport funktionieren ohne
 TU-Konto oder KI-Verbindung. Übersicht, Post-its, Pins, Timeline, Kalender,
 Gantt, Archiv und Dokumentleser zeigen denselben persönlichen Bestand.
 
-Der erste Distributionsstand wird als **v0.1.0-beta.1** vorbereitet. Die
-[Release-Seite](https://github.com/Saltybukket/StudyCenter-Public/releases) enthält
-geprüfte Downloads, sobald die Abschlussprüfung bestanden ist; derzeit ist dort
-noch kein Installer freigegeben. Vorgesehen sind
+Der erste Distributionsstand heißt **v0.1.0-beta.1**. Die Beta-Pakete werden nach
+bestandener Abschlussprüfung über die
+[Release-Seite](https://github.com/Saltybukket/StudyCenter-Public/releases)
+bereitgestellt. Die Dateinamen sind
 `studycenter-public-0.1.0b1-windows-x86_64-setup.exe` und
 `studycenter-public-0.1.0b1-linux-x86_64.tar.gz` samt SHA256-Prüfsummen.
 
@@ -18,6 +18,12 @@ Python-, Browser- und OCR-Laufzeit. Es bietet einen eigenen Datenordner,
 Startmenü und Tray; Autostart ist freiwillig. Linux verwendet dieselbe Oberfläche
 im Standardbrowser und wird auf Ubuntu 24.04 x64 geprüft. Den tatsächlichen
 Plattformteststand und offene Abschlussprüfungen beschreibt [PLAN](docs/PLAN.md).
+
+Windows benötigt eine vorhandene **Microsoft Visual C++ v14 Runtime (x64)**.
+Der Setup prüft diese Voraussetzung und verweist bei fehlender Runtime auf den
+[offiziellen Microsoft-Download](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+Dieser Beta-Build liefert die Microsoft-Runtime nicht mit. Visual Studio wird
+zum Benutzen der Anwendung nicht benötigt.
 
 Nach der Installation:
 

@@ -62,7 +62,7 @@ def stage(platform,original,output):
         if not helper.resolve().is_relative_to(runtime):raise ValueError('Browser helper escaped own stage')
         if helper.is_dir():shutil.rmtree(helper)
     for helper in target.rglob('*'):
-        if helper.is_file() and helper.name.casefold() in {'setup.exe','elevation_service.exe','elevated_tracing_service.exe'}:helper.unlink()
+        if helper.is_file() and helper.name.casefold() in {'setup.exe','elevation_service.exe','elevated_tracing_service.exe','interactive_ui_tests.exe'}:helper.unlink()
     license_url='https://chromium.googlesource.com/chromium/src/+/'+revisions['got_revision']+'/LICENSE?format=TEXT'
     with urllib.request.urlopen(license_url,timeout=60) as response:license_data=base64.b64decode(response.read())
     if b'Redistribution and use in source and binary forms' not in license_data:raise ValueError('Snapshot source license does not contain the expected BSD grant')

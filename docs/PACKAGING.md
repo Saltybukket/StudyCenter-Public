@@ -15,7 +15,19 @@ operation supports `--no-browser`.
 
 Build on each target OS with Python 3.12 and the project's locked dependencies
 in a dedicated virtual environment. Build directories and downloads remain
-outside version control. Do not execute dependency installers to extract files:
+outside version control. Release builds require the completed `build/license-materials`
+stage and verify original notice/provenance hashes plus full GNU/MPL license texts.
+The exact 488-file completion index is `packaging/component-notices.json`; it
+binds the published `StudyCenter-Public-corresponding-sources-0.1.0b1-all-platform-notices.zip`
+SHA256. Download that companion archive, verify the indexed archive checksum,
+and extract its `license-materials/` directory into this project's own `build/`.
+No setup, private helper or system configuration is needed for this staging.
+Microsoft CRT entitlement material and diagnostic helpers are excluded. The
+no-upload CI uses `--allow-missing-component-notices` only for internal runtime
+diagnostics; its `COMPONENT-NOTICES.json` explicitly blocks publication. Final
+promotion must pass `scripts.build_release.validate_component_notices(bundle)`
+as well as source, binary, runtime and installer checks.
+Do not execute dependency installers to extract files:
 use archive extraction and copy only the component runtime. Never reuse another
 application's environment, data or browser profile.
 
@@ -108,6 +120,16 @@ extracted application file against the build manifest; scan that extracted tree
 and its decoded Python archive before publication.
 
 Install/update/uninstall checks and desktop interaction are separate OS checks.
+The current Windows package does not redistribute Microsoft CRT/UCRT DLLs,
+API-set forwarding DLLs or `D3DCompiler_47.dll`. It uses the already installed
+Windows x64 system libraries. `SYSTEM-RUNTIME-RECIPE.json` records omitted
+payload hashes, exact primary NumPy wheel input hashes and the two deterministic
+unsigned consumer import-name changes to canonical `msvcp140.dll`. No local
+renamed runtime copies are generated. Setup reads the x64 system PE headers and
+required exports before destination probes, file copies, updates or program
+execution; missing or incompatible prerequisites cause refusal without repair.
+Visual Studio is not required. See QUICKSTART for the official manual Microsoft
+runtime prerequisite. The installer performs no runtime download or installation.
 A successful headless smoke does not claim those checks passed. Windows setup
 uses its own application ID, offers optional desktop/startup shortcuts, and
 retains user data and credentials on uninstall. Linux `start.sh --stop` requests

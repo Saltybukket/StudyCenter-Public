@@ -37,6 +37,12 @@ def safe_label(value: str) -> str:
 
 def container_kind(name: str, prefix: bytes) -> str | None:
     lower = name.lower()
+    if prefix.startswith(b"!<arch>\n"):
+        return "ar"
+    if prefix.startswith(b"\xed\xab\xee\xdb"):
+        return "rpm"
+    if prefix.startswith((b"070701", b"070702")):
+        return "cpio"
     if prefix.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
         return "zip"
     if prefix.startswith(b"\x1f\x8b"):
@@ -61,6 +67,26 @@ def container_kind(name: str, prefix: bytes) -> str | None:
         else:
             return "tar"
     return None
+
+
+class MemberReader:
+    """Constrain a nested reader to one in-memory/spooled container member."""
+    def __init__(self, source, size):
+        self.source = source
+        self.remaining = size
+
+    def read(self, size=-1):
+        size = self.remaining if size < 0 else min(size, self.remaining)
+        result = self.source.read(size)
+        self.remaining -= len(result)
+        return result
+
+
+def exact_read(source, size):
+    result = source.read(size)
+    if len(result) != size:
+        raise ValueError("Truncated archive structure")
+    return result
 
 
 def lzip_chunks(source):
@@ -213,7 +239,9 @@ class ArchiveScan:
                 target.close()
 
     def expand(self, source, path, kind, depth):
-        if kind == "zip":
+        if kind in ("ar", "rpm", "cpio"):
+            self.expand_package(source, path, kind, depth)
+        elif kind == "zip":
             with zipfile.ZipFile(source) as archive:
                 for member in archive.infolist():
                     name = path + "!" + member.filename
@@ -268,6 +296,91 @@ class ArchiveScan:
                 finally:
                     if reader is not None:
                         reader.close()
+
+    def expand_package(self, source, path, kind, depth):
+        source.seek(0, 2)
+        end = source.tell()
+        source.seek(0)
+        if kind == "rpm":
+            lead = exact_read(source, 96)
+            if lead[:4] != b"\xed\xab\xee\xdb":
+                raise ValueError("Invalid RPM lead")
+            for index in range(2):
+                header = exact_read(source, 16)
+                if header[:4] != b"\x8e\xad\xe8\x01":
+                    raise ValueError("Unsupported RPM header")
+                count, store = struct.unpack(">II", header[8:])
+                length = count * 16 + store
+                if count > self.max_members or length > self.max_container_bytes or source.tell() + length > end:
+                    raise ValueError("RPM header outside bounded container")
+                source.seek(length, 1)
+                if index == 0:
+                    source.seek((-source.tell()) % 8, 1)
+            self.consume(MemberReader(source, end - source.tell()), path + "!payload", depth=depth,
+                         size=end - source.tell())
+            return
+        if kind == "ar":
+            if exact_read(source, 8) != b"!<arch>\n":
+                raise ValueError("Invalid AR signature")
+        while source.tell() < end:
+            self.members += 1
+            if self.members > self.max_members:
+                self.limited(path, "package member quota reached")
+                return
+            if kind == "ar":
+                header = exact_read(source, 60)
+                if header[-2:] != b"`\n":
+                    raise ValueError("Invalid AR header")
+                name = header[:16].decode("ascii").strip().rstrip("/")
+                if not name or name.startswith(("/", "#1/")):
+                    raise ValueError("Unsupported AR extended-name member")
+                size = int(header[48:58].strip())
+                mode = stat.S_IFREG
+                checksum = None
+            else:
+                header = exact_read(source, 110)
+                if header[:6] not in (b"070701", b"070702"):
+                    raise ValueError("Unsupported CPIO header")
+                values = [int(header[i:i + 8], 16) for i in range(6, 110, 8)]
+                mode, size, namesize = values[1], values[6], values[11]
+                if not 1 <= namesize <= 4096:
+                    raise ValueError("CPIO name outside bounded range")
+                encoded = exact_read(source, namesize)
+                if encoded[-1:] != b"\0":
+                    raise ValueError("CPIO name lacks terminator")
+                name = encoded[:-1].decode("utf-8", errors="surrogateescape")
+                exact_read(source, (-source.tell()) % 4)
+                checksum = values[12] if header[:6] == b"070702" else None
+                if name == "TRAILER!!!":
+                    if size:
+                        raise ValueError("Invalid CPIO trailer")
+                    while padding := source.read(65536):
+                        if padding.strip(b"\0"):
+                            raise ValueError("Non-padding bytes after CPIO trailer")
+                    return
+            start = source.tell()
+            if size < 0 or start + size > end:
+                raise ValueError("Package member outside container")
+            label = path + "!" + name
+            if checksum is not None:
+                reader = MemberReader(source, size)
+                actual = 0
+                while block := reader.read(65536):
+                    actual = (actual + sum(block)) & 0xffffffff
+                if actual != checksum:
+                    raise ValueError("CPIO checksum mismatch")
+                source.seek(start)
+            if stat.S_ISLNK(mode):
+                self.links += 1
+                self.record({"path": label, "kind": "link_not_followed"})
+            elif stat.S_ISREG(mode):
+                self.consume(MemberReader(source, size), label, depth=depth, size=size)
+            elif not stat.S_ISDIR(mode):
+                self.record({"path": label, "kind": "special_member_not_opened"})
+            source.seek(start + size)
+            exact_read(source, (-size) % 2 if kind == "ar" else (-source.tell()) % 4)
+        if kind == "cpio":
+            raise ValueError("CPIO trailer missing")
 
     def finish(self, bundle, sha):
         self.inventory.close()

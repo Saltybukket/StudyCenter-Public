@@ -52,6 +52,21 @@ def atomic_json(path: Path, data):
     if sys.platform != 'win32': temporary.chmod(0o600)
     temporary.replace(path)
 
+
+def read_owned_identity(data):
+    """Read-only ownership preflight shared with the frozen import hook."""
+    data = reject_links(data)
+    identity_path = reject_links(data / 'instance.json')
+    if data.exists() and any(data.iterdir()) and not identity_path.is_file():
+        raise ValueError('Dieser nicht leere Ordner gehört noch keiner Public-Instanz. Einen neuen leeren Datenordner wählen; vorhandene Dateien bleiben unberührt.')
+    if not identity_path.exists():
+        return None
+    identity = json.loads(identity_path.read_text(encoding='utf-8'))
+    if not isinstance(identity, dict) or set(identity) != {'application', 'instance_id', 'host_id'} or identity.get('application') != 'StudyCenter.Public':
+        raise ValueError('Der gewählte Ordner ist keine Public-Instanz.')
+    uuid.UUID(identity['instance_id']); uuid.UUID(identity['host_id'].removeprefix('urn:uuid:'))
+    return identity
+
 @dataclass(frozen=True)
 class AppPaths:
     program: Path
@@ -67,7 +82,7 @@ class AppPaths:
 
     @classmethod
     def create(cls, data_dir=None):
-        program=Path(__file__).resolve().parents[1]
+        program=reject_links(Path(sys.executable)).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parents[1]
         if sys.platform=='win32':
             root=Path(os.environ.get('LOCALAPPDATA',Path.home()/'AppData/Local'))/'StudyCenter-Public'
             default_data=root/'Data'; default_config=root/'Config'; default_cache=root/'Cache'
@@ -80,15 +95,8 @@ class AppPaths:
         if data==program or program.is_relative_to(data) or data.is_relative_to(program):
             raise ValueError('Nutzerdaten brauchen einen eigenen Ordner außerhalb der Programmdateien.')
         identity_path=data/'instance.json'
-        reject_links(identity_path)
-        if data.exists() and any(data.iterdir()) and not identity_path.is_file():
-            raise ValueError('Dieser nicht leere Ordner gehört noch keiner Public-Instanz. Einen neuen leeren Datenordner wählen; vorhandene Dateien bleiben unberührt.')
-        if identity_path.exists():
-            identity=json.loads(identity_path.read_text(encoding='utf-8'))
-            if identity.get('application')!='StudyCenter.Public' or set(identity)-{'application','instance_id','host_id'}:
-                raise ValueError('Der gewählte Ordner ist keine Public-Instanz.')
-            uuid.UUID(identity['instance_id']); uuid.UUID(identity['host_id'].removeprefix('urn:uuid:'))
-        else:
+        identity=read_owned_identity(data)
+        if identity is None:
             identity={'application':'StudyCenter.Public','instance_id':str(uuid.uuid4()),'host_id':'urn:uuid:'+str(uuid.uuid4())}
             private_directory(data)
             atomic_json(identity_path,identity)

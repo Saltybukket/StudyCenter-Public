@@ -14,6 +14,7 @@ import tomllib
 
 ROOT=Path(__file__).resolve().parents[1]
 APP='StudyCenter-Public'
+NOTICE_COMPLETION_FILE=ROOT/'packaging'/'component-notices.json'
 
 
 def build_environment(platform, vc_dir=None):
@@ -59,14 +60,14 @@ def ensure_source_inputs_unchanged(snapshot):
 
 def source_inputs(source_commit):
     inputs=[path for path in (ROOT/'src'/'studycenter_public').rglob('*') if path.is_file() and '__pycache__' not in path.parts and path.suffix not in {'.pyc','.pyo'}]
-    inputs += [ROOT/'packaging'/'frozen_entry.py',ROOT/'packaging'/'runtime_hook.py']
+    inputs += [ROOT/'packaging'/'frozen_entry.py',ROOT/'packaging'/'runtime_hook.py',NOTICE_COMPLETION_FILE]
     if source_commit:
         actual=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         if actual!=source_commit:raise ValueError('Build source commit differs from checkout HEAD')
-        changed=subprocess.check_output(['git','-C',str(ROOT),'diff',source_commit,'--name-only','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py'],text=True).splitlines()
+        changed=subprocess.check_output(['git','-C',str(ROOT),'diff',source_commit,'--name-only','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py','packaging/component-notices.json'],text=True).splitlines()
         if changed:
             raise ValueError('Application source differs from the committed checkpoint')
-        untracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','--others','--exclude-standard','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py'],text=True).splitlines()
+        untracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','--others','--exclude-standard','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py','packaging/component-notices.json'],text=True).splitlines()
         if any('__pycache__' not in Path(name).parts and Path(name).suffix not in {'.pyc','.pyo'} for name in untracked):
             raise ValueError('Untracked application source is outside the committed checkpoint')
     return {path:file_hash(path) for path in inputs}
@@ -128,7 +129,7 @@ def strip_build_artifacts(bundle):
         # Official browser archives also contain system-installation helpers.
         # Runtime browser launches do not need them and never execute them.
         for path in browsers.rglob('*'):
-            if path.is_file() and path.name.casefold() in {'setup.exe','elevation_service.exe','elevated_tracing_service.exe'}:
+            if path.is_file() and path.name.casefold() in {'setup.exe','elevation_service.exe','elevated_tracing_service.exe','interactive_ui_tests.exe'}:
                 path.unlink()
 
 
@@ -185,7 +186,61 @@ def collect_licenses(bundle):
     (bundle/'THIRD-PARTY.json').write_text(json.dumps(distributions,sort_keys=True,indent=2),encoding='utf-8')
 
 
-def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=None):
+def copy_license_materials(bundle, materials=None, allow_missing=False):
+    source=Path(materials) if materials else ROOT/'build'/'license-materials'
+    receipt={'complete_stage_present':source.is_dir(),'files':{}}
+    if not source.is_dir():
+        if not allow_missing:raise ValueError('Completed component license-materials stage is required for release builds')
+        receipt['publication_blocked']='Internal diagnostic build lacks completed component notices; do not publish'
+    else:
+        target=Path(bundle)/'licenses'/'component-notices'
+        provenance=source/'NOTICE-PROVENANCE.json'
+        attested={record['notice']:record['sha256'] for record in json.loads(provenance.read_text(encoding='utf-8'))} if provenance.is_file() else {}
+        for path in sorted(source.rglob('*')):
+            if not path.is_file():continue
+            if path.is_symlink() or not path.resolve().is_relative_to(source.resolve()):raise ValueError('License material escaped source stage')
+            relative=path.relative_to(source)
+            if relative.parts[0]=='microsoft-vc-runtime':continue
+            if path.suffix.casefold() in {'.js','.py','.pyc','.log','.docx'}:
+                # Some exact original notices are named copyright.js/license.py.
+                # Diagnostic helpers have no primary-source notice attestation.
+                if attested.get(relative.as_posix())!=file_hash(path):continue
+            destination=target/relative
+            destination.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(path,destination)
+            receipt['files'][relative.as_posix()]={'sha256':file_hash(destination),'size':destination.stat().st_size}
+        if not receipt['files']:raise ValueError('Component notice stage is empty')
+    (Path(bundle)/'COMPONENT-NOTICES.json').write_text(json.dumps(receipt,sort_keys=True,indent=2),encoding='utf-8')
+    return receipt
+
+
+def validate_component_notices(bundle):
+    bundle=Path(bundle);receipt=json.loads((bundle/'COMPONENT-NOTICES.json').read_text(encoding='utf-8'))
+    if not receipt.get('complete_stage_present') or receipt.get('publication_blocked') or not receipt.get('files'):
+        raise ValueError('Diagnostic bundle cannot be promoted: completed component notices missing')
+    target=(bundle/'licenses'/'component-notices').resolve()
+    completion=json.loads(NOTICE_COMPLETION_FILE.read_text(encoding='utf-8'))
+    for name,record in completion['files'].items():
+        path=(target/name).resolve()
+        if not path.is_relative_to(target) or not path.is_file() or file_hash(path)!=record['sha256'] or path.stat().st_size!=record['size']:
+            raise ValueError('Component notice completion binding mismatch: '+name)
+    for name,record in receipt['files'].items():
+        path=(target/name).resolve()
+        if not path.is_relative_to(target) or not path.is_file() or file_hash(path)!=record['sha256']:
+            raise ValueError('Component notice receipt mismatch')
+    provenance=target/'NOTICE-PROVENANCE.json'
+    if not provenance.is_file():raise ValueError('Primary component notice provenance missing')
+    for record in json.loads(provenance.read_text(encoding='utf-8')):
+        path=(target/record['notice']).resolve()
+        if not path.is_relative_to(target) or not path.is_file() or file_hash(path)!=record['sha256']:
+            raise ValueError('Primary source notice binding mismatch')
+    for name in ('AGPL-3.0-only.txt','COPYING.GPLv2','COPYING.GPLv3','COPYING.LGPLv2.1','LGPL-3.0-only.txt','MPL-2.0.txt'):
+        if not (target/'license-texts'/name).is_file():raise ValueError('Complete GNU/MPL license text missing')
+    return receipt
+
+
+def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=None,allow_missing_component_notices=False):
+    if not allow_missing_component_notices and not (ROOT/'build'/'license-materials').is_dir():
+        raise ValueError('Completed component license-materials stage is required for release builds')
     snapshot=source_inputs(source_commit)
     version=tomllib.loads((ROOT/'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
     platform='windows' if sys.platform=='win32' else 'linux'
@@ -220,7 +275,13 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=Non
             shutil.copy2(ROOT/'packaging'/'linux'/filename,bundle/filename);(bundle/filename).chmod(0o755)
     ensure_source_inputs_unchanged(snapshot)
     strip_build_artifacts(bundle)
-    collect_licenses(bundle);write_manifest(bundle,version,source_commit)
+    if sys.platform=='win32':
+        try:from .package_windows_runtime import prepare
+        except ImportError:from package_windows_runtime import prepare
+        prepare(bundle,ROOT/'build'/'tools'/'downloads')
+    collect_licenses(bundle);copy_license_materials(bundle,allow_missing=allow_missing_component_notices)
+    if not allow_missing_component_notices:validate_component_notices(bundle)
+    write_manifest(bundle,version,source_commit)
     if sys.platform=='win32' and iscc:
         subprocess.run([str(iscc),'/DAppVersion='+version,'/DBundleDir='+str(bundle),'/DOutputDir='+str(destination),str(ROOT/'packaging'/'windows'/'installer.iss')],check=True)
     elif sys.platform!='win32':archive_linux(bundle,destination,version)
@@ -229,7 +290,7 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=Non
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--ocr-dir',type=Path);parser.add_argument('--iscc',type=Path);parser.add_argument('--browsers-dir',type=Path);parser.add_argument('--source-commit');parser.add_argument('--vc-dir',type=Path)
-    args=parser.parse_args();build(args.ocr_dir,args.iscc,args.browsers_dir,args.source_commit,args.vc_dir)
+    parser=argparse.ArgumentParser();parser.add_argument('--ocr-dir',type=Path);parser.add_argument('--iscc',type=Path);parser.add_argument('--browsers-dir',type=Path);parser.add_argument('--source-commit');parser.add_argument('--vc-dir',type=Path);parser.add_argument('--allow-missing-component-notices',action='store_true',help='Internal diagnostic-only build; missing component notices block publication')
+    args=parser.parse_args();build(args.ocr_dir,args.iscc,args.browsers_dir,args.source_commit,args.vc_dir,args.allow_missing_component_notices)
 
 if __name__=='__main__':main()

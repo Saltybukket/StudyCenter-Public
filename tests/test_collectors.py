@@ -129,15 +129,23 @@ async def test_cancel_retains_pending_links_and_encoded_mutations_are_excluded()
 
 
 @pytest.mark.parametrize('visible', [False, True])
-def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, visible):
-    from types import SimpleNamespace
+@pytest.mark.parametrize('path_mode', ['explicit', 'default-windows', 'default-linux'])
+def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, visible, path_mode):
     import playwright.async_api
     import studycenter_public.collectors.browser as browser
     import studycenter_public.platform.components as components
+    import studycenter_public.platform.paths as path_module
 
-    data = tmp_path / 'data'
-    profiles = data / 'profiles'
-    profiles.mkdir(parents=True)
+    monkeypatch.delenv('STUDYCENTER_PUBLIC_DATA_DIR', raising=False)
+    monkeypatch.setenv('LOCALAPPDATA', str(tmp_path / 'local-app-data'))
+    for variable in ('XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'):
+        monkeypatch.setenv(variable, str(tmp_path / variable.lower()))
+    with monkeypatch.context() as platform_patch:
+        platform_patch.setattr(path_module.sys, 'platform', 'linux' if path_mode == 'default-linux' else 'win32')
+        paths = path_module.AppPaths.create(tmp_path / 'data' if path_mode == 'explicit' else None)
+    if path_mode != 'explicit':
+        assert not paths.cache.is_relative_to(paths.data)
+    profiles = paths.profiles
     options = []
 
     class Context:
@@ -178,12 +186,54 @@ def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, vis
     monkeypatch.setattr(browser, 'restrict_permissions', lambda path: None)
     monkeypatch.setattr(browser, 'resolve_public', lambda host: ['93.184.216.34'])
     monkeypatch.setattr(browser.asyncio, 'to_thread', immediate_thread)
-    manager = browser.BrowserManager(SimpleNamespace(data=data, profiles=profiles))
+    monkeypatch.setenv('CHROME_LOG_FILE', 'synthetic-inherited-log')
+    manager = browser.BrowserManager(paths)
     complete_immediately(manager._launch(visible))
     assert len(options) == 1
     assert options[0].get('chromium_sandbox') is True
     assert options[0]['headless'] is (not visible)
     assert 'channel' not in options[0]
+    environment = options[0].get('env', {})
+    assert environment.get('CHROME_LOG_FILE')
+    assert browser.Path(environment['CHROME_LOG_FILE']).parent == paths.cache / 'browser-logs'
+    assert browser.Path(environment['XDG_CONFIG_HOME']) == paths.cache / 'browser-xdg-config'
+    assert browser.Path(environment['XDG_CACHE_HOME']) == paths.cache / 'browser-xdg-cache'
+    assert browser.os.environ['CHROME_LOG_FILE'] == 'synthetic-inherited-log'
     assert not any('no-sandbox' in argument or 'disable-setuid-sandbox' in argument
                    for argument in options[0]['args'])
     complete_immediately(manager.close())
+
+
+@pytest.mark.parametrize('linked_directory', ['cache-root', 'cache-child'])
+def test_browser_rejects_foreign_cache_link_before_creating_cache_paths(monkeypatch, tmp_path, linked_directory):
+    from types import SimpleNamespace
+    import studycenter_public.collectors.browser as browser
+    import studycenter_public.platform.components as components
+    data = tmp_path / 'data'
+    profiles = data / 'profiles'
+    profiles.mkdir(parents=True)
+    foreign = tmp_path / 'foreign-cache'
+    foreign.mkdir()
+    marker = foreign / 'preserved.txt'
+    marker.write_bytes(b'Synthetic foreign directory stays untouched.')
+    cache = tmp_path / 'own-cache'
+    if linked_directory == 'cache-child':
+        cache.mkdir()
+    link = cache if linked_directory == 'cache-root' else cache / 'browser-xdg-config'
+    try:
+        link.symlink_to(foreign, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip('This test account cannot create a directory symlink')
+    monkeypatch.setattr(components, 'configure_browser_runtime', lambda paths: None)
+    monkeypatch.setattr(browser, 'restrict_permissions', lambda path: None)
+    manager = browser.BrowserManager(SimpleNamespace(data=data, profiles=profiles, cache=cache))
+    coroutine = manager._launch(False)
+    try:
+        with pytest.raises(ValueError, match='Verknüpfung|Reparse'):
+            coroutine.send(None)
+    finally:
+        coroutine.close()
+    assert list(foreign.iterdir()) == [marker]
+    assert marker.read_bytes() == b'Synthetic foreign directory stays untouched.'
+    assert not (cache / 'browser-logs').exists()
+    assert manager.playwright is None

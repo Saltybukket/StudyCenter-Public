@@ -21,6 +21,31 @@ def sandbox_screenshot_script(package, screenshot, channel):
     return "const fs=require('fs');const {chromium}=require("+json.dumps(str(package))+");(async()=>{const browser=await chromium.launch({headless:true,chromiumSandbox:true,"+channel_option+"args:['--host-resolver-rules=MAP * ~NOTFOUND']});const page=await browser.newPage();await page.setContent('<html><body>Synthetic bundled screenshot</body></html>');await page.screenshot({path:"+json.dumps(str(screenshot))+"});await browser.close();})().catch(error=>{console.error(error);process.exitCode=1;});"
 
 
+def run_component_diagnostic(command, data, environment):
+    """Preserve native failure status while exposing bounded synthetic diagnostics."""
+    try:
+        subprocess.run(command, check=True, timeout=90, env=environment)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        for name in ('component-phase.txt', 'startup-error.txt'):
+            path = Path(data) / name
+            if not path.is_file():
+                print(name + ': diagnostic file unavailable', flush=True)
+                continue
+            with path.open('rb') as stream:
+                text = stream.read(10000).decode('utf-8', errors='replace')
+                if path.stat().st_size > 10000:
+                    stream.seek(max(10000, path.stat().st_size - 10000))
+                    text += '\n[diagnostic continuation]\n' + stream.read(10000).decode('utf-8', errors='replace')
+            replacements = {key: environment.get(key) for key in ('GITHUB_WORKSPACE', 'RUNNER_TEMP', 'USERPROFILE', 'APPDATA', 'HOME')}
+            replacements['DIAGNOSTIC_DATA'] = str(Path(data))
+            for key, value in sorted(replacements.items(), key=lambda item: len(item[1] or ''), reverse=True):
+                if value:
+                    for spelling in {value, value.replace('\\', '/'), value.replace('/', '\\')}:
+                        text = text.replace(spelling, '<' + key + '>')
+            print(name + ':\n' + text, flush=True)
+        raise
+
+
 def smoke(executable,output=None,ocr=True):
     executable=Path(executable).resolve()
     root=Path(output).resolve() if output else Path(tempfile.mkdtemp(prefix='studycenter-public-package-smoke-'))
@@ -28,9 +53,18 @@ def smoke(executable,output=None,ocr=True):
     environment=os.environ.copy()
     for variable in ('PYTHONHOME','PYTHONPATH','VIRTUAL_ENV'):environment.pop(variable,None)
     system=Path(environment.get('SystemRoot','C:/Windows')) if sys.platform=='win32' else None
+    if system:
+        try:from .package_windows_runtime import check_system
+        except ImportError:from package_windows_runtime import check_system
+        recipe=json.loads((executable.parent/'SYSTEM-RUNTIME-RECIPE.json').read_text())
+        check_system(recipe['system_requirements'],system/'System32')
     allowed_paths=[executable.parent,executable.parent/'_internal',executable.parent/'components'/'ocr']
     allowed_paths += [system/'System32',system] if system else [Path('/usr/bin'),Path('/bin')]
     environment['PATH']=os.pathsep.join(str(path) for path in allowed_paths)
+    if not system:environment['LD_LIBRARY_PATH']=str(executable.parent/'components'/'ocr'/'usr'/'lib'/'x86_64-linux-gnu')
+    environment['CHROME_LOG_FILE']=str(root/'browser.log')
+    environment['XDG_CONFIG_HOME']=str(root/'browser-config')
+    environment['XDG_CACHE_HOME']=str(root/'browser-cache')
     library_cache=root/'diagnostic-library-cache'
     for variable,suffix in (('HF_HOME',''),('HF_HUB_CACHE','hub'),('HF_XET_CACHE','xet'),('HF_ASSETS_CACHE','assets')):environment[variable]=str(library_cache/suffix)
     environment['HF_HUB_DISABLE_TELEMETRY']='1';environment['HF_HUB_OFFLINE']='1';environment['HF_HUB_DISABLE_XET']='1'
@@ -39,7 +73,7 @@ def smoke(executable,output=None,ocr=True):
     with sqlite3.connect(self_data/'studycenter-public.sqlite3') as con:
         assert con.execute('SELECT count(*) FROM action_receipts').fetchone()[0]==1
     component_data=root/'Native components ö space'
-    subprocess.run([str(executable),'--component-test','--data-dir',str(component_data)],check=True,timeout=90,env=environment)
+    run_component_diagnostic([str(executable),'--component-test','--data-dir',str(component_data)], component_data, environment)
     component_result=json.loads((component_data/'component-check.json').read_text())
     assert component_result['browsers']['dedicated_headless_shell']['rendered'] and component_result['browsers']['full_chromium']['rendered']
     driver=executable.parent/'_internal'/'playwright'/'driver'

@@ -5,6 +5,12 @@ Start ist er leer. Notizen, eigene Termine und Dateiimport funktionieren ohne Ko
 
 ## Windows
 
+Voraussetzung ist eine vorhandene **Microsoft Visual C++ v14 Runtime (x64)**.
+Falls sie fehlt, verweist der Setup auf den
+[offiziellen Microsoft-Download](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+Die Microsoft-Runtime gehört in diesem Beta-Build zu den Systemvoraussetzungen.
+Visual Studio wird zum Benutzen der Anwendung nicht benötigt.
+
 Öffne das Windows-Setup aus dem geprüften Release. Übernimm den empfohlenen
 Programm- und Datenordner oder wähle einen eigenen beschreibbaren Ort. Starte
 anschließend **StudyCenter-Public** im Startmenü. Ein unsignierter Pilot kann eine

@@ -1,12 +1,14 @@
 """Own installation profile and explicit visible institutional login."""
 import asyncio
+import os
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from ..platform.paths import restrict_permissions, owned_path
+from ..platform.paths import restrict_permissions, owned_path, reject_links
 from .web import LoginRequired, UnsafeURL, mutating_url, resolve_public, validate_addresses, safe_url
 
 SERVICE_URLS = {'teachcenter': 'https://tc.tugraz.at/main/my/',
@@ -52,6 +54,18 @@ class BrowserManager:
         owned_path(self.profile,self.paths.profiles)
         self.profile.mkdir(parents=True, exist_ok=True)
         restrict_permissions(self.profile)
+        reject_links(self.paths.cache)
+        environment = os.environ.copy()
+        for variable, directory in (
+            ('XDG_CONFIG_HOME', 'browser-xdg-config'),
+            ('XDG_CACHE_HOME', 'browser-xdg-cache'),
+            ('CHROME_LOG_FILE', 'browser-logs'),
+        ):
+            target = Path(self.paths.cache) / directory
+            owned_path(target, self.paths.cache)
+            target.mkdir(parents=True, exist_ok=True)
+            restrict_permissions(target)
+            environment[variable] = str(target / ('tu-' + uuid.uuid4().hex + '.log')) if variable == 'CHROME_LOG_FILE' else str(target)
         try:
             from playwright.async_api import async_playwright
             mappings = []
@@ -71,6 +85,7 @@ class BrowserManager:
             # Setting channel='chromium' would select the full browser instead.
             self.context = await self.playwright.chromium.launch_persistent_context(
                 str(self.profile), headless=not visible, chromium_sandbox=True, accept_downloads=True,
+                env=environment,
                 args=['--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
             self.visible = visible
             if not visible:

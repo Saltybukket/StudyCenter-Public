@@ -96,6 +96,16 @@ class PackagingContract(unittest.TestCase):
    options=module.browser_launch_options(channel)
    self.assertIs(options['chromium_sandbox'],True)
    self.assertNotIn('--no-sandbox',options.get('args',[]))
+ def test_frozen_browser_logs_and_xdg_caches_are_owned_child_options(self):
+  from types import SimpleNamespace
+  specification=importlib.util.spec_from_file_location('frozen_environment_fixture',pathlib.Path(__file__).parents[1]/'packaging/frozen_entry.py')
+  module=importlib.util.module_from_spec(specification);specification.loader.exec_module(module)
+  with tempfile.TemporaryDirectory() as tmp:
+   cache=pathlib.Path(tmp);before=dict(os.environ)
+   options=module.browser_launch_options('chromium',SimpleNamespace(cache=cache))
+   self.assertEqual(dict(os.environ),before)
+   for key in ('CHROME_LOG_FILE','XDG_CONFIG_HOME','XDG_CACHE_HOME'):
+    self.assertTrue(pathlib.Path(options['env'][key]).is_relative_to(cache))
  def test_real_screenshot_probe_requires_sandbox_in_both_channels(self):
   from scripts.smoke_release import sandbox_screenshot_script
   for channel in (None,'chromium'):
@@ -135,4 +145,55 @@ class PackagingContract(unittest.TestCase):
    verify_native_origins(toc,[own])
    toc.write_text(repr([('native.dll',str(foreign/'native.dll'),'BINARY')]))
    with self.assertRaisesRegex(ValueError,'unapproved'):verify_native_origins(toc,[own])
+ def test_silent_installer_defers_refusal_to_mandatory_engine_preflight(self):
+  script=(pathlib.Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
+  next_page=script.split('function NextButtonClick',1)[1].split('function PrepareToInstall',1)[0]
+  self.assertLess(next_page.index('if WizardSilent then exit;'),next_page.index('ProgramDirectoryProblem'))
+  self.assertNotRegex(script,r'\bMsgBox\(')
+ def test_linux_smoke_child_resolves_only_bundled_native_libraries_and_own_caches(self):
+  from scripts.smoke_release import smoke
+  from unittest.mock import patch
+  class StopProbe(Exception):pass
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);executable=root/'bundle/StudyCenter-Public';output=root/'synthetic-diagnostic'
+   captured={}
+   def inspect(command,**options):captured.update(options['env']);raise StopProbe()
+   with patch('scripts.smoke_release.sys.platform','linux'),patch('scripts.smoke_release.subprocess.run',side_effect=inspect):
+    with self.assertRaises(StopProbe):smoke(executable,output)
+   self.assertEqual(captured['LD_LIBRARY_PATH'],str(executable.parent/'components/ocr/usr/lib/x86_64-linux-gnu'))
+   for key in ('CHROME_LOG_FILE','XDG_CONFIG_HOME','XDG_CACHE_HOME'):
+    self.assertTrue(pathlib.Path(captured[key]).is_relative_to(output))
+ def test_binary_notices_include_exact_source_stage_without_diagnostic_helpers(self):
+  from scripts.build_release import copy_license_materials
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);materials=root/'materials';notice=materials/'webview/LICENSE.txt';notice.parent.mkdir(parents=True);notice.write_bytes(b'Synthetic complete binary redistribution notice')
+   (materials/'capture-own-browser-credits.js').write_bytes(b'Synthetic private diagnostic helper')
+   (materials/'browser.log').write_bytes(b'Synthetic private log')
+   excluded=materials/'microsoft-vc-runtime';excluded.mkdir();(excluded/'terms.txt').write_bytes(b'Synthetic excluded CRT entitlement material')
+   bundle=root/'bundle';bundle.mkdir();receipt=copy_license_materials(bundle,materials)
+   self.assertEqual((bundle/'licenses/component-notices/webview/LICENSE.txt').read_bytes(),notice.read_bytes())
+   self.assertEqual(receipt['files']['webview/LICENSE.txt']['sha256'],__import__('hashlib').sha256(notice.read_bytes()).hexdigest())
+   self.assertFalse((bundle/'licenses/component-notices/capture-own-browser-credits.js').exists())
+   self.assertFalse((bundle/'licenses/component-notices/browser.log').exists())
+   self.assertFalse((bundle/'licenses/component-notices/microsoft-vc-runtime').exists())
+ def test_missing_notices_diagnostic_is_explicitly_not_publishable(self):
+  from scripts.build_release import copy_license_materials,validate_component_notices
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);bundle=root/'bundle';bundle.mkdir()
+   with self.assertRaisesRegex(ValueError,'required'):copy_license_materials(bundle,root/'absent')
+   receipt=copy_license_materials(bundle,root/'absent',allow_missing=True)
+   self.assertFalse(receipt['complete_stage_present']);self.assertIn('publication_blocked',receipt)
+   with self.assertRaisesRegex(ValueError,'cannot be promoted'):validate_component_notices(bundle)
+ def test_partial_late_component_notices_cannot_pass_completion_gate(self):
+  from scripts.build_release import copy_license_materials,validate_component_notices
+  from unittest.mock import patch
+  import json,hashlib
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);materials=root/'materials';materials.mkdir();(materials/'NOTICE-PROVENANCE.json').write_text('[]')
+   texts=materials/'license-texts';texts.mkdir()
+   for name in ('AGPL-3.0-only.txt','COPYING.GPLv2','COPYING.GPLv3','COPYING.LGPLv2.1','LGPL-3.0-only.txt','MPL-2.0.txt'):(texts/name).write_text('Synthetic license fixture')
+   index=root/'completion.json';index.write_text(json.dumps({'files':{'webview/NOTICE.txt':{'sha256':hashlib.sha256(b'Synthetic required late notice').hexdigest(),'size':28}}}))
+   bundle=root/'bundle';bundle.mkdir();copy_license_materials(bundle,materials)
+   with patch('scripts.build_release.NOTICE_COMPLETION_FILE',index,create=True):
+    with self.assertRaisesRegex(ValueError,'completion'):validate_component_notices(bundle)
 if __name__=='__main__':unittest.main()

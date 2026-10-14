@@ -24,6 +24,9 @@ fs.writeFileSync(RECEIPT,JSON.stringify({browser_version:browser.version(),chann
     for variable in ('TMP','TEMP','TMPDIR'):environment[variable]=str(temporary)
     for variable in ('PYTHONHOME','PYTHONPATH','VIRTUAL_ENV'):environment.pop(variable,None)
     environment['PLAYWRIGHT_BROWSERS_PATH']=str(Path(browsers_dir).resolve() if browsers_dir else bundle/'components'/'browsers')
+    environment['CHROME_LOG_FILE']=str(output/'browser.log')
+    environment['XDG_CONFIG_HOME']=str(temporary/'config')
+    environment['XDG_CACHE_HOME']=str(temporary/'cache')
     if sys.platform=='win32':
         system=Path(environment.get('SystemRoot','C:/Windows'));environment['PATH']=os.pathsep.join(map(str,(bundle,bundle/'_internal',system/'System32',system)))
     else:

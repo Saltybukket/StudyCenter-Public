@@ -8,6 +8,9 @@
 #define OutputDir "..\..\dist\windows"
 #endif
 [Setup]
+#if VER >= 0x07000000
+SetupArchitecture=x86
+#endif
 AppId={{B60E9F91-11F3-4EA8-B973-5C6D65C7A59A}
 AppName=StudyCenter-Public
 AppVersion={#AppVersion}
@@ -45,6 +48,8 @@ Name: "{userstartup}\StudyCenter-Public"; Filename: "{app}\StudyCenter-Public.ex
 [Run]
 Filename: "{app}\StudyCenter-Public.exe"; Parameters: "--data-dir ""{code:GetDataDirectory}"""; Description: "Start StudyCenter-Public"; Flags: nowait postinstall skipifsilent
 [Code]
+#include BundleDir + "\SYSTEM-RUNTIME-REQUIREMENTS.iss"
+#include "system_runtime.iss"
 type TNativeFindData = record
   Attributes, CreationLow, CreationHigh, AccessLow, AccessHigh: LongWord;
   WriteLow, WriteHigh, SizeHigh, SizeLow, Reserved0, Reserved1: LongWord;
@@ -317,15 +322,20 @@ function NextButtonClick(CurPageID: Integer): Boolean;
 var Problem: String;
 begin
   Result := True;
+  { Script MsgBox is not suppressed by /SUPPRESSMSGBOXES. Silent installs
+    always reach the identical mandatory PrepareToInstall preflight. }
+  if WizardSilent then exit;
   if DataDirectoryPageReady and (CurPageID = DataDirectoryPage.ID) then begin
     Problem := ProgramDirectoryProblem(WizardDirValue, GetDataDirectory(''), True);
     if Problem = '' then Problem := DataDirectoryProblem(GetDataDirectory(''), WizardDirValue, False);
-    if Problem <> '' then begin MsgBox(Problem, mbError, MB_OK); Result := False; end;
+    if Problem <> '' then begin SuppressibleMsgBox(Problem, mbError, MB_OK, IDOK); Result := False; end;
   end;
 end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: String;
 begin
+  Result := SystemRuntimeProblem;
+  if Result <> '' then exit;
   DataDirectory := GetDataDirectory('');
   Result := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, True);
   if Result <> '' then exit;
@@ -364,12 +374,12 @@ begin
   Result := False; DataDirectory := GetDataDirectory('');
   Problem := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, False);
   if Problem = '' then Problem := DataDirectoryProblem(DataDirectory, ExpandConstant('{app}'), False);
-  if Problem <> '' then begin MsgBox(Problem, mbError, MB_OK); exit; end;
-  if not Exec(ExpandConstant('{app}\StudyCenter-Public.exe'), '--quit --data-dir "' + DataDirectory + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin MsgBox('Close StudyCenter-Public before uninstalling.', mbError, MB_OK); exit; end;
+  if Problem <> '' then begin SuppressibleMsgBox(Problem, mbError, MB_OK, IDOK); exit; end;
+  if not Exec(ExpandConstant('{app}\StudyCenter-Public.exe'), '--quit --data-dir "' + DataDirectory + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin SuppressibleMsgBox('Close StudyCenter-Public before uninstalling.', mbError, MB_OK, IDOK); exit; end;
   for Attempt := 1 to 100 do begin
     if not FileExists(AddBackslash(DataDirectory) + 'runtime.json') then break;
     Sleep(100);
   end;
-  if FileExists(AddBackslash(DataDirectory) + 'runtime.json') then begin MsgBox('The selected Public instance is still running. Close it before uninstalling.', mbError, MB_OK); exit; end;
+  if FileExists(AddBackslash(DataDirectory) + 'runtime.json') then begin SuppressibleMsgBox('The selected Public instance is still running. Close it before uninstalling.', mbError, MB_OK, IDOK); exit; end;
   Result := True;
 end;
