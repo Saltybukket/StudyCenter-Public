@@ -155,7 +155,7 @@ class PackagingContract(unittest.TestCase):
   from unittest.mock import patch
   class StopProbe(Exception):pass
   with tempfile.TemporaryDirectory() as tmp:
-   root=pathlib.Path(tmp);executable=root/'bundle/StudyCenter-Public';output=root/'synthetic-diagnostic'
+   root=pathlib.Path(tmp).resolve();executable=root/'bundle/StudyCenter-Public';output=root/'synthetic-diagnostic'
    captured={}
    def inspect(command,**options):captured.update(options['env']);raise StopProbe()
    with patch('scripts.smoke_release.sys.platform','linux'),patch('scripts.smoke_release.subprocess.run',side_effect=inspect):

@@ -83,18 +83,31 @@
     ],
     "sha256": "f594c721830c189c27aa8866c021f76872a3afb2444cef89998ebc3c78385b6f"
   },
-  "_internal/libpython3.12.so.1.0": {
-    "match_sha256": [
-      "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c",
-      "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
-    ],
-    "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
-    "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
-    "rules": [
-      "personal path"
-    ],
-    "sha256": "c7c1a2206db0fa089f8a252d1652d5ccb82669774dbb599427082ffc9eaaae85"
-  },
+  "_internal/libpython3.12.so.1.0": [
+    {
+      "match_sha256": [
+        "0d9f74285dfd125ba0536fc6f1719fc58502de65ba596ef1700a01005ea0f42c",
+        "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
+      ],
+      "origin": "https://github.com/actions/python-versions/releases/download/3.12.15-36805895057/python-3.12.15-linux-24.04-x64.tar.gz",
+      "reason": "Exact regular member of official Actions CPython 3.12.15 archive SHA256 fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8. All matched contexts inspected: public upstream DWARF SourceCode build directory, or CPython splitroot documentation example; no developer-local data. Applies only to this whole-file SHA256.",
+      "rules": [
+        "personal path"
+      ],
+      "sha256": "c7c1a2206db0fa089f8a252d1652d5ccb82669774dbb599427082ffc9eaaae85"
+    },
+    {
+      "match_sha256": [
+        "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
+      ],
+      "origin": "https://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/libpython3.12t64_3.12.3-1ubuntu0.17_amd64.deb; archive libpython3.12t64_3.12.3-1ubuntu0.17_amd64.deb SHA256 0d29f4763eb95b8a4283a4aca3ef1d9658629c618be1778def41bdc31be12b46; exact member ./usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0",
+      "reason": "One public CPython splitroot Barney example docstring, byte-equal official Ubuntu package; no local personal path.",
+      "rules": [
+        "personal path"
+      ],
+      "sha256": "1021f236227334ded6d1bbbc4bb6f5d933f793d8397c969896cfbdf03ce96223"
+    }
+  ],
   "_internal/onnxruntime/capi/onnxruntime_pybind11_state.cpython-312-x86_64-linux-gnu.so": {
     "match_sha256": [
       "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
@@ -917,90 +930,193 @@
     ],
     "sha256": "a9e697332965a30e9c630620563cea2f3257fd3f399c85e9724b39238f4f6b8f"
   },
-  "components/browsers/chromium-1243/chrome-win64/chrome.dll": {
-    "match_sha256": [
-      "03f6d7ba09b0531a178059659f12e65ab6a75adddf2f548b1f37624d55d95fba",
-      "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
-      "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
-      "20df5159fc5ddd09f5a27f4ac4e919bc9809dfd4b755c00ad84c79267886be7d",
-      "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
-      "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
-      "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
-      "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
-      "601724a460808810f2809eb0d06d417ad6ed0a507c9e9e9689668381ff6c1dcd",
-      "8c43e5d715cf998951c725b3aa626c84aeaa721a129892b002342f7e12f75b05",
-      "94c6941fd13041981afecd44e6cedeeb7d2b7c8754ad3a261e5b3ba05d4b0cf8",
-      "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
-      "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
-      "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
-      "cb9f20dbbf9ea998c158338187320bf2f09c796397ae798f43746a9f9aa4ba92",
-      "f37698a753954c07207dfbf7017e4310c0fb96f0bc673d018e7fec8797e97794",
-      "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
-    ],
-    "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
-    "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
-    "rules": [
-      "credential",
-      "personal path",
-      "private endpoint"
-    ],
-    "sha256": "0b69d34d08e1112d5e7de94e389d20e209a890e931863c734378b39b7394da13"
-  },
-  "components/browsers/chromium-1243/chrome-win64/icudtl.dat": {
-    "match_sha256": [
-      "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
-      "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
-      "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
-    ],
-    "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
-    "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
-    "rules": [
-      "credential"
-    ],
-    "sha256": "a3c6d7824935e87fed17e94c2d84b7683ef360ebc5c4ea92e2ca70f361bc9314"
-  },
-  "components/browsers/chromium-1243/chrome-win64/locales/nl.pak": {
-    "match_sha256": [
-      "b63a9c3461f66ae4cb07d15db80c07a71a9d3bc89448b651b10009a0fdcd06f5"
-    ],
-    "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
-    "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
-    "rules": [
-      "credential"
-    ],
-    "sha256": "7623e55836aa422cf2c83be35a7e3a4e4d41567ecb5a8690a99565df4f81ad2a"
-  },
-  "components/browsers/chromium-1243/chrome-win64/vk_swiftshader.dll": {
-    "match_sha256": [
-      "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
-      "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
-      "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
-      "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
-      "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
-      "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
-      "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
-      "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
-      "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
-      "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
-    ],
-    "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
-    "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
-    "rules": [
-      "credential"
-    ],
-    "sha256": "5a2da21f1ad080d29d6d60e55bfa368a33e69718e3470a293d8a46d3f7e70e8a"
-  },
-  "components/browsers/chromium-1243/chrome-win64/vulkan-1.dll": {
-    "match_sha256": [
-      "76b519c63ca24a76c7561030611c0e96ee75dcff615f2833470782bfcac9d521"
-    ],
-    "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
-    "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
-    "rules": [
-      "credential"
-    ],
-    "sha256": "0ddf3ef0d813a5e82251ca94c7ca8d1aec5210a209805c7fec910e7686e9e1f6"
-  },
+  "components/browsers/chromium-1243/chrome-win64/chrome.dll": [
+    {
+      "match_sha256": [
+        "03f6d7ba09b0531a178059659f12e65ab6a75adddf2f548b1f37624d55d95fba",
+        "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+        "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+        "20df5159fc5ddd09f5a27f4ac4e919bc9809dfd4b755c00ad84c79267886be7d",
+        "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+        "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+        "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+        "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+        "601724a460808810f2809eb0d06d417ad6ed0a507c9e9e9689668381ff6c1dcd",
+        "8c43e5d715cf998951c725b3aa626c84aeaa721a129892b002342f7e12f75b05",
+        "94c6941fd13041981afecd44e6cedeeb7d2b7c8754ad3a261e5b3ba05d4b0cf8",
+        "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+        "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+        "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+        "cb9f20dbbf9ea998c158338187320bf2f09c796397ae798f43746a9f9aa4ba92",
+        "f37698a753954c07207dfbf7017e4310c0fb96f0bc673d018e7fec8797e97794",
+        "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
+      ],
+      "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
+      "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
+      "rules": [
+        "credential",
+        "personal path",
+        "private endpoint"
+      ],
+      "sha256": "0b69d34d08e1112d5e7de94e389d20e209a890e931863c734378b39b7394da13"
+    },
+    {
+      "match_sha256": [
+        "03f6d7ba09b0531a178059659f12e65ab6a75adddf2f548b1f37624d55d95fba",
+        "0d1b867e82bf79bd933c6799bedae8d7f35fa863f1804454c039b52f1c7a92e9",
+        "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+        "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+        "20df5159fc5ddd09f5a27f4ac4e919bc9809dfd4b755c00ad84c79267886be7d",
+        "2b7f16923cc63096ab083b81c9bf5cb65c872970fc8e463582a016067e1d9ab3",
+        "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+        "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+        "4acfdf5012e9606b0ab7bae7180d3272ce5cd258fd1ae9e835674b240c17ca8f",
+        "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+        "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+        "601724a460808810f2809eb0d06d417ad6ed0a507c9e9e9689668381ff6c1dcd",
+        "779e9d798cf7d635128a9618b32a464ec4e242bf1ae9ff1fad0cdc2491ac33d6",
+        "8c43e5d715cf998951c725b3aa626c84aeaa721a129892b002342f7e12f75b05",
+        "94c6941fd13041981afecd44e6cedeeb7d2b7c8754ad3a261e5b3ba05d4b0cf8",
+        "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+        "9ad8b611733ec9fa79d1c7f50b6274adca3929652b344db611a6c055303c5e29",
+        "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+        "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+        "cac85d07b335c73404f211de0684c1e2c6f1ff5a7ce7dd4d348a5cbf7399548e",
+        "cb9f20dbbf9ea998c158338187320bf2f09c796397ae798f43746a9f9aa4ba92",
+        "d38b45dc85d986f0a8c86829e83c45f5c908ce8570abfeaae549b8d3efc31d4a",
+        "ef126f92d9e63097c42496620d09b49469106822113ba84717beb33b17ec48c5",
+        "f37698a753954c07207dfbf7017e4310c0fb96f0bc673d018e7fec8797e97794",
+        "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c",
+        "f4525459ddb1cd1bb8f63b116723f9476e384f12e109056762dd1b3421a2b8c4"
+      ],
+      "origin": "Exact member chrome-win/chrome.dll of official Chromium Win_x64/1718660/chrome-win.zip, SHA256 bf256383a76758519353122d560f9bf260a8a4dc4299461f0aa74c71c8520ff9; source eb240cfb93dd5d77b897a6f0a8e15907ff8f669c",
+      "reason": "Reviewed all30 bounded matches: public Quad9/Chromium/Chromecast URL paths; task/risk/disk switches and Vulkan mask validation identifiers; joined public locale codes; built-in victim.test VRP loopback examples. No personal data, provider credential or key body.",
+      "rules": [
+        "credential",
+        "personal path",
+        "private endpoint"
+      ],
+      "sha256": "1182391816d83e194c6b36aafb1299c4e239e8696e3ba1bf96516ec3a58854b7"
+    }
+  ],
+  "components/browsers/chromium-1243/chrome-win64/icudtl.dat": [
+    {
+      "match_sha256": [
+        "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+        "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+        "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+      ],
+      "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
+      "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "a3c6d7824935e87fed17e94c2d84b7683ef360ebc5c4ea92e2ca70f361bc9314"
+    },
+    {
+      "match_sha256": [
+        "2200bdf8b94640064cbc58e5d04e41fb50e1e0d7b1a856eeaa51d3e4f7208772",
+        "40db43965772a9136d8f04ffb0756e25cef5f8265c0ed7045319a3d1b111a323",
+        "72e78355a2cb2765b655d5be620b47d7acd2d2ca2ef8243e574b17087642d2c6"
+      ],
+      "origin": "Exact member chrome-win/icudtl.dat of official Chromium Win_x64/1718660/chrome-win.zip, SHA256 bf256383a76758519353122d560f9bf260a8a4dc4299461f0aa74c71c8520ff9; source eb240cfb93dd5d77b897a6f0a8e15907ff8f669c",
+      "reason": "All3 matches are public Petropavlovsk-Kamtschatka ICU time-zone translations (UTF16), not provider credentials.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "02a01b3188b6a41a756f7322fdb5e6b5ca6573b327b01dfc8ed662d571a6f769"
+    }
+  ],
+  "components/browsers/chromium-1243/chrome-win64/locales/nl.pak": [
+    {
+      "match_sha256": [
+        "b63a9c3461f66ae4cb07d15db80c07a71a9d3bc89448b651b10009a0fdcd06f5"
+      ],
+      "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
+      "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "7623e55836aa422cf2c83be35a7e3a4e4d41567ecb5a8690a99565df4f81ad2a"
+    },
+    {
+      "match_sha256": [
+        "b63a9c3461f66ae4cb07d15db80c07a71a9d3bc89448b651b10009a0fdcd06f5"
+      ],
+      "origin": "Exact member chrome-win/locales/nl.pak of official Chromium Win_x64/1718660/chrome-win.zip, SHA256 bf256383a76758519353122d560f9bf260a8a4dc4299461f0aa74c71c8520ff9; source eb240cfb93dd5d77b897a6f0a8e15907ff8f669c",
+      "reason": "Single match is public Dutch ChromeOS kiosk-app localization text, not a credential.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "37ae320ce75223020a2d6bf619171238aa91cf942d846284a4e51d3788d271f0"
+    }
+  ],
+  "components/browsers/chromium-1243/chrome-win64/vk_swiftshader.dll": [
+    {
+      "match_sha256": [
+        "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+        "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+        "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+        "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+        "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+        "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+        "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+        "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+        "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+        "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
+      ],
+      "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
+      "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "5a2da21f1ad080d29d6d60e55bfa368a33e69718e3470a293d8a46d3f7e70e8a"
+    },
+    {
+      "match_sha256": [
+        "1de3928a519c62fbf0688317f12243da2cfb6302b8b5f7e6efa1e5afc542c078",
+        "1fe918885bec12b89902a18237942ae6f291bce38357380193057a084761edc2",
+        "2f0dddc1e91cc2c66ba09c52f417c956e263d69d26f8d12c0c5f4cc90c08d613",
+        "3c65b041f89461db8d390211ec95c901663d05deac7ac039bc5c0109e95ce926",
+        "4c6aa93c371dd62aa29141580f6103b59978bc6edd73342e602ee18622dae3cb",
+        "5c106c504fa261dba3bdabbb19b578298d5bca816a96a13a80a8cb08daec2d78",
+        "94c85005eb98828eed66217f905b200cd7678b44ec363bc00839311df2518551",
+        "a0cd2b1892268b8e25e4a69661c001131000a4597b412a2fa3de4686e5cd9256",
+        "c806c94a586117f6367b566ad1447fd7d60d3d2c9b8881cc8b88b1285b981eca",
+        "f3ab69054e83268eabcc4a88c313db39fe49e49abffc7cf30da8cfd19d2f656c"
+      ],
+      "origin": "Exact member chrome-win/vk_swiftshader.dll of official Chromium Win_x64/1718660/chrome-win.zip, SHA256 bf256383a76758519353122d560f9bf260a8a4dc4299461f0aa74c71c8520ff9; source eb240cfb93dd5d77b897a6f0a8e15907ff8f669c",
+      "reason": "All10 matches are public Vulkan Subgroup*Mask VUID validation identifiers, not provider credentials.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "e0db9c8d9a6aa6d27a5a60454f1e20ded2cb6874b622dc7fa46a40623c856dd3"
+    }
+  ],
+  "components/browsers/chromium-1243/chrome-win64/vulkan-1.dll": [
+    {
+      "match_sha256": [
+        "76b519c63ca24a76c7561030611c0e96ee75dcff615f2833470782bfcac9d521"
+      ],
+      "origin": "https://github.com/microsoft/playwright/tree/v1.63.0",
+      "reason": "Byte-identical official revision1243 browser component: Vulkan identifiers, translated locale/timezone names, public documentation URLs or internal upstream VRP demonstration endpoints. Every matched context reviewed.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "0ddf3ef0d813a5e82251ca94c7ca8d1aec5210a209805c7fec910e7686e9e1f6"
+    },
+    {
+      "match_sha256": [
+        "76b519c63ca24a76c7561030611c0e96ee75dcff615f2833470782bfcac9d521"
+      ],
+      "origin": "Exact member chrome-win/vulkan-1.dll of official Chromium Win_x64/1718660/chrome-win.zip, SHA256 bf256383a76758519353122d560f9bf260a8a4dc4299461f0aa74c71c8520ff9; source eb240cfb93dd5d77b897a6f0a8e15907ff8f669c",
+      "reason": "All3 matches are public vkCmd*Mask VUID validation identifiers, not provider credentials.",
+      "rules": [
+        "credential"
+      ],
+      "sha256": "4b13bbf4b38a56a326188b00c94cafdca688fdabe60bada002bf2774ec078898"
+    }
+  ],
   "components/browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell": {
     "archive_sha256": "a9da028861a0cf789ff25c2fed45f5f1aaf969ed9247835b6a7821a4f7af9d1d",
     "match_sha256": [
@@ -1181,6 +1297,28 @@
       "credential"
     ],
     "sha256": "a0e7eea75814708ce5c9b2a83998b14ac1268b70cccc2c22686f4ab585a3aac1"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libgio-2.0.so.0": {
+    "match_sha256": [
+      "dec643eed02d96980d7003df682d77b28a23f90a6d2a0961886c8953c2e8cb4e"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/ (own signed-index COMPONENT-MANIFEST); archive libglib2.0-0t64_2.80.0-6ubuntu3.9_amd64.deb SHA256 a66ef54888a18e20b55dd3988177f6029caa81dc16198c043a715500b62cf06f; exact member ./usr/lib/x86_64-linux-gnu/libgio-2.0.so.0.8000.0",
+    "reason": "Single public GIO ENCRYPTED PRIVATE KEY format marker followed by NUL and parser error text; no key body. Alias and real file are the same exact official Ubuntu package member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "d72a56593ae024d868cb7b494f7e48c76e90e4ced9498ab4da2eb3bece85bda3"
+  },
+  "components/ocr/usr/lib/x86_64-linux-gnu/libgio-2.0.so.0.8000.0": {
+    "match_sha256": [
+      "dec643eed02d96980d7003df682d77b28a23f90a6d2a0961886c8953c2e8cb4e"
+    ],
+    "origin": "https://archive.ubuntu.com/ubuntu/ (own signed-index COMPONENT-MANIFEST); archive libglib2.0-0t64_2.80.0-6ubuntu3.9_amd64.deb SHA256 a66ef54888a18e20b55dd3988177f6029caa81dc16198c043a715500b62cf06f; exact member ./usr/lib/x86_64-linux-gnu/libgio-2.0.so.0.8000.0",
+    "reason": "Single public GIO ENCRYPTED PRIVATE KEY format marker followed by NUL and parser error text; no key body. Alias and real file are the same exact official Ubuntu package member.",
+    "rules": [
+      "credential"
+    ],
+    "sha256": "d72a56593ae024d868cb7b494f7e48c76e90e4ced9498ab4da2eb3bece85bda3"
   },
   "components/ocr/usr/lib/x86_64-linux-gnu/libgnutls.so.30": {
     "archive_sha256": "b8944756260c5ea6b7fac019745f931f905aa7a4df0763676b1b25c911b692e2",

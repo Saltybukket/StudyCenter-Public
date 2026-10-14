@@ -7,8 +7,19 @@ import sys
 import pytest
 
 
+@pytest.fixture
+def frozen_program(tmp_path, monkeypatch):
+    program = tmp_path / 'owned-public-program'
+    program.mkdir()
+    executable = program / 'StudyCenter-Public.exe'
+    executable.write_bytes(b'Synthetic frozen executable fixture')
+    monkeypatch.setattr(sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(sys, 'executable', str(executable))
+    return executable
+
+
 @pytest.mark.parametrize('location', ['data', 'cache', 'hub'])
-def test_frozen_hook_rejects_redirected_cache_before_assigning_library_paths(tmp_path, monkeypatch, location):
+def test_frozen_hook_rejects_redirected_cache_before_assigning_library_paths(tmp_path, monkeypatch, location, frozen_program):
     foreign = tmp_path / 'unrelated-fixture'
     foreign.mkdir()
     sentinel = foreign / 'sentinel.txt'
@@ -39,7 +50,7 @@ def test_frozen_hook_rejects_redirected_cache_before_assigning_library_paths(tmp
     assert sentinel.read_text(encoding='utf-8') == 'Synthetic unrelated content'
 
 
-def test_frozen_hook_rejects_unowned_nonempty_data_before_library_cache(tmp_path, monkeypatch):
+def test_frozen_hook_rejects_unowned_nonempty_data_before_library_cache(tmp_path, monkeypatch, frozen_program):
     foreign = tmp_path / 'unrelated-fixture'
     foreign.mkdir()
     sentinel = foreign / 'sentinel.txt'
