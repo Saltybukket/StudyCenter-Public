@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studycenter-public"
+version = "0.1.0b1"
+description = "Local study organisation with source evidence"
+requires-python = ">=3.12"
+license = "AGPL-3.0-only"
+dependencies = [
+  "fastapi==0.143.0", "uvicorn==0.54.0", "jinja2==3.1.6", "httpx==0.28.1",
+  "beautifulsoup4==4.15.0", "pymupdf==1.28.2", "playwright==1.63.0",
+  "python-multipart==0.0.32", "portalocker==4.4.0", "tzdata==2026.5",
+  "pydantic==2.14.0", "pyjwt[crypto]==2.15.1", "keyring==25.7.0",
+  "jsonschema==4.26.0", "starlette==1.8.0",
+  "pystray==0.19.5; sys_platform == 'win32'",
+  "pillow==12.3.0", "pywebview==6.2.1; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+speech = ["faster-whisper==1.2.1"]
+dev = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "pyinstaller==6.22.3", "detect-secrets==1.5.0"]
+
+[project.scripts]
+studycenter-public = "studycenter_public.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+studycenter_public = ["web/templates/*.html", "web/static/*", "web/static/vendor/*", "resources/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]

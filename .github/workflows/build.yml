@@ -1,0 +1,85 @@
+name: Public tests and native build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    env:
+      PIP_NO_CACHE_DIR: '1'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/build/browser-runtime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Isolated Python environment
+        shell: bash
+        run: |
+          python -m venv .venv
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "TASK_PYTHON=$GITHUB_WORKSPACE/.venv/Scripts/python.exe" >> "$GITHUB_ENV"
+          else
+            echo "TASK_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+          fi
+      - name: Install locked public dependencies in own environment
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$TASK_PYTHON" -m pip install -r requirements-windows.lock
+          else
+            "$TASK_PYTHON" -m pip install -r requirements-linux.lock
+          fi
+          "$TASK_PYTHON" -m pip install --no-deps -e .
+      - name: Unit and local protocol tests
+        shell: bash
+        run: '"$TASK_PYTHON" -m pytest -q'
+      - name: Download own official browser components
+        shell: bash
+        run: '"$TASK_PYTHON" -m playwright install chromium'
+      - name: Extract fresh portable Windows OCR
+        if: runner.os == 'Windows'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/build_windows_ocr.py --output build/windows-ocr'
+      - name: Extract portable Linux OCR
+        if: runner.os == 'Linux'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/build_linux_ocr.py --output build/linux-ocr'
+      - name: Freeze Windows bundle
+        if: runner.os == 'Windows'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/browser-runtime --source-commit "$GITHUB_SHA"'
+      - name: Freeze Linux bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/browser-runtime --source-commit "$GITHUB_SHA"'
+      - name: Synthetic Windows package smoke
+        if: runner.os == 'Windows'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/smoke_release.py dist/windows/StudyCenter-Public/StudyCenter-Public.exe --output build/smoke'
+      - name: Synthetic Linux package smoke
+        if: runner.os == 'Linux'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/smoke_release.py dist/linux/StudyCenter-Public/StudyCenter-Public --output build/smoke'
+      - name: Installer lifecycle in disposable Windows runner only
+        if: runner.os == 'Windows'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/smoke_installer_vm.py'
+      - name: Inspect unpacked bundle
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$TASK_PYTHON" scripts/package_audit.py dist/windows/StudyCenter-Public/StudyCenter-Public.exe
+            "$TASK_PYTHON" scripts/check_public.py --artifact dist/windows/StudyCenter-Public --artifact-reviews scripts/artifact_reviews.json
+          else
+            "$TASK_PYTHON" scripts/package_audit.py dist/linux/StudyCenter-Public/StudyCenter-Public
+            "$TASK_PYTHON" scripts/check_public.py --artifact dist/linux/StudyCenter-Public --artifact-reviews scripts/artifact_reviews.json
+          fi
+      # Deliberately no Actions cache, artifact storage, release or upload steps.
