@@ -1,0 +1,66 @@
+name: Exact candidate installer in disposable Windows VM
+on:
+  workflow_dispatch:
+    inputs:
+      installer_sha256:
+        description: Expected SHA256 of the own unpublished candidate installer
+        required: true
+        type: string
+      source_git_sha:
+        description: Expected immutable build source recorded inside the candidate
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify-candidate:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PIP_NO_CACHE_DIR: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Own controller environment
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          & .venv/Scripts/python.exe -m pip install -r requirements-windows.lock
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & .venv/Scripts/python.exe -m pip install --no-deps -e .
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Download and bind own unpublished candidate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_INSTALLER_SHA256: ${{ inputs.installer_sha256 }}
+          EXPECTED_SOURCE_GIT_SHA: ${{ inputs.source_git_sha }}
+        run: |
+          if ($env:EXPECTED_INSTALLER_SHA256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Invalid expected installer checksum' }
+          if ($env:EXPECTED_SOURCE_GIT_SHA -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid expected build source' }
+          $release = gh release view v0.1.0-beta.1 --repo $env:GITHUB_REPOSITORY --json isDraft,assets | ConvertFrom-Json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (-not $release.isDraft) { throw 'This probe accepts only the own unpublished draft candidate' }
+          $expectedName = 'studycenter-public-0.1.0b1-windows-x86_64-setup.exe'
+          $assets = @($release.assets | Where-Object { $_.name -eq $expectedName })
+          if ($assets.Count -ne 1) { throw 'Own candidate asset is missing or ambiguous' }
+          $candidate = Join-Path $env:RUNNER_TEMP 'StudyCenter-Public-candidate'
+          New-Item -ItemType Directory -Path $candidate | Out-Null
+          gh release download v0.1.0-beta.1 --repo $env:GITHUB_REPOSITORY --pattern $expectedName --dir $candidate
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $installer = Join-Path $candidate $expectedName
+          $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $env:EXPECTED_INSTALLER_SHA256) { throw 'Candidate installer checksum differs' }
+          "CANDIDATE_INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "EXPECTED_BUILD_SOURCE=$env:EXPECTED_SOURCE_GIT_SHA" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Output "Own candidate SHA256 verified: $actual"
+      - name: Exact installer lifecycle and installed package smoke
+        shell: pwsh
+        run: |
+          & .venv/Scripts/python.exe scripts/smoke_installer_vm.py --installer $env:CANDIDATE_INSTALLER --expected-source $env:EXPECTED_BUILD_SOURCE
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # No cache, artifact storage or publication. The VM is discarded after the job.

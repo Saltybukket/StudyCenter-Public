@@ -29,7 +29,7 @@ def compiler():
     raise RuntimeError('Runner has no preinstalled Inno compiler; no installer/tool bootstrap is performed')
 
 
-def run(installer=None):
+def run(installer=None,expected_source=None):
     temporary=require_disposable_runner()
     from smoke_release import smoke
     import winreg
@@ -114,6 +114,17 @@ def run(installer=None):
     install('first-install')
     executable=program/'StudyCenter-Public.exe'
     if not executable.is_file():raise RuntimeError('Installer did not create the own application executable')
+    manifest=json.loads((program/'BUILD-MANIFEST.json').read_text())
+    if expected_source is not None and manifest.get('source_git_sha')!=expected_source:
+        raise RuntimeError('Installed candidate does not have the expected immutable build source')
+    import hashlib
+    for name,record in manifest['files'].items():
+        file=program/name
+        if not file.resolve().is_relative_to(program.resolve()) or file.is_symlink():
+            raise RuntimeError('Installed manifest member escapes the own program')
+        with file.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+        if file.stat().st_size!=record['size'] or digest!=record['sha256']:
+            raise RuntimeError('Installed candidate differs from its build manifest: '+name)
     smoke(executable,root/'First installed smoke')
     subprocess.run([str(executable),'--self-test','--data-dir',str(data),'--no-browser'],check=True,timeout=60)
     before=json.loads((data/'instance.json').read_text());database=(data/'studycenter-public.sqlite3').read_bytes()
@@ -149,10 +160,11 @@ def run(installer=None):
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,registry):raise RuntimeError('Own uninstall registration remains after uninstall')
     except FileNotFoundError:pass
-    result={'installer_install':True,'foreign_marker_refused_without_writes':True,'foreign_program_refused_without_exec_or_overwrite':True,'reparse_ancestors_refused_without_writes':True,'installed_smoke':True,'update_preserves_identity_database':True,'backup_before_update':True,'uninstall_retains_data':True,'own_shortcuts_removed':True,'environment':'ephemeral GitHub windows-2022 runner','windows10_live':False,'windows11_live':False}
+    with Path(installer).open('rb') as stream:installer_sha=hashlib.file_digest(stream,'sha256').hexdigest()
+    result={'installer_sha256':installer_sha,'source_git_sha':manifest.get('source_git_sha'),'installed_manifest_files_verified':len(manifest['files']),'installer_install':True,'foreign_marker_refused_without_writes':True,'foreign_program_refused_without_exec_or_overwrite':True,'reparse_ancestors_refused_without_writes':True,'installed_smoke':True,'update_preserves_identity_database':True,'backup_before_update':True,'uninstall_retains_data':True,'own_shortcuts_removed':True,'environment':'ephemeral GitHub windows-2022 runner','windows10_live':False,'windows11_live':False}
     (root/'installer-vm-result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result));return result
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--installer',type=Path)
-    run(parser.parse_args().installer)
+    parser=argparse.ArgumentParser();parser.add_argument('--installer',type=Path);parser.add_argument('--expected-source')
+    args=parser.parse_args();run(args.installer,args.expected_source)

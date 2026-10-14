@@ -17,6 +17,8 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/build/browser-runtime
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -68,6 +70,15 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
+      - name: Read-only Linux sandbox prerequisites
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          for parameter in kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone user.max_user_namespaces; do
+            sysctl "$parameter" || true
+          done
+          unshare --user --map-root-user /usr/bin/true && echo 'Own user namespace probe: allowed' || echo 'Own user namespace probe: refused'
+          sudo journalctl --kernel --no-pager -n 100 | rg 'apparmor|userns' || true
       - name: Synthetic Windows package smoke
         if: runner.os == 'Windows'
         shell: bash

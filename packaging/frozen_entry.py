@@ -1,5 +1,13 @@
 """Frozen entry calls the same application main in process."""
-from studycenter_public.__main__ import main
+
+
+def show_startup_error(message):
+    import sys
+    print('StudyCenter-Public: '+message,file=sys.stderr)
+    quiet={'--no-browser','--self-test','--component-test','--quit'}
+    if sys.platform=='win32' and getattr(sys,'frozen',False) and not quiet.intersection(sys.argv[1:]):
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None,message,'StudyCenter-Public: Start nicht möglich',0x10)
 
 
 def browser_launch_options(channel,paths=None):
@@ -56,9 +64,14 @@ def component_check(argv):
     browser_temporary.cleanup()
     return 0
 
-if __name__ == '__main__':
+def execute():
     import sys
+    refused=getattr(sys,'_studycenter_startup_error',None)
+    if refused is not None:
+        show_startup_error(str(refused))
+        return 2
     try:
+        from studycenter_public.__main__ import main
         result=component_check(sys.argv[1:]) if '--component-test' in sys.argv else main()
     except Exception:
         from pathlib import Path
@@ -74,4 +87,8 @@ if __name__ == '__main__':
                 except Exception:
                     print(diagnostic,file=sys.stderr)
         result=1
-    raise SystemExit(result)
+    return result
+
+
+if __name__ == '__main__':
+    raise SystemExit(execute())

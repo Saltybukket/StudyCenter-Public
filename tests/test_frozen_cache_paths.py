@@ -15,6 +15,7 @@ def frozen_program(tmp_path, monkeypatch):
     executable.write_bytes(b'Synthetic frozen executable fixture')
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     monkeypatch.setattr(sys, 'executable', str(executable))
+    monkeypatch.setattr(sys, '_studycenter_startup_error', None, raising=False)
     return executable
 
 
@@ -42,8 +43,9 @@ def test_frozen_hook_rejects_redirected_cache_before_assigning_library_paths(tmp
         monkeypatch.setenv(name, 'synthetic-preserved-value')
     monkeypatch.setattr(sys, 'argv', ['synthetic-public-app', '--data-dir', str(data)])
     hook = Path(__file__).resolve().parents[1] / 'packaging/runtime_hook.py'
-    with pytest.raises(ValueError, match='Reparse|Verknüpfung'):
-        runpy.run_path(str(hook))
+    runpy.run_path(str(hook))
+    assert isinstance(sys._studycenter_startup_error, ValueError)
+    assert 'Reparse' in str(sys._studycenter_startup_error) or 'Verknüpfung' in str(sys._studycenter_startup_error)
     assert os.environ['HF_HOME'] == 'synthetic-preserved-value'
     assert os.environ['HF_HUB_CACHE'] == 'synthetic-preserved-value'
     assert list(foreign.iterdir()) == [sentinel]
@@ -60,8 +62,9 @@ def test_frozen_hook_rejects_unowned_nonempty_data_before_library_cache(tmp_path
         monkeypatch.setenv(name, 'synthetic-preserved-value')
     monkeypatch.setattr(sys, 'argv', ['synthetic-public-app', '--data-dir', str(foreign)])
     hook = Path(__file__).resolve().parents[1] / 'packaging/runtime_hook.py'
-    with pytest.raises(ValueError, match='Public|Ordner'):
-        runpy.run_path(str(hook))
+    runpy.run_path(str(hook))
+    assert isinstance(sys._studycenter_startup_error, ValueError)
+    assert 'Public' in str(sys._studycenter_startup_error) or 'Ordner' in str(sys._studycenter_startup_error)
     assert os.environ['HF_HOME'] == 'synthetic-preserved-value'
     assert list(foreign.iterdir()) == [sentinel]
 
