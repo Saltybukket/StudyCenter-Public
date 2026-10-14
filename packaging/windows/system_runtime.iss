@@ -39,8 +39,18 @@ begin
   end;
   RaiseException('Invalid system PE export name');
 end;
+function RuntimeCompareASCII(Left, Right: String): Integer;
+var I, Count: Integer;
+begin
+  Count := Length(Left); if Length(Right) < Count then Count := Length(Right);
+  for I := 1 to Count do begin
+    Result := Ord(Left[I]) - Ord(Right[I]); if Result <> 0 then exit;
+  end;
+  Result := Length(Left) - Length(Right);
+end;
 function RuntimeHasExport(const Image: AnsiString; Symbol: String): Boolean;
-var PE, Directory, Functions, Names, Ordinals, I, OrdinalIndex, Index: Integer;
+var PE, Directory, Functions, Names, Ordinals, OrdinalIndex, Index, Low, High, Middle, Comparison: Integer;
+  ExportName: String;
   Count, NameCount, Base: LongWord;
 begin
   Result := False;
@@ -64,12 +74,19 @@ begin
   if NameCount = 0 then exit;
   Names := RuntimeOffset(Image, PE, RuntimeU32(Image, Directory + 32));
   Ordinals := RuntimeOffset(Image, PE, RuntimeU32(Image, Directory + 36));
-  for I := 0 to NameCount - 1 do begin
-    if RuntimeASCII(Image, RuntimeOffset(Image, PE, RuntimeU32(Image, Names + I * 4))) = Symbol then begin
-      OrdinalIndex := RuntimeU16(Image, Ordinals + I * 2);
+  { The PE export name pointer table is sorted by bytewise ASCII name.
+    Binary search preserves exact case, bounds and ordinal checks. }
+  Low := 0; High := NameCount - 1;
+  while Low <= High do begin
+    Middle := Low + (High - Low) div 2;
+    ExportName := RuntimeASCII(Image, RuntimeOffset(Image, PE, RuntimeU32(Image, Names + Middle * 4)));
+    Comparison := RuntimeCompareASCII(ExportName, Symbol);
+    if Comparison = 0 then begin
+      OrdinalIndex := RuntimeU16(Image, Ordinals + Middle * 2);
       if LongWord(OrdinalIndex) >= Count then exit;
       Result := RuntimeU32(Image, Functions + OrdinalIndex * 4) <> 0; exit;
     end;
+    if Comparison < 0 then Low := Middle + 1 else High := Middle - 1;
   end;
 end;
 function SystemRuntimeProblem: String;
@@ -77,6 +94,7 @@ var Remaining, Line, Name, Symbol, Previous, Path: String; Image: AnsiString;
   Cut, Separator: Integer; VersionMS, VersionLS: Cardinal;
 begin
   Result := ''; Remaining := SystemRuntimeRequirements; Previous := '';
+  Log('System runtime prerequisite: begin');
   try
     while Remaining <> '' do begin
       Cut := Pos(#10, Remaining);
@@ -87,6 +105,7 @@ begin
       Name := Copy(Line, 1, Separator - 1); Symbol := Copy(Line, Separator + 1, Length(Line));
       if (Pos('\', Name) <> 0) or (Pos('/', Name) <> 0) or (Pos(':', Name) <> 0) or (Pos('..', Name) <> 0) then RaiseException('Invalid system library name');
       if Name <> Previous then begin
+        Log('System runtime prerequisite library: ' + Name);
         { Setup is explicitly x86 on both compiler versions. Sysnative reaches
           the authoritative x64 System32 without changing redirection state. }
         Path := ExpandConstant('{sysnative}\') + Name;
@@ -98,6 +117,7 @@ begin
       end;
       if not RuntimeHasExport(Image, Symbol) then RaiseException('System library lacks a required x64 export: ' + Name + ' / ' + Symbol);
     end;
+    Log('System runtime prerequisite: complete');
   except
     Result := 'StudyCenter-Public requires an already installed compatible Microsoft Visual C++ V14 x64 runtime and Windows 10/11 system libraries. ' + GetExceptionMessage + #13#10 +
       'Visual Studio is not required. No runtime is installed or changed by this setup. See QUICKSTART.md and the official Microsoft runtime download: https://aka.ms/vc14/vc_redist.x64.exe';

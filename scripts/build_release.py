@@ -10,11 +10,20 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import tomllib
 
 ROOT=Path(__file__).resolve().parents[1]
 APP='StudyCenter-Public'
 NOTICE_COMPLETION_FILE=ROOT/'packaging'/'component-notices.json'
+PACKAGE_DEFINITIONS=(
+    'packaging/frozen_entry.py','packaging/runtime_hook.py','packaging/component-notices.json',
+    'packaging/linux/start.sh','packaging/linux/install-desktop.sh','packaging/linux/desktop-install.c',
+    'packaging/windows/installer.iss','packaging/windows/system_runtime.iss',
+    'scripts/build_release.py','scripts/package_windows_runtime.py','scripts/package_linux_desktop.py',
+    'scripts/build_browser_runtime.py','scripts/build_windows_ocr.py','scripts/build_linux_ocr.py',
+    'README.md','LICENSE','pyproject.toml','requirements-windows.lock','requirements-linux.lock',
+)
 
 
 def build_environment(platform, vc_dir=None):
@@ -54,23 +63,43 @@ def file_hash(path):
 
 
 def ensure_source_inputs_unchanged(snapshot):
-    if any(not path.is_file() or file_hash(path)!=digest for path,digest in snapshot.items()):
+    if set(source_members())!=set(snapshot) or any(not path.is_file() or file_hash(path)!=digest for path,digest in snapshot.items()):
         raise ValueError('Application source inputs changed during freeze; discard candidate and rebuild from a new checkpoint')
 
 
-def source_inputs(source_commit):
+def source_members():
     inputs=[path for path in (ROOT/'src'/'studycenter_public').rglob('*') if path.is_file() and '__pycache__' not in path.parts and path.suffix not in {'.pyc','.pyo'}]
-    inputs += [ROOT/'packaging'/'frozen_entry.py',ROOT/'packaging'/'runtime_hook.py',NOTICE_COMPLETION_FILE]
+    inputs += [ROOT/name for name in PACKAGE_DEFINITIONS]
+    return inputs
+
+
+def source_inputs(source_commit):
+    inputs=source_members()
+    checked_paths=['src/studycenter_public',*PACKAGE_DEFINITIONS]
     if source_commit:
         actual=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         if actual!=source_commit:raise ValueError('Build source commit differs from checkout HEAD')
-        changed=subprocess.check_output(['git','-C',str(ROOT),'diff',source_commit,'--name-only','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py','packaging/component-notices.json'],text=True).splitlines()
+        changed=subprocess.check_output(['git','-C',str(ROOT),'diff',source_commit,'--name-only','--',*checked_paths],text=True).splitlines()
         if changed:
             raise ValueError('Application source differs from the committed checkpoint')
-        untracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','--others','--exclude-standard','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py','packaging/component-notices.json'],text=True).splitlines()
+        untracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','--others','--exclude-standard','--',*checked_paths],text=True).splitlines()
         if any('__pycache__' not in Path(name).parts and Path(name).suffix not in {'.pyc','.pyo'} for name in untracked):
             raise ValueError('Untracked application source is outside the committed checkpoint')
     return {path:file_hash(path) for path in inputs}
+
+
+def stage_linux_desktop(bundle,environment):
+    try:from .package_linux_desktop import prepare
+    except ImportError:from package_linux_desktop import prepare
+    compiler=shutil.which('cc',path=environment['PATH'])
+    if not compiler:raise RuntimeError('Existing Linux C compiler unavailable; no installation attempted')
+    staging_root=ROOT/'build';staging_root.mkdir(parents=True,exist_ok=True)
+    stage=Path(tempfile.mkdtemp(prefix='linux-desktop-',dir=staging_root))
+    prepare(stage,compiler=compiler)
+    for name in ('desktop-install','install-desktop.sh','DESKTOP-INSTALL-RECIPE.json'):
+        shutil.copy2(stage/name,bundle/name)
+    for name in ('desktop-install','install-desktop.sh'):(bundle/name).chmod(0o755)
+    return stage
 
 
 def write_manifest(bundle,version,source_commit=None):
@@ -88,6 +117,7 @@ def write_manifest(bundle,version,source_commit=None):
             source_files[path.relative_to(ROOT).as_posix()]=file_hash(path)
     source_fingerprint=hashlib.sha256(json.dumps(source_files,sort_keys=True,separators=(',',':')).encode()).hexdigest()
     manifest={'application':APP,'version':version,'platform':sys.platform,'python':sys.version.split()[0],'source_tree_sha256':source_fingerprint,'source_files':source_files,'files':files}
+    manifest['package_definitions']={name:file_hash(ROOT/name) for name in PACKAGE_DEFINITIONS}
     if source_commit:
         actual=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
         if source_commit!=actual:raise ValueError('Build source commit differs from checkout HEAD')
@@ -271,8 +301,8 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=Non
     for filename in ('README.md','LICENSE'):
         shutil.copy2(ROOT/filename,bundle/filename)
     if sys.platform!='win32':
-        for filename in ('start.sh','install-desktop.sh'):
-            shutil.copy2(ROOT/'packaging'/'linux'/filename,bundle/filename);(bundle/filename).chmod(0o755)
+        shutil.copy2(ROOT/'packaging'/'linux'/'start.sh',bundle/'start.sh');(bundle/'start.sh').chmod(0o755)
+        stage_linux_desktop(bundle,environment)
     ensure_source_inputs_unchanged(snapshot)
     strip_build_artifacts(bundle)
     if sys.platform=='win32':
@@ -281,10 +311,12 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=Non
         prepare(bundle,ROOT/'build'/'tools'/'downloads')
     collect_licenses(bundle);copy_license_materials(bundle,allow_missing=allow_missing_component_notices)
     if not allow_missing_component_notices:validate_component_notices(bundle)
+    ensure_source_inputs_unchanged(snapshot)
     write_manifest(bundle,version,source_commit)
     if sys.platform=='win32' and iscc:
         subprocess.run([str(iscc),'/DAppVersion='+version,'/DBundleDir='+str(bundle),'/DOutputDir='+str(destination),str(ROOT/'packaging'/'windows'/'installer.iss')],check=True)
     elif sys.platform!='win32':archive_linux(bundle,destination,version)
+    ensure_source_inputs_unchanged(snapshot)
     print(json.dumps({'bundle':str(bundle),'version':version,'platform':platform}))
     return bundle
 

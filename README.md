@@ -19,6 +19,14 @@ Startmenü und Tray; Autostart ist freiwillig. Linux verwendet dieselbe Oberflä
 im Standardbrowser und wird auf Ubuntu 24.04 x64 geprüft. Den tatsächlichen
 Plattformteststand und offene Abschlussprüfungen beschreibt [PLAN](docs/PLAN.md).
 
+Unter Linux sind Oberfläche im Systembrowser und automatisierter Quellenbrowser
+getrennte Funktionen. Ubuntu kann den mitgelieferten Quellenbrowser durch seine
+AppArmor-Regeln blockieren. Bei dieser Restriktion kann StudyCenter vorhandenes,
+rootverwaltetes Chrome unter seinem bestehenden Systemprofil verwenden, mit
+einem eigenen Public-Browserprofil. Fehlt diese Möglichkeit, bleiben eigene
+Einträge, Dateiimport und Dokumentleser verfügbar. StudyCenter installiert keine
+AppArmor-Ausnahmen und startet Chromium nicht ohne Sandbox.
+
 Windows benötigt eine vorhandene **Microsoft Visual C++ v14 Runtime (x64)**.
 Der Setup prüft diese Voraussetzung und verweist bei fehlender Runtime auf den
 [offiziellen Microsoft-Download](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).

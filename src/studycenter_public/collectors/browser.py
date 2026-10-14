@@ -1,6 +1,8 @@
 """Own installation profile and explicit visible institutional login."""
 import asyncio
 import os
+import stat
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +17,44 @@ SERVICE_URLS = {'teachcenter': 'https://tc.tugraz.at/main/my/',
                 'tugrazonline': 'https://online.tugraz.at/tug_online/',
                 'webmail': 'https://webmail.tugraz.at/imp/dynamic.php?page=mailbox'}
 INSTITUTION_HOSTS = {'tc.tugraz.at', 'online.tugraz.at', 'webmail.tugraz.at', 'sso.tugraz.at', 'idp.tugraz.at', 'auth.tugraz.at', 'www.tugraz.at'}
+APPARMOR_USERNS_RESTRICTION = Path('/proc/sys/kernel/apparmor_restrict_unprivileged_userns')
+SYSTEM_CHROME = Path('/opt/google/chrome/chrome')
+
+
+def _program_info(path_or_fd):
+    return os.fstat(path_or_fd) if isinstance(path_or_fd, int) else Path(path_or_fd).lstat()
+
+
+def _root_owned(info, directory=False):
+    expected_type = stat.S_ISDIR if directory else stat.S_ISREG
+    return (expected_type(info.st_mode) and info.st_uid == 0 and
+            not info.st_mode & (stat.S_IWGRP | stat.S_IWOTH))
+
+
+def linux_system_chrome():
+    """Only the fixed existing system executable; never discover user profiles."""
+    if sys.platform != 'linux':
+        return None
+    try:
+        with APPARMOR_USERNS_RESTRICTION.open('rb') as restriction:
+            value = restriction.read(17)
+            if len(value) > 16 or value.strip() != b'1':
+                return None
+        path = SYSTEM_CHROME
+        for parent in (path.parent, *path.parent.parents):
+            if not _root_owned(_program_info(parent), directory=True):
+                return None
+        if not _root_owned(_program_info(path)):
+            return None
+        flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_CLOEXEC', 0) | getattr(os, 'O_NONBLOCK', 0)
+        with os.fdopen(os.open(path, flags), 'rb') as executable:
+            info = _program_info(executable.fileno())
+            if (not _root_owned(info) or info.st_mode & (stat.S_ISUID | stat.S_ISGID) or
+                    not info.st_mode & 0o111 or executable.read(4) != b'\x7fELF'):
+                return None
+        return str(path)
+    except (OSError, ValueError):
+        return None
 
 
 class BrowserUnavailable(RuntimeError):
@@ -43,19 +83,30 @@ class BrowserManager:
         self.context = None
         self.playwright = None
         self.visible = False
+        self.using_system_chrome = False
         self.lock = asyncio.Lock()
         self._allowed_hosts = set()
 
     async def _launch(self, visible):
         await self._close_context()
-        from ..platform.components import configure_browser_runtime
-        configure_browser_runtime(self.paths)
+        system_chrome = linux_system_chrome()
+        self.using_system_chrome = bool(system_chrome)
+        self.profile = Path(self.paths.profiles) / ('tu-browser-system-chrome' if system_chrome else 'tu-browser')
+        if not system_chrome:
+            from ..platform.components import configure_browser_runtime
+            configure_browser_runtime(self.paths)
         owned_path(self.paths.profiles,self.paths.data)
         owned_path(self.profile,self.paths.profiles)
         self.profile.mkdir(parents=True, exist_ok=True)
         restrict_permissions(self.profile)
         reject_links(self.paths.cache)
-        environment = os.environ.copy()
+        if system_chrome:
+            from ..desktop.browser import external_browser_environment
+            environment = external_browser_environment()
+        else:
+            environment = os.environ.copy()
+        environment.pop('CHROME_DEVEL_SANDBOX', None)
+        environment.pop('LD_PRELOAD', None)
         for variable, directory in (
             ('XDG_CONFIG_HOME', 'browser-xdg-config'),
             ('XDG_CACHE_HOME', 'browser-xdg-cache'),
@@ -83,9 +134,10 @@ class BrowserManager:
             self.playwright = await async_playwright().start()
             # Default headless Chromium uses Playwright's dedicated Headless Shell.
             # Setting channel='chromium' would select the full browser instead.
+            selection = {'executable_path': system_chrome} if system_chrome else {}
             self.context = await self.playwright.chromium.launch_persistent_context(
                 str(self.profile), headless=not visible, chromium_sandbox=True, accept_downloads=True,
-                env=environment,
+                env=environment, **selection,
                 args=['--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
             self.visible = visible
             if not visible:
@@ -95,6 +147,8 @@ class BrowserManager:
             await self._close_context()
             if isinstance(error, BrowserUnavailable):
                 raise
+            if sys.platform == 'linux':
+                raise BrowserUnavailable('TU-Quellenbrowser unter Linux derzeit nicht verfügbar. Die lokale Oberfläche, Dokumente und manuelle Importe bleiben nutzbar. Die Browsersandbox wird nicht abgeschaltet.') from None
             raise BrowserUnavailable('Eigener Browser nicht verfügbar; Chromium und Chromium Headless Shell für diese Installation installieren. Kein anderer Browser wird verwendet.') from None
 
     async def _readonly_route(self, route):
@@ -120,7 +174,9 @@ class BrowserManager:
             context = await self._launch(True)
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(url, wait_until='domcontentloaded', timeout=35000)
-            return {'visible': True, 'service': service, 'message': 'Im eigenen Browser anmelden; danach manuell synchronisieren.'}
+            message = ('Im vorhandenen System-Chrome mit eigenem Public-Profil tu-browser-system-chrome anmelden; danach manuell synchronisieren.'
+                       if self.using_system_chrome else 'Im eigenen Browser anmelden; danach manuell synchronisieren.')
+            return {'visible': True, 'service': service, 'message': message}
 
     @asynccontextmanager
     async def session(self):

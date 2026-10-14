@@ -1,0 +1,86 @@
+name: Existing Linux system browser in disposable VM
+on:
+  workflow_dispatch:
+    inputs:
+      package_sha256:
+        description: Optional exact own draft Linux archive SHA256; supply all three bindings together
+        required: false
+        type: string
+      executable_sha256:
+        description: Optional exact Linux executable SHA256
+        required: false
+        type: string
+      source_git_sha:
+        description: Optional immutable source recorded inside that archive
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  existing-system-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PIP_NO_CACHE_DIR: '1'
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Own locked controller environment
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/StudyCenter-Public-system-browser-venv"
+          controller="$RUNNER_TEMP/StudyCenter-Public-system-browser-venv/bin/python"
+          "$controller" -m pip install -r requirements-linux.lock
+          "$controller" -m pip install --no-deps --no-build-isolation -e .
+          printf 'SYSTEM_BROWSER_PYTHON=%s\n' "$controller" >> "$GITHUB_ENV"
+      - name: Optional exact own draft Linux package
+        if: inputs.package_sha256 != '' || inputs.executable_sha256 != '' || inputs.source_git_sha != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_PACKAGE_SHA256: ${{ inputs.package_sha256 }}
+          EXPECTED_EXECUTABLE_SHA256: ${{ inputs.executable_sha256 }}
+          EXPECTED_SOURCE_GIT_SHA: ${{ inputs.source_git_sha }}
+        run: |
+          "$SYSTEM_BROWSER_PYTHON" - <<'PY'
+          import hashlib, json, os, pathlib, re, subprocess, tarfile
+          for name, length in [('EXPECTED_PACKAGE_SHA256',64),('EXPECTED_EXECUTABLE_SHA256',64),('EXPECTED_SOURCE_GIT_SHA',40)]:
+              if not re.fullmatch('[0-9a-f]{'+str(length)+'}',os.environ.get(name,'')):
+                  raise ValueError('All exact candidate bindings are required')
+          repository=os.environ['GITHUB_REPOSITORY']
+          release=json.loads(subprocess.check_output(['gh','release','view','v0.1.0-beta.1','--repo',repository,'--json','isDraft,assets']))
+          name='studycenter-public-0.1.0b1-linux-x86_64.tar.gz'
+          if not release['isDraft'] or sum(asset['name']==name for asset in release['assets'])!=1:
+              raise ValueError('Own unpublished draft candidate missing or ambiguous')
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'StudyCenter-Public-exact-linux'
+          root.mkdir(mode=0o700,exist_ok=False)
+          subprocess.run(['gh','release','download','v0.1.0-beta.1','--repo',repository,'--pattern',name,'--dir',str(root)],check=True)
+          archive=root/name
+          with archive.open('rb') as stream:
+              if hashlib.file_digest(stream,'sha256').hexdigest()!=os.environ['EXPECTED_PACKAGE_SHA256']:
+                  raise ValueError('Own archive checksum mismatch')
+          package=root/'package';package.mkdir(mode=0o700)
+          with tarfile.open(archive) as stream:
+              members=stream.getmembers()
+              if len(members)>10000 or sum(member.size for member in members)>16*1024**3:
+                  raise ValueError('Own package exceeds extraction bounds')
+              stream.extractall(package,members=members,filter='data')
+          executable=package/'StudyCenter-Public/StudyCenter-Public'
+          with pathlib.Path(os.environ['GITHUB_ENV']).open('a') as output:
+              output.write('EXACT_LINUX_EXECUTABLE='+str(executable)+'\n')
+          print('Own draft archive checksum verified; executable/source verification follows in guarded probe')
+          PY
+      - name: Existing browser and own XDG UI probe
+        shell: bash
+        env:
+          EXPECTED_EXECUTABLE_SHA256: ${{ inputs.executable_sha256 }}
+          EXPECTED_SOURCE_GIT_SHA: ${{ inputs.source_git_sha }}
+        run: |
+          if [ -n "${EXACT_LINUX_EXECUTABLE:-}" ]; then
+            "$SYSTEM_BROWSER_PYTHON" scripts/smoke_system_browser_vm.py --executable "$EXACT_LINUX_EXECUTABLE" --expected-source "$EXPECTED_SOURCE_GIT_SHA" --expected-executable-sha256 "$EXPECTED_EXECUTABLE_SHA256"
+          else
+            "$SYSTEM_BROWSER_PYTHON" scripts/smoke_system_browser_vm.py
+          fi
+      # No browser/system installation, policy change, cache, upload or publication.

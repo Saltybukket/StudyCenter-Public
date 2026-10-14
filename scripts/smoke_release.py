@@ -46,7 +46,27 @@ def run_component_diagnostic(command, data, environment):
         raise
 
 
-def smoke(executable,output=None,ocr=True):
+def run_browser_checks(executable,root,environment,enabled=True):
+    if not enabled:
+        return {key:'not_run' for key in ('bundled_driver_and_both_browsers','both_bundled_screenshots_without_video_helper','native_speech_imports_cpu')}
+    component_data=root/'Native components ö space'
+    run_component_diagnostic([str(executable),'--component-test','--data-dir',str(component_data)], component_data, environment)
+    component_result=json.loads((component_data/'component-check.json').read_text())
+    assert component_result['browsers']['dedicated_headless_shell']['rendered'] and component_result['browsers']['full_chromium']['rendered']
+    driver=executable.parent/'_internal'/'playwright'/'driver'
+    node=driver/('node.exe' if sys.platform=='win32' else 'node')
+    environment['PLAYWRIGHT_BROWSERS_PATH']=str(executable.parent/'components'/'browsers')
+    for name,channel in (('shell',None),('chromium','chromium')):
+        screenshot=root/('synthetic-'+name+'.png')
+        script=root/('sandbox-screenshot-'+name+'.js')
+        script.write_text(sandbox_screenshot_script(driver/'package',screenshot,channel),encoding='utf-8')
+        command=[str(node),str(script)]
+        subprocess.run(command,check=True,timeout=60,env=environment)
+        assert screenshot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+    return {'bundled_driver_and_both_browsers':True,'both_bundled_screenshots_without_video_helper':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
+
+
+def smoke(executable,output=None,ocr=True,browsers=True):
     executable=Path(executable).resolve()
     root=Path(output).resolve() if output else Path(tempfile.mkdtemp(prefix='studycenter-public-package-smoke-'))
     root.mkdir(parents=True,exist_ok=True)
@@ -72,23 +92,10 @@ def smoke(executable,output=None,ocr=True):
     subprocess.run([str(executable),'--self-test','--data-dir',str(self_data),'--no-browser'],check=True,timeout=60,env=environment)
     with sqlite3.connect(self_data/'studycenter-public.sqlite3') as con:
         assert con.execute('SELECT count(*) FROM action_receipts').fetchone()[0]==1
-    component_data=root/'Native components ö space'
-    run_component_diagnostic([str(executable),'--component-test','--data-dir',str(component_data)], component_data, environment)
-    component_result=json.loads((component_data/'component-check.json').read_text())
-    assert component_result['browsers']['dedicated_headless_shell']['rendered'] and component_result['browsers']['full_chromium']['rendered']
-    driver=executable.parent/'_internal'/'playwright'/'driver'
-    node=driver/('node.exe' if sys.platform=='win32' else 'node')
-    environment['PLAYWRIGHT_BROWSERS_PATH']=str(executable.parent/'components'/'browsers')
-    for name,channel in (('shell',None),('chromium','chromium')):
-        screenshot=root/('synthetic-'+name+'.png')
-        script=root/('sandbox-screenshot-'+name+'.js')
-        script.write_text(sandbox_screenshot_script(driver/'package',screenshot,channel),encoding='utf-8')
-        command=[str(node),str(script)]
-        subprocess.run(command,check=True,timeout=60,env=environment)
-        assert screenshot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+    browser_checks=run_browser_checks(executable,root,environment,browsers)
     data=root/'HTTP test ü space';data.mkdir(exist_ok=True)
     process=subprocess.Popen([str(executable),'--data-dir',str(data),'--port','0','--no-browser'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=environment)
-    checks={'frozen_self_test':True,'bundled_driver_and_both_browsers':True,'both_bundled_screenshots_without_video_helper':True,'developer_python_environment_removed':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
+    checks={'frozen_self_test':True,'developer_python_environment_removed':True,**browser_checks}
     try:
         endpoint_file=data/'runtime.json';deadline=time.monotonic()+60
         while time.monotonic()<deadline:
@@ -141,10 +148,10 @@ def smoke(executable,output=None,ocr=True):
             subprocess.run([str(executable),'--data-dir',str(data),'--quit'],timeout=15,check=False,env=environment)
             try:process.wait(timeout=20)
             except subprocess.TimeoutExpired:process.terminate();process.wait(timeout=10)
-    result={'platform':sys.platform,'checks':checks,'isolated_directory':str(root)}
+    result={'platform':sys.platform,'scope':'full' if browsers else 'core_docs_ocr_http','checks':checks,'isolated_directory':str(root)}
     (root/'package-smoke.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     print(json.dumps(result));return result
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('executable',type=Path);parser.add_argument('--output',type=Path);parser.add_argument('--no-ocr',action='store_true')
-    args=parser.parse_args();smoke(args.executable,args.output,not args.no_ocr)
+    parser=argparse.ArgumentParser();parser.add_argument('executable',type=Path);parser.add_argument('--output',type=Path);parser.add_argument('--no-ocr',action='store_true');parser.add_argument('--core-only',action='store_true',help='Test core, documents, OCR and HTTP; record browser and speech diagnostics as not_run')
+    args=parser.parse_args();smoke(args.executable,args.output,not args.no_ocr,not args.core_only)

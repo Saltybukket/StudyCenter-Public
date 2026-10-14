@@ -3,7 +3,7 @@ import argparse
 import json
 import multiprocessing
 import sys
-import webbrowser
+from .desktop.browser import open_system_browser
 from .platform.paths import AppPaths
 from .platform.runtime import Runtime,AlreadyRunning,request_stop
 
@@ -36,7 +36,7 @@ def main(argv=None):
         endpoint=runtime.acquire()
     except AlreadyRunning:
         info=json.loads((paths.data/'runtime.json').read_text(encoding='utf-8'))
-        if not args.no_browser:webbrowser.open(info['url'])
+        if not args.no_browser:open_system_browser(info['url'])
         print(info['url']);return 0
     try:
         from .web import create_app
@@ -48,7 +48,7 @@ def main(argv=None):
             from .desktop.shell import run_shell
             run_shell(runtime,app,start_hidden=args.background)
         else:
-            if not args.no_browser:webbrowser.open(endpoint)
+            if not args.no_browser:open_system_browser(endpoint)
             runtime.thread.join()
     except KeyboardInterrupt:runtime.stop()
     finally:runtime.close()

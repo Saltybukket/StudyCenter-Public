@@ -313,7 +313,7 @@ begin
      not NoReparseAncestors(AddBackslash(DataDirectory) + 'backups') then begin Result := 'The selected data folder contains redirected application files.'; exit; end;
   if not ProbeAccess then exit;
   if not ForceDirectories(DataDirectory) then begin Result := 'The selected data folder cannot be created.'; exit; end;
-  Probe := AddBackslash(DataDirectory) + '.studycenter-public-write-check-' + GetDateTimeString('yyyymmddhhnnsszzz', '', '');
+  Probe := AddBackslash(DataDirectory) + '.studycenter-public-write-check-' + GetDateTimeString('yyyymmddhhnnsszzz', #0, #0);
   if FileExists(Probe) then begin Result := 'Temporary access-check filename already exists. Retry.'; exit; end;
   if not SaveStringToFile(Probe, 'Synthetic installation access check', False) then begin Result := 'The selected data folder is read-only.'; exit; end;
   if not DeleteFile(Probe) then Result := 'The selected data folder does not permit normal file removal.';
@@ -350,7 +350,7 @@ begin
     if FileExists(AddBackslash(DataDirectory) + 'runtime.json') then begin Result := 'The selected Public instance is still running. Close it before updating.'; exit; end;
     DatabaseFile := AddBackslash(DataDirectory) + 'studycenter-public.sqlite3';
     if FileExists(DatabaseFile) then begin
-      BackupDirectory := AddBackslash(DataDirectory) + 'backups\before-update-' + GetDateTimeString('yyyymmddhhnnsszzz', '', '');
+      BackupDirectory := AddBackslash(DataDirectory) + 'backups\before-update-' + GetDateTimeString('yyyymmddhhnnsszzz', #0, #0);
       if not NoReparseAncestors(BackupDirectory) or not ForceDirectories(BackupDirectory) or not FileCopy(DatabaseFile, AddBackslash(BackupDirectory) + 'studycenter-public.sqlite3', True) then
         Result := 'A backup of the existing database could not be created. Update cancelled; keep the current installation.';
     end;

@@ -24,6 +24,14 @@ im XDG-Datenordner. Ein eigener Datenort kann dem Starter mit
 `--data-dir "/gewählter/Ordner"` übergeben werden. **start.sh --stop** beendet
 die dazugehörige Instanz; bei eigenem Datenort dieselbe Ortsangabe verwenden.
 
+Die Oberfläche läuft im normalen Systembrowser. Der Browser für **TU verbinden**
+und den manuellen Quellenabruf ist davon getrennt und verwendet ein eigenes
+Public-Profil. Falls Ubuntu den mitgelieferten Browser blockiert, verwendet die
+Anwendung bei passender Restriktion vorhandenes, rootverwaltetes System-Chrome.
+Vorhandene Browserinstallationen und ihre Profile werden nicht verändert.
+Ist dieser Quellenbrowser nicht verfügbar, funktionieren eigene Einträge,
+Dateiimport und Dokumentleser weiter. Sicherheitsregeln bleiben eingeschaltet.
+
 ## Die ersten fünf Schritte
 
 1. Unter **Einrichtung → Speicher** den angezeigten Datenort prüfen.

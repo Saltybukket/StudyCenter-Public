@@ -130,7 +130,9 @@ async def test_cancel_retains_pending_links_and_encoded_mutations_are_excluded()
 
 @pytest.mark.parametrize('visible', [False, True])
 @pytest.mark.parametrize('path_mode', ['explicit', 'default-windows', 'default-linux'])
-def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, visible, path_mode):
+@pytest.mark.parametrize('engine', ['bundled', 'system-chrome'])
+@pytest.mark.parametrize('launch_failure', [False, True])
+def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, visible, path_mode, engine, launch_failure):
     import playwright.async_api
     import studycenter_public.collectors.browser as browser
     import studycenter_public.platform.components as components
@@ -147,8 +149,16 @@ def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, vis
         assert not paths.cache.is_relative_to(paths.data)
     profiles = paths.profiles
     options = []
+    launch_profiles = []
+    system_path = '/opt/google/chrome/chrome' if engine == 'system-chrome' else None
+    visits = []
+
+    class Page:
+        async def goto(self, url, **kwargs):
+            visits.append(url)
 
     class Context:
+        pages = [Page()]
         async def route(self, *args):
             pass
         async def close(self):
@@ -157,7 +167,9 @@ def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, vis
     class Chromium:
         async def launch_persistent_context(self, profile, **kwargs):
             options.append(kwargs)
-            assert profile == str(profiles / 'tu-browser')
+            launch_profiles.append(profile)
+            if launch_failure:
+                raise RuntimeError('Synthetic No usable sandbox')
             return Context()
 
     class Playwright:
@@ -186,22 +198,108 @@ def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, vis
     monkeypatch.setattr(browser, 'restrict_permissions', lambda path: None)
     monkeypatch.setattr(browser, 'resolve_public', lambda host: ['93.184.216.34'])
     monkeypatch.setattr(browser.asyncio, 'to_thread', immediate_thread)
+    monkeypatch.setattr(browser, 'linux_system_chrome', lambda: system_path, raising=False)
     monkeypatch.setenv('CHROME_LOG_FILE', 'synthetic-inherited-log')
+    monkeypatch.setenv('LD_LIBRARY_PATH', 'synthetic-bundled-library')
+    monkeypatch.setenv('LD_LIBRARY_PATH_ORIG', str(tmp_path / 'original-system-library'))
+    monkeypatch.setenv('CHROME_DEVEL_SANDBOX', 'synthetic-forbidden-helper')
+    monkeypatch.setenv('LD_PRELOAD', 'synthetic-forbidden-preload')
     manager = browser.BrowserManager(paths)
-    complete_immediately(manager._launch(visible))
+    if launch_failure:
+        monkeypatch.setattr(browser.sys, 'platform', 'linux')
+        with pytest.raises(browser.BrowserUnavailable) as refused:
+            complete_immediately(manager._launch(visible))
+        assert 'Dokumente' in str(refused.value)
+        assert 'Importe' in str(refused.value)
+        assert 'installieren' not in str(refused.value)
+        assert manager.playwright is None and manager.context is None
+    else:
+        complete_immediately(manager._launch(visible))
     assert len(options) == 1
     assert options[0].get('chromium_sandbox') is True
     assert options[0]['headless'] is (not visible)
     assert 'channel' not in options[0]
+    expected_profile = 'tu-browser-system-chrome' if system_path else 'tu-browser'
+    assert launch_profiles == [str(profiles / expected_profile)]
+    assert options[0].get('executable_path') == system_path
     environment = options[0].get('env', {})
     assert environment.get('CHROME_LOG_FILE')
     assert browser.Path(environment['CHROME_LOG_FILE']).parent == paths.cache / 'browser-logs'
     assert browser.Path(environment['XDG_CONFIG_HOME']) == paths.cache / 'browser-xdg-config'
     assert browser.Path(environment['XDG_CACHE_HOME']) == paths.cache / 'browser-xdg-cache'
     assert browser.os.environ['CHROME_LOG_FILE'] == 'synthetic-inherited-log'
+    if system_path:
+        assert environment['LD_LIBRARY_PATH'] == str(tmp_path / 'original-system-library')
+    else:
+        assert environment['LD_LIBRARY_PATH'] == 'synthetic-bundled-library'
+    assert environment.get('CHROME_DEVEL_SANDBOX') is None
+    assert environment.get('LD_PRELOAD') is None
+    assert browser.os.environ['LD_LIBRARY_PATH'] == 'synthetic-bundled-library'
+    assert browser.os.environ['CHROME_DEVEL_SANDBOX'] == 'synthetic-forbidden-helper'
+    assert browser.os.environ['LD_PRELOAD'] == 'synthetic-forbidden-preload'
     assert not any('no-sandbox' in argument or 'disable-setuid-sandbox' in argument
                    for argument in options[0]['args'])
+    if visible and not launch_failure:
+        result = complete_immediately(manager.login(explicit=True))
+        assert visits == ['https://tc.tugraz.at/main/my/']
+        if system_path:
+            assert 'System-Chrome' in result['message']
+            assert 'tu-browser-system-chrome' in result['message']
     complete_immediately(manager.close())
+
+
+@pytest.mark.parametrize('case', ['valid', 'disabled', 'malformed', 'overlong', 'missing-restriction', 'missing-browser',
+                                  'not-root', 'writable', 'group-writable', 'setuid', 'setgid', 'parent-writable', 'not-elf', 'symlink',
+                                  'directory', 'no-execute', 'windows'])
+def test_system_chrome_requires_exact_restriction_and_trusted_elf(monkeypatch, tmp_path, case):
+    from types import SimpleNamespace
+    import stat
+    import studycenter_public.collectors.browser as browser
+    restriction = tmp_path / 'synthetic-restriction'
+    restriction.write_text('0' if case == 'disabled' else 'invalid' if case == 'malformed' else '1' + ' ' * 16 if case == 'overlong' else '1\n')
+    executable = tmp_path / 'synthetic-chrome'
+    executable.write_bytes(b'not ELF' if case == 'not-elf' else b'\x7fELFsynthetic-not-executable-content')
+    if case == 'missing-restriction':
+        restriction.unlink()
+    if case == 'missing-browser':
+        executable.unlink()
+    if case == 'directory':
+        executable.unlink(); executable.mkdir()
+    if case == 'symlink':
+        neighbor = tmp_path / 'synthetic-elf'
+        executable.rename(neighbor)
+        try:
+            executable.symlink_to(neighbor)
+        except (OSError, NotImplementedError):
+            pytest.skip('Synthetic symlink unavailable')
+    monkeypatch.setattr(browser, 'APPARMOR_USERNS_RESTRICTION', restriction)
+    monkeypatch.setattr(browser, 'SYSTEM_CHROME', executable)
+    monkeypatch.setattr(browser.sys, 'platform', 'win32' if case == 'windows' else 'linux')
+    real_info = browser._program_info
+
+    def synthetic_root_metadata(path_or_fd):
+        # Only metadata is simulated; bytes/open/no-follow use own real fixtures.
+        info = real_info(path_or_fd)
+        is_directory = stat.S_ISDIR(info.st_mode)
+        mode = stat.S_IFDIR | 0o755 if is_directory else stat.S_IFREG | 0o755
+        if stat.S_ISLNK(info.st_mode):
+            mode = info.st_mode
+        if case == 'writable' and not is_directory:
+            mode |= stat.S_IWOTH
+        if case == 'group-writable' and not is_directory:
+            mode |= stat.S_IWGRP
+        if case == 'setuid' and not is_directory:
+            mode |= stat.S_ISUID
+        if case == 'setgid' and not is_directory:
+            mode |= stat.S_ISGID
+        if case == 'parent-writable' and path_or_fd == executable.parent:
+            mode |= stat.S_IWGRP
+        if case == 'no-execute' and not is_directory:
+            mode = stat.S_IFREG | 0o444
+        return SimpleNamespace(st_mode=mode, st_uid=1001 if case == 'not-root' and not is_directory else 0)
+
+    monkeypatch.setattr(browser, '_program_info', synthetic_root_metadata)
+    assert browser.linux_system_chrome() == (str(executable) if case == 'valid' else None)
 
 
 @pytest.mark.parametrize('linked_directory', ['cache-root', 'cache-child'])

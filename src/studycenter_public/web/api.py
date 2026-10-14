@@ -173,9 +173,9 @@ async def oauth_start(r:Request):
     launch(s,'oauth',finish())
     from urllib.parse import urlsplit
     if urlsplit(attempt.authorization_url).netloc!='auth.openai.com':raise ValueError('Unerwartetes Anmeldeziel')
-    import webbrowser
-    webbrowser.open(attempt.authorization_url)
-    return {'opened':True,'status':'Anmeldung im Systembrowser geöffnet.'}
+    from ..desktop.browser import open_system_browser
+    opened=open_system_browser(attempt.authorization_url)
+    return {'opened':opened,'status':'Anmeldung im Systembrowser geöffnet.' if opened else 'Der Systembrowser konnte nicht geöffnet werden.'}
 
 @router.get('/sources')
 def sources(r:Request):return r.app.state.db.sources()
@@ -188,8 +188,8 @@ async def add_source(r:Request):
 async def login(r:Request,source_id:int):
     source=r.app.state.db.source(source_id)
     if not source:raise KeyError(source_id)
-    await r.app.state.sync.login(source_id)
-    return {'opened':True,'status':'Im eigenen TU-Browser anmelden; danach Kurserkennung starten.'}
+    result=await r.app.state.sync.login(source_id)
+    return {'opened':result['visible'],'status':result['message']}
 
 @router.post('/browser/close')
 async def close_browser(r:Request):await r.app.state.browser.close();return {'closed':True}

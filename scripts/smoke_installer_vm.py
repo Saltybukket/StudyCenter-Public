@@ -125,6 +125,17 @@ def run(installer=None,expected_source=None):
         with file.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
         if file.stat().st_size!=record['size'] or digest!=record['sha256']:
             raise RuntimeError('Installed candidate differs from its build manifest: '+name)
+    # Actual frozen refusal formerly opened a bootloader dialog. These negative
+    # executable controls run only after the disposable VM guard above.
+    foreign_frozen=root/'Frozen foreign data';foreign_frozen.mkdir()
+    marker=foreign_frozen/'preserve.txt';marker.write_bytes(b'Synthetic unrelated frozen-start sentinel')
+    for quiet_flag in ('--no-browser','--self-test','--component-test','--quit'):
+        refusal=subprocess.run([str(executable),quiet_flag,'--data-dir',str(foreign_frozen)],
+                               capture_output=True,timeout=30)
+        if refusal.returncode!=2:
+            raise RuntimeError('Frozen startup did not refuse foreign data headlessly: '+quiet_flag)
+        if list(foreign_frozen.iterdir())!=[marker] or marker.read_bytes()!=b'Synthetic unrelated frozen-start sentinel':
+            raise RuntimeError('Frozen refusal altered unrelated data: '+quiet_flag)
     smoke(executable,root/'First installed smoke')
     subprocess.run([str(executable),'--self-test','--data-dir',str(data),'--no-browser'],check=True,timeout=60)
     before=json.loads((data/'instance.json').read_text());database=(data/'studycenter-public.sqlite3').read_bytes()
@@ -162,6 +173,7 @@ def run(installer=None,expected_source=None):
     except FileNotFoundError:pass
     with Path(installer).open('rb') as stream:installer_sha=hashlib.file_digest(stream,'sha256').hexdigest()
     result={'installer_sha256':installer_sha,'source_git_sha':manifest.get('source_git_sha'),'installed_manifest_files_verified':len(manifest['files']),'installer_install':True,'foreign_marker_refused_without_writes':True,'foreign_program_refused_without_exec_or_overwrite':True,'reparse_ancestors_refused_without_writes':True,'installed_smoke':True,'update_preserves_identity_database':True,'backup_before_update':True,'uninstall_retains_data':True,'own_shortcuts_removed':True,'environment':'ephemeral GitHub windows-2022 runner','windows10_live':False,'windows11_live':False}
+    result['frozen_foreign_data_headless_refusal_modes']=4
     (root/'installer-vm-result.json').write_text(json.dumps(result,indent=2));print(json.dumps(result));return result
 
 

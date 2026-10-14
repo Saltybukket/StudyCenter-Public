@@ -29,11 +29,19 @@ and explicit speech downloads. Independent local browser checks include actual
 creation, comparison, original access, PDF reader/search, restore, and mobile layout.
 
 Final native packages must pass the same synthetic HTTP workflow, bundled OCR,
-both Chromium modes, runtime imports, cooperative shutdown, file checksums and
+Windows Chromium modes, runtime imports, cooperative shutdown, file checksums and
 decompressed frozen-code privacy checks. Windows installer lifecycle tests belong
-in an ephemeral Windows test VM. No dependency setup or uninstaller is executed
-on the development host. Component builds extract checked archives into their
+in an ephemeral Windows test VM. Further dependency setups and uninstallers are
+prohibited on the development host. Component builds extract checked archives into their
 own directories and do not change system PATH, package databases or other apps.
+
+Linux core/normal-system-browser UI and Playwright source automation have separate
+acceptance gates. Ubuntu AppArmor can deny the bundled browsers; this does not
+establish a core/UI failure or full Linux acceptance. Existing root-controlled
+Chrome may use its already installed profile with an own Public user-data
+directory. No policy exceptions, global restriction changes or sandbox bypasses
+are part of this build. Actual VM results, including blocked automation, must be
+reported independently of the test job's overall outcome.
 
 Personal TU/MFA, live model/OAuth accounts, microphone/TTS and visible desktop
 notifications remain separate user acceptance. WSL backend checks do not establish

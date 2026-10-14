@@ -34,3 +34,17 @@ def test_preview_create_retry_and_undo_through_http(tmp_path):
     result=c.post('/api/actions/undo',json={'request_id':req['request_id'],'undo_id':str(uuid4())},headers=headers)
     assert result.status_code==200
     assert c.get('/api/items').json()==[]
+
+def test_source_login_reports_selected_browser_and_own_profile(tmp_path, monkeypatch):
+    c=client(tmp_path)
+    token=c.get('/api/session').json()['csrf']
+    headers={'Origin':c.app.state.endpoint,'X-CSRF-Token':token}
+    source=c.app.state.sync.register_source('Synthetic TU source',kind='teachcenter')
+    message='Im vorhandenen System-Chrome mit eigenem Public-Profil tu-browser-system-chrome anmelden.'
+    async def own_login(source_id):
+        assert source_id==source['id']
+        return {'visible':True,'message':message}
+    monkeypatch.setattr(c.app.state.sync,'login',own_login)
+    response=c.post('/api/sources/'+str(source['id'])+'/login',headers=headers)
+    assert response.status_code==200
+    assert response.json()=={'opened':True,'status':message}

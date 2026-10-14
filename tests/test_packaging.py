@@ -76,11 +76,62 @@ class PackagingContract(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'commit'):write_manifest(pathlib.Path(tmp),'synthetic','0'*40)
  def test_source_inputs_changed_during_freeze_fail_closed(self):
   from scripts.build_release import file_hash,ensure_source_inputs_unchanged
+  from unittest.mock import patch
   with tempfile.TemporaryDirectory() as tmp:
    source=pathlib.Path(tmp)/'synthetic.py';source.write_text('synthetic original')
-   snapshot={source:file_hash(source)};ensure_source_inputs_unchanged(snapshot)
-   source.write_text('synthetic later version')
-   with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
+   snapshot={source:file_hash(source)}
+   with patch('scripts.build_release.source_members',return_value=[source],create=True):
+    ensure_source_inputs_unchanged(snapshot)
+    source.write_text('synthetic later version')
+    with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
+ def test_actual_package_definition_change_during_freeze_blocks_candidate(self):
+  from scripts.build_release import source_inputs,ensure_source_inputs_unchanged
+  from unittest.mock import patch
+  public=pathlib.Path(__file__).parents[1]
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);(root/'src/studycenter_public').mkdir(parents=True)
+   for directory in ('packaging','scripts'):
+    import shutil
+    shutil.copytree(public/directory,root/directory,ignore=shutil.ignore_patterns('__pycache__'))
+   for name in ('README.md','LICENSE','pyproject.toml','requirements-windows.lock','requirements-linux.lock'):(root/name).write_bytes((public/name).read_bytes())
+   with patch('scripts.build_release.ROOT',root),patch('scripts.build_release.NOTICE_COMPLETION_FILE',root/'packaging/component-notices.json'):
+    snapshot=source_inputs(None);ensure_source_inputs_unchanged(snapshot)
+    definition=root/'packaging/windows/installer.iss'
+    self.assertIn(definition,snapshot)
+    definition.write_bytes(definition.read_bytes()+b'\n; synthetic later packaging change\n')
+    with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
+ def test_source_member_added_after_snapshot_blocks_candidate(self):
+  from scripts.build_release import source_inputs,ensure_source_inputs_unchanged,PACKAGE_DEFINITIONS
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);source=root/'src/studycenter_public';source.mkdir(parents=True)
+   (source/'original.py').write_text('synthetic original')
+   for name in PACKAGE_DEFINITIONS:
+    path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('synthetic definition')
+   with patch('scripts.build_release.ROOT',root):
+    snapshot=source_inputs(None);ensure_source_inputs_unchanged(snapshot)
+    added=source/'later.py';added.write_text('synthetic later source')
+    with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
+    added.unlink();ensure_source_inputs_unchanged(snapshot)
+    (source/'original.py').unlink()
+    with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
+ def test_linux_helper_stages_are_new_and_recipe_enters_bundle(self):
+  from scripts.build_release import stage_linux_desktop
+  from unittest.mock import patch
+  staged=[]
+  def compile_fixture(output,compiler):
+   staged.append(output)
+   for name in ('desktop-install','install-desktop.sh','DESKTOP-INSTALL-RECIPE.json'):(output/name).write_bytes(b'Synthetic bounded helper artifact')
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);bundle=root/'bundle';bundle.mkdir()
+   with patch('scripts.build_release.ROOT',root),patch('scripts.build_release.shutil.which',return_value=sys.executable),patch('scripts.package_linux_desktop.prepare',side_effect=compile_fixture):
+    stage_linux_desktop(bundle,{'PATH':os.environ['PATH']})
+    first={name:(staged[0]/name).read_bytes() for name in ('desktop-install','install-desktop.sh','DESKTOP-INSTALL-RECIPE.json')}
+    stage_linux_desktop(bundle,{'PATH':os.environ['PATH']})
+   self.assertNotEqual(staged[0],staged[1])
+   self.assertEqual({name:(staged[0]/name).read_bytes() for name in first},first)
+   if sys.platform=='linux':self.assertTrue((bundle/'desktop-install').stat().st_mode & 0o111)
+   self.assertTrue((bundle/'DESKTOP-INSTALL-RECIPE.json').is_file())
  def test_snapshot_extraction_refuses_escape_and_keeps_neighbor(self):
   from scripts.build_browser_runtime import extract_snapshot
   import zipfile
@@ -150,6 +201,24 @@ class PackagingContract(unittest.TestCase):
   next_page=script.split('function NextButtonClick',1)[1].split('function PrepareToInstall',1)[0]
   self.assertLess(next_page.index('if WizardSilent then exit;'),next_page.index('ProgramDirectoryProblem'))
   self.assertNotRegex(script,r'\bMsgBox\(')
+ def test_installer_timestamp_arguments_are_pascal_characters(self):
+  script=(pathlib.Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
+  self.assertEqual(script.count("GetDateTimeString('yyyymmddhhnnsszzz', #0, #0)"),2)
+  self.assertNotIn("GetDateTimeString('yyyymmddhhnnsszzz', '', '')",script)
+ def test_system_export_lookup_is_bounded_binary_search(self):
+  script=(pathlib.Path(__file__).parents[1]/'packaging/windows/system_runtime.iss').read_text()
+  self.assertIn('while Low <= High do begin',script)
+  self.assertIn('RuntimeCompareASCII(ExportName, Symbol)',script)
+  self.assertIn('OrdinalIndex := RuntimeU16(Image, Ordinals + Middle * 2)',script)
+  self.assertIn('System runtime prerequisite: complete',script)
+ def test_core_only_smoke_keeps_browser_and_speech_unaccepted(self):
+  from scripts.smoke_release import run_browser_checks
+  from unittest.mock import patch
+  with patch('scripts.smoke_release.subprocess.run',side_effect=AssertionError('Browser must not start')):
+   result=run_browser_checks(pathlib.Path('synthetic/StudyCenter-Public'),pathlib.Path('synthetic/output'),{},False)
+  self.assertEqual(result['bundled_driver_and_both_browsers'],'not_run')
+  self.assertEqual(result['both_bundled_screenshots_without_video_helper'],'not_run')
+  self.assertEqual(result['native_speech_imports_cpu'],'not_run')
  def test_linux_smoke_child_resolves_only_bundled_native_libraries_and_own_caches(self):
   from scripts.smoke_release import smoke
   from unittest.mock import patch
