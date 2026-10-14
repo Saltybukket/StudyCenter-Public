@@ -68,4 +68,15 @@ class PackagingContract(unittest.TestCase):
    browser=root/'components/browsers/chromium-synthetic/chrome-win64';browser.mkdir(parents=True);(browser/'setup.exe').write_bytes(b'synthetic setup');(browser/'chrome.exe').write_bytes(b'synthetic runtime')
    strip_build_artifacts(root)
    self.assertFalse(cache.exists());self.assertFalse((browser/'setup.exe').exists());self.assertTrue((browser/'chrome.exe').exists())
+ def test_source_manifest_rejects_wrong_checkpoint(self):
+  from scripts.build_release import write_manifest
+  with tempfile.TemporaryDirectory() as tmp:
+   with self.assertRaisesRegex(ValueError,'commit'):write_manifest(pathlib.Path(tmp),'synthetic','0'*40)
+ def test_source_inputs_changed_during_freeze_fail_closed(self):
+  from scripts.build_release import file_hash,ensure_source_inputs_unchanged
+  with tempfile.TemporaryDirectory() as tmp:
+   source=pathlib.Path(tmp)/'synthetic.py';source.write_text('synthetic original')
+   snapshot={source:file_hash(source)};ensure_source_inputs_unchanged(snapshot)
+   source.write_text('synthetic later version')
+   with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
 if __name__=='__main__':unittest.main()

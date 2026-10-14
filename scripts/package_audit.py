@@ -13,6 +13,14 @@ except ImportError:
 # Exact upstream constants reviewed against wheel/stdlib source. A version or
 # location change requires review again; filenames and whole modules are never exempt.
 REVIEWED_CONSTANTS = {
+    # Official Actions CPython 3.12.15 archive fcb672b0437c2d8df5565b7cc250b2b0d7455e2b8d6a4a107cfa6f2efe4f7ed8.
+    # Its generated sysconfig source hash is 7fdde55edb7433a11d2993bcb644f37c640455558482fa11f73068153dbabcc6.
+    ('_sysconfigdata__linux_x86_64-linux-gnu','code.constant70','personal path','a98ed7bc2ef7e8dca0eba84441b2d3bf9eb2155850f9345268dc42a50f044200'): 'Official Actions CPython 3.12.15 COVERAGE_INFO build metadata',
+    ('_sysconfigdata__linux_x86_64-linux-gnu','code.constant74','personal path','9557403f865c4980c90d01a4745ed6363602da31e485d40713d3e3be4f4ed3ba'): 'Official Actions CPython 3.12.15 COVERAGE_REPORT build metadata',
+    ('_sysconfigdata__linux_x86_64-linux-gnu','code.constant1082','personal path','e99e30d293af7f15bcd364f3e99b2f125795454959b427514bade4c13db8e789'): 'Official Actions CPython 3.12.15 RUNSHARED build metadata',
+    ('_sysconfigdata__linux_x86_64-linux-gnu','code.constant1140','personal path','7a44bbb09c0a9b304cfb844cb8f4a1e26714f6fb87d5abb85fbea1ea4a41ce88'): 'Official Actions CPython 3.12.15 TESTPYTHON build metadata',
+    ('_sysconfigdata__linux_x86_64-linux-gnu','code.constant1143','personal path','50f75f73a8f7cacc6b2d3e632f6fb4cae0c813484a790d2c9214ef5d14659d50'): 'Official Actions CPython 3.12.15 TESTRUNNER build metadata',
+    ('_sysconfigdata__linux_x86_64-linux-gnu','code.constant1180','personal path','194fcb3e40f9babe0faf8f8b2364d42f36756f923dbde0d8f1618fbb31727c54'): 'Official Actions CPython 3.12.15 absolute source/build-directory metadata',
     ('cryptography.hazmat.primitives.serialization.ssh','code.constant27','credential','03d104c669e3c7b6be7f989db8b12c8b910d3be8c1e2a73c9369d3cc0ba803b5'): 'SSH PEM delimiter in upstream cryptography parser',
     ('numpy.__config__','code.constant26','personal path','ea6bf649aae51e9afe48ff44c8dd92d4139615e773bdfa2ed63420dd609a5ec3'): 'Public NumPy wheel build metadata',
     ('numpy.__config__','code.constant27','personal path','36b6d15032e8dddc3c01de5256aa7e5a827337e579972d87f0a47b10cd1eb219'): 'Public NumPy wheel build metadata',

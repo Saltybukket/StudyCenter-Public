@@ -19,6 +19,26 @@ def file_hash(path):
     with path.open('rb') as file:return hashlib.file_digest(file,'sha256').hexdigest()
 
 
+def ensure_source_inputs_unchanged(snapshot):
+    if any(not path.is_file() or file_hash(path)!=digest for path,digest in snapshot.items()):
+        raise ValueError('Application source inputs changed during freeze; discard candidate and rebuild from a new checkpoint')
+
+
+def source_inputs(source_commit):
+    inputs=[path for path in (ROOT/'src'/'studycenter_public').rglob('*') if path.is_file() and '__pycache__' not in path.parts and path.suffix not in {'.pyc','.pyo'}]
+    inputs += [ROOT/'packaging'/'frozen_entry.py',ROOT/'packaging'/'runtime_hook.py']
+    if source_commit:
+        actual=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
+        if actual!=source_commit:raise ValueError('Build source commit differs from checkout HEAD')
+        changed=subprocess.check_output(['git','-C',str(ROOT),'diff',source_commit,'--name-only','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py'],text=True).splitlines()
+        if changed:
+            raise ValueError('Application source differs from the committed checkpoint')
+        untracked=subprocess.check_output(['git','-C',str(ROOT),'ls-files','--others','--exclude-standard','--','src/studycenter_public','packaging/frozen_entry.py','packaging/runtime_hook.py'],text=True).splitlines()
+        if any('__pycache__' not in Path(name).parts and Path(name).suffix not in {'.pyc','.pyo'} for name in untracked):
+            raise ValueError('Untracked application source is outside the committed checkpoint')
+    return {path:file_hash(path) for path in inputs}
+
+
 def write_manifest(bundle,version,source_commit=None):
     bundle=Path(bundle);files={}
     for path in sorted(bundle.rglob('*')):
@@ -127,6 +147,7 @@ def collect_licenses(bundle):
 
 
 def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None):
+    snapshot=source_inputs(source_commit)
     version=tomllib.loads((ROOT/'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
     platform='windows' if sys.platform=='win32' else 'linux'
     destination=ROOT/'dist'/platform;destination.mkdir(parents=True,exist_ok=True)
@@ -164,6 +185,7 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None):
     if sys.platform!='win32':
         for filename in ('start.sh','install-desktop.sh'):
             shutil.copy2(ROOT/'packaging'/'linux'/filename,bundle/filename);(bundle/filename).chmod(0o755)
+    ensure_source_inputs_unchanged(snapshot)
     strip_build_artifacts(bundle)
     collect_licenses(bundle);write_manifest(bundle,version,source_commit)
     if sys.platform=='win32' and iscc:

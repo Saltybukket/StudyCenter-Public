@@ -225,7 +225,8 @@ async def restore_preview(r:Request,file:UploadFile=File(...)):
     s=r.app.state
     data=await file.read(256*1024*1024+1)
     if len(data)>256*1024*1024:raise ValueError('UI-Sicherungsimport auf 256 MiB begrenzt; größere Sicherungen im isolierten Entwicklerweg prüfen.')
-    restore_id=str(uuid4());path=s.paths.cache/('restore-'+restore_id+'.zip')
+    from ..platform.paths import owned_path
+    restore_id=str(uuid4());path=owned_path(s.paths.cache/('restore-'+restore_id+'.zip'),s.paths.cache)
     path.write_bytes(data)
     try:preview=BackupService(s.db,s.paths).preview(path)
     except Exception:path.unlink(missing_ok=True);raise

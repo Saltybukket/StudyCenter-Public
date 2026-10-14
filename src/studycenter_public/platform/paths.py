@@ -4,7 +4,27 @@ import json
 import os
 from pathlib import Path
 import sys
+import stat
 import uuid
+
+
+def reject_links(path):
+    """Reject links/reparse points before a path is resolved or used for I/O."""
+    value=Path(path).absolute()
+    for candidate in (value,*value.parents):
+        try:info=candidate.lstat()
+        except FileNotFoundError:continue
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0x400):
+            raise ValueError('Verknüpfung oder Reparse-Punkt liegt im Datenpfad; fremde Inhalte bleiben unberührt.')
+    return value
+
+
+def owned_path(path, root):
+    anchor=reject_links(root)
+    value=reject_links(path)
+    if not value.resolve().is_relative_to(anchor.resolve()):
+        raise ValueError('Datenpfad liegt außerhalb des eigenen Verzeichnisses.')
+    return value
 
 def restrict_permissions(path: Path):
     """Restrict only an explicitly created application directory."""
@@ -20,11 +40,13 @@ def restrict_permissions(path: Path):
     else: path.chmod(0o700)
 
 def private_directory(path: Path):
+    reject_links(path)
     path.mkdir(parents=True, exist_ok=True)
     if sys.platform != 'win32': path.chmod(0o700)
     return path
 
 def atomic_json(path: Path, data):
+    reject_links(path)
     temporary = path.with_name(path.name+'.'+uuid.uuid4().hex+'.tmp')
     temporary.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
     if sys.platform != 'win32': temporary.chmod(0o600)
@@ -54,10 +76,11 @@ class AppPaths:
             default_config=Path(os.environ.get('XDG_CONFIG_HOME',Path.home()/'.config'))/'studycenter-public'
             default_cache=Path(os.environ.get('XDG_CACHE_HOME',Path.home()/'.cache'))/'studycenter-public'
         chosen=data_dir or os.environ.get('STUDYCENTER_PUBLIC_DATA_DIR')
-        data=Path(chosen or default_data).expanduser().resolve()
+        data=reject_links(Path(chosen or default_data).expanduser()).resolve()
         if data==program or program.is_relative_to(data) or data.is_relative_to(program):
             raise ValueError('Nutzerdaten brauchen einen eigenen Ordner außerhalb der Programmdateien.')
         identity_path=data/'instance.json'
+        reject_links(identity_path)
         if data.exists() and any(data.iterdir()) and not identity_path.is_file():
             raise ValueError('Dieser nicht leere Ordner gehört noch keiner Public-Instanz. Einen neuen leeren Datenordner wählen; vorhandene Dateien bleiben unberührt.')
         if identity_path.exists():

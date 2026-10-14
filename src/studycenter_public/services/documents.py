@@ -15,6 +15,7 @@ from pathlib import Path
 from statistics import median
 
 from bs4 import BeautifulSoup
+from ..platform.paths import owned_path, reject_links
 
 
 
@@ -77,6 +78,7 @@ def calendar_content(raw):
 def ocr_pixmap(pixmap, settings):
     if not settings.tesseract or not Path(settings.tesseract).exists():
         return None, "OCR nötig; Tesseract in dieser Installation konfigurieren."
+    if settings.temp_directory:reject_links(settings.temp_directory)
     with tempfile.TemporaryDirectory(dir=settings.temp_directory) as directory:
         png = Path(directory) / "page.png"
         pixmap.save(png)
@@ -254,7 +256,7 @@ class DocumentService:
     def __init__(self, db, paths, *, ocr=None, max_bytes=64 * 1024 * 1024):
         self.db, self.paths, self.max_bytes = db, paths, max_bytes
         self.ocr = ocr or default_ocr(paths)
-        ocr_cache = Path(paths.cache) / 'ocr'
+        ocr_cache = owned_path(Path(paths.cache) / 'ocr', paths.cache)
         ocr_cache.mkdir(parents=True, exist_ok=True)
         self.ocr.temp_directory = str(ocr_cache)
         self._images = None
@@ -308,9 +310,10 @@ class DocumentService:
             mime, suffix = mime or 'text/plain', '.txt'
         else:
             raise ValueError('Dokumentformat nicht unterstützt: ' + mime)
-        directory = Path(self.paths.documents)
+        directory = owned_path(self.paths.documents, self.paths.data)
         directory.mkdir(parents=True, exist_ok=True)
         original = directory / (digest + suffix)
+        owned_path(original, directory)
         if original.exists() and hashlib.sha256(original.read_bytes()).hexdigest() != digest:
             raise ValueError('Vorhandenes Original verletzt seinen Hash; beschädigte Datei wird nicht überschrieben')
         if not original.exists():
@@ -402,7 +405,8 @@ class DocumentService:
         document = self.db.document(document_id)
         if not document:
             raise KeyError('Dokument nicht gefunden')
-        path = Path(document.get('original_path') or document.get('path') or '').resolve()
+        owned_path(self.paths.documents,self.paths.data)
+        path = owned_path(Path(document.get('original_path') or document.get('path') or ''),self.paths.documents).resolve()
         if not path.is_relative_to(Path(self.paths.documents).resolve()) or not path.is_file():
             raise ValueError('Original fehlt oder liegt außerhalb dieser Installation')
         if hashlib.sha256(path.read_bytes()).hexdigest() != document['hash']:

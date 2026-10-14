@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from ..platform.paths import restrict_permissions
+from ..platform.paths import restrict_permissions, owned_path
 from .web import LoginRequired, UnsafeURL, mutating_url, resolve_public, validate_addresses, safe_url
 
 SERVICE_URLS = {'teachcenter': 'https://tc.tugraz.at/main/my/',
@@ -48,6 +48,8 @@ class BrowserManager:
         await self._close_context()
         from ..platform.components import configure_browser_runtime
         configure_browser_runtime(self.paths)
+        owned_path(self.paths.profiles,self.paths.data)
+        owned_path(self.profile,self.paths.profiles)
         self.profile.mkdir(parents=True, exist_ok=True)
         restrict_permissions(self.profile)
         try:

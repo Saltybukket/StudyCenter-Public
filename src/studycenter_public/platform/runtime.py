@@ -6,7 +6,7 @@ import threading
 import time
 import os
 import portalocker
-from .paths import atomic_json
+from .paths import atomic_json, owned_path
 
 class AlreadyRunning(RuntimeError): pass
 
@@ -18,6 +18,7 @@ class Runtime:
         self.endpoint=paths.data/'runtime.json'
 
     def acquire(self):
+        for path in (self.paths.data/'instance.lock',self.quit_file,self.endpoint):owned_path(path,self.paths.data)
         self.lock=portalocker.Lock(str(self.paths.data/'instance.lock'),timeout=0)
         try:self.lock.acquire()
         except portalocker.exceptions.LockException:raise AlreadyRunning('Diese Public-Instanz läuft bereits.') from None
@@ -70,6 +71,8 @@ class Runtime:
             if self.paths.data.exists() and not any(self.paths.data.iterdir()):self.paths.data.rmdir()
 
 def request_stop(paths):
+    owned_path(paths.data/'runtime.json',paths.data)
+    owned_path(paths.data/'shutdown.request',paths.data)
     if not (paths.data/'runtime.json').exists():return False
     (paths.data/'shutdown.request').write_text('stop',encoding='ascii')
     return True

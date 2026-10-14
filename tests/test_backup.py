@@ -9,7 +9,7 @@ class BackupContract(unittest.TestCase):
   return BackupService(db,paths)
  def test_backup_restores_originals_decisions_and_relocates_without_profiles(self):
   with tempfile.TemporaryDirectory() as tmp:
-   root=pathlib.Path(tmp);data=root/'first';data.mkdir();docs=data/'documents';docs.mkdir();paths=SimpleNamespace(data=data,documents=docs,database=data/'db.sqlite3')
+   root=pathlib.Path(tmp).resolve();data=root/'first';data.mkdir();docs=data/'documents';docs.mkdir();paths=SimpleNamespace(data=data,documents=docs,database=data/'db.sqlite3')
    db=Database(paths.database);original=docs/'original.txt';original.write_text('Synthetic original')
    d=db.save_document({'title':'Original','original_path':str(original)},pages=[{'page':1,'text':'Synthetic original'}]);db.add_item({'kind':'note','title':'Keep note'})
    (data/'profiles').mkdir();(data/'profiles'/'cookie.txt').write_text('excluded fixture')

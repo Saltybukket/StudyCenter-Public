@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
 from ..storage.db import encode
+from ..platform.paths import owned_path, reject_links
 
 MAX_BYTES=2*1024**3
 SECRET=re.compile(r'password|passwd|secret|token|cookie|credential|authorization|api[_-]?key',re.I)
@@ -33,9 +34,15 @@ class BackupService:
     def __init__(self,db,paths):
         self.db=db;self.paths=paths
 
+    def _paths_preflight(self):
+        owned_path(self.paths.documents,self.paths.data)
+        owned_path(self.db.path,self.paths.data)
+        return owned_path(Path(self.paths.data)/'backups',self.paths.data)
+
     def create(self,output=None):
-        directory=Path(self.paths.data)/'backups';directory.mkdir(parents=True,exist_ok=True)
+        directory=self._paths_preflight();directory.mkdir(parents=True,exist_ok=True)
         target=Path(output) if output else directory/f"studycenter-public-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:8]}.zip"
+        reject_links(target)
         target.parent.mkdir(parents=True,exist_ok=True)
         if target.exists():raise ValueError('Backup target already exists')
         with tempfile.TemporaryDirectory(dir=directory) as temporary:
@@ -47,6 +54,7 @@ class BackupService:
                 for row in con.execute('SELECT id,hash,original_path,metadata FROM documents').fetchall():
                     if not row['original_path']:continue
                     original=Path(row['original_path'])
+                    owned_path(original,self.paths.documents)
                     if original.is_symlink() or not original.resolve().is_relative_to(Path(self.paths.documents).resolve()) or not original.is_file():raise ValueError('Retained original missing or outside the document store')
                     original_hash=digest(original)
                     if original_hash!=row['hash']:raise ValueError('Retained original differs from its stored source hash')
@@ -110,7 +118,7 @@ class BackupService:
             raise ValueError('Invalid backup archive') from exc
 
     def preview(self,archive_path):
-        directory=Path(self.paths.data)/'backups';directory.mkdir(parents=True,exist_ok=True)
+        directory=self._paths_preflight();directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as tmp:
             manifest=self._inspect(archive_path,Path(tmp))
         return manifest | {'preview':True,'archive':str(Path(archive_path).resolve()),'replaces':'database and retained originals','credentials_restored':False}
@@ -120,17 +128,18 @@ class BackupService:
         with self.db.exclusive():return self._restore(archive_path)
 
     def _restore(self,archive_path):
-        directory=Path(self.paths.data)/'backups';directory.mkdir(parents=True,exist_ok=True)
+        directory=self._paths_preflight();directory.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory) as tmp:
             stage=Path(tmp);manifest=self._inspect(archive_path,stage)
             rollback=self.create()
-            documents=Path(self.paths.documents);documents.mkdir(parents=True,exist_ok=True)
+            documents=owned_path(self.paths.documents,self.paths.data);documents.mkdir(parents=True,exist_ok=True)
             created=[]
             try:
                 with closing(sqlite3.connect(stage/'database.sqlite3')) as con:
                     for doc_id,original,metadata in con.execute('SELECT id,original_path,metadata FROM documents').fetchall():
                         if not original:continue
                         target=documents/Path(original).name
+                        owned_path(target,documents)
                         if target.is_symlink():raise ValueError('Unsafe original destination')
                         if target.exists() and digest(target)!=manifest['files'][original]['sha256']:raise ValueError('Conflicting retained original')
                         if not target.exists():

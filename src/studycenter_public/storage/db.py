@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..domain.evidence import effective_evidence, newer_observation, newer_publication
 from ..domain.validation import validate_values
+from ..platform.paths import reject_links
 
 
 def encode(value):
@@ -41,6 +42,7 @@ _LOCKS_GUARD=threading.Lock()
 class Database:
     def __init__(self, path):
         self.path = Path(path)
+        reject_links(self.path)
         with _LOCKS_GUARD:
             self._lock=_LOCKS.setdefault(str(self.path.resolve()),threading.RLock())
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +66,7 @@ class Database:
 
     @contextmanager
     def _connection(self):
+        reject_links(self.path)
         con = sqlite3.connect(self.path, timeout=15)
         con.row_factory = sqlite3.Row
         con.execute('PRAGMA foreign_keys=ON')

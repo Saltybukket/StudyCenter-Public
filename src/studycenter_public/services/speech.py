@@ -13,6 +13,7 @@ from urllib.parse import urljoin, urlsplit
 from uuid import uuid4
 
 import httpx
+from ..platform.paths import owned_path
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 _COMMON = {
@@ -49,6 +50,8 @@ class SpeechService:
     def model_path(self):
         name,manifest=self._selection()
         path=Path(self.paths.cache)/'speech'/(name+'-'+manifest['revision'])
+        try:owned_path(path,self.paths.cache)
+        except ValueError:raise SpeechError('cache_path') from None
         if not path.resolve().is_relative_to(Path(self.paths.cache).resolve()):raise SpeechError('cache_path')
         return path
 
