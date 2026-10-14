@@ -22,7 +22,8 @@ application's environment, data or browser profile.
 ```powershell
 $env:PLAYWRIGHT_BROWSERS_PATH = "$PWD/build/browser-runtime/windows"
 .venv/Scripts/python -m playwright install chromium
-.venv/Scripts/python scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/browser-runtime/windows --iscc build/tools/inno/ISCC.exe
+.venv/Scripts/python scripts/build_browser_runtime.py --platform windows --original build/browser-runtime/windows --output build/unbranded-browser-runtime/windows
+.venv/Scripts/python scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/windows/runtime --iscc build/tools/inno/ISCC.exe
 ```
 
 The Windows OCR input is a portable extracted tree containing `tesseract.exe`,
@@ -43,7 +44,8 @@ every package version, source recipe, license, download size and archive SHA256.
 ```sh
 python scripts/build_linux_ocr.py --output build/linux-ocr
 PLAYWRIGHT_BROWSERS_PATH="$PWD/build/browser-runtime/linux" python -m playwright install chromium
-python scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/browser-runtime/linux
+python scripts/build_browser_runtime.py --platform linux --original build/browser-runtime/linux --output build/unbranded-browser-runtime/linux
+python scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/linux/runtime
 ```
 
 The Linux OCR builder downloads authenticated Ubuntu package indexes into an
@@ -58,6 +60,14 @@ notices. OCR and browser components retain their upstream notices. For GPL/LGPL
 dependencies, obtain corresponding source from the recorded upstream sources
 and retain any applicable linking exceptions and notices when redistributing.
 Use the complete corresponding source release alongside the application binary.
+
+The full browser comes from fixed official unbranded Chromium snapshot archives,
+with exact archive size/SHA256, publisher checksum and source commit checked by
+`build_browser_runtime.py`. Chrome for Testing full binaries, Widevine DRM,
+installation/elevation helpers and unused separate video helpers are excluded.
+The independently licensed Chromium Headless Shell retains its complete BSD
+and third-party notices. Speech/PyAV codec libraries retain their own notices
+and corresponding sources.
 
 Upstream component sources:
 

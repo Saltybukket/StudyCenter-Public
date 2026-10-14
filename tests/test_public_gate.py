@@ -1,7 +1,7 @@
 import io
 import hashlib
 import json
-from scripts.check_public import check, file_chunks, reviewed_artifact_matches
+from scripts.check_public import check, file_chunks, reviewed_artifact_matches, source_scanner_example
 
 
 def test_native_binaries_do_not_bypass_private_path_checks():
@@ -30,3 +30,17 @@ def test_reviewed_vendor_constant_is_bound_to_file_hash_and_rule(tmp_path):
     assert reviewed_artifact_matches(tmp_path,[('component.dll','forbidden data file')],reviews)[0]
     component.write_bytes(b'changed unreviewed bytes')
     assert reviewed_artifact_matches(tmp_path,findings,reviews)==(findings,[])
+    first=json.loads(reviews.read_text())['component.dll']
+    second=first|{'sha256':hashlib.sha256(component.read_bytes()).hexdigest()}
+    reviews.write_text(json.dumps({'component.dll':[first,second]}))
+    assert reviewed_artifact_matches(tmp_path,findings,reviews)==([],findings)
+    component.write_bytes(b'another unreviewed version')
+    assert reviewed_artifact_matches(tmp_path,findings,reviews)==(findings,[])
+
+
+def test_source_archive_scanner_exception_requires_exact_committed_bytes():
+    expected = b'public scanner deny pattern examples'
+    assert source_scanner_example('scripts/check_public.py', expected, expected)
+    assert source_scanner_example('StudyCenter-Public/scripts/check_public.py', expected, expected)
+    assert not source_scanner_example('other/scripts/check_public.py', expected, expected)
+    assert not source_scanner_example('StudyCenter-Public/scripts/check_public.py', expected + b' altered', expected)

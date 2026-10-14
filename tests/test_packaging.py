@@ -66,8 +66,10 @@ class PackagingContract(unittest.TestCase):
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp);cache=root/'_internal/vendor/__pycache__';cache.mkdir(parents=True);(cache/'synthetic.pyc').write_bytes(b'synthetic')
    browser=root/'components/browsers/chromium-synthetic/chrome-win64';browser.mkdir(parents=True);(browser/'setup.exe').write_bytes(b'synthetic setup');(browser/'chrome.exe').write_bytes(b'synthetic runtime')
+   unused=root/'components/browsers/ffmpeg-synthetic';unused.mkdir();(unused/'synthetic').write_bytes(b'unused video helper')
+   drm=browser/'WidevineCdm';drm.mkdir();(drm/'synthetic').write_bytes(b'unused DRM helper')
    strip_build_artifacts(root)
-   self.assertFalse(cache.exists());self.assertFalse((browser/'setup.exe').exists());self.assertTrue((browser/'chrome.exe').exists())
+   self.assertFalse(cache.exists());self.assertFalse((browser/'setup.exe').exists());self.assertTrue((browser/'chrome.exe').exists());self.assertFalse(unused.exists());self.assertFalse(drm.exists())
  def test_source_manifest_rejects_wrong_checkpoint(self):
   from scripts.build_release import write_manifest
   with tempfile.TemporaryDirectory() as tmp:
@@ -79,4 +81,12 @@ class PackagingContract(unittest.TestCase):
    snapshot={source:file_hash(source)};ensure_source_inputs_unchanged(snapshot)
    source.write_text('synthetic later version')
    with self.assertRaisesRegex(ValueError,'changed'):ensure_source_inputs_unchanged(snapshot)
+ def test_snapshot_extraction_refuses_escape_and_keeps_neighbor(self):
+  from scripts.build_browser_runtime import extract_snapshot
+  import zipfile
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp);neighbor=root/'neighbor.txt';neighbor.write_text('synthetic preserved');archive=root/'snapshot.zip'
+   with zipfile.ZipFile(archive,'w') as output:output.writestr('chrome-win/../../neighbor.txt','synthetic forbidden')
+   with self.assertRaisesRegex(ValueError,'Unsafe'):extract_snapshot(archive,root/'runtime','chrome-win','windows')
+   self.assertEqual(neighbor.read_text(),'synthetic preserved')
 if __name__=='__main__':unittest.main()

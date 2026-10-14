@@ -21,6 +21,11 @@ def smoke(executable,output=None,ocr=True):
     root=Path(output).resolve() if output else Path(tempfile.mkdtemp(prefix='studycenter-public-package-smoke-'))
     root.mkdir(parents=True,exist_ok=True)
     environment=os.environ.copy()
+    for variable in ('PYTHONHOME','PYTHONPATH','VIRTUAL_ENV'):environment.pop(variable,None)
+    system=Path(environment.get('SystemRoot','C:/Windows')) if sys.platform=='win32' else None
+    allowed_paths=[executable.parent,executable.parent/'_internal',executable.parent/'components'/'ocr']
+    allowed_paths += [system/'System32',system] if system else [Path('/usr/bin'),Path('/bin')]
+    environment['PATH']=os.pathsep.join(str(path) for path in allowed_paths)
     library_cache=root/'diagnostic-library-cache'
     for variable,suffix in (('HF_HOME',''),('HF_HUB_CACHE','hub'),('HF_XET_CACHE','xet'),('HF_ASSETS_CACHE','assets')):environment[variable]=str(library_cache/suffix)
     environment['HF_HUB_DISABLE_TELEMETRY']='1';environment['HF_HUB_OFFLINE']='1';environment['HF_HUB_DISABLE_XET']='1'
@@ -32,9 +37,19 @@ def smoke(executable,output=None,ocr=True):
     subprocess.run([str(executable),'--component-test','--data-dir',str(component_data)],check=True,timeout=90,env=environment)
     component_result=json.loads((component_data/'component-check.json').read_text())
     assert component_result['browsers']['dedicated_headless_shell']['rendered'] and component_result['browsers']['full_chromium']['rendered']
+    driver=executable.parent/'_internal'/'playwright'/'driver'
+    node=driver/('node.exe' if sys.platform=='win32' else 'node')
+    environment['PLAYWRIGHT_BROWSERS_PATH']=str(executable.parent/'components'/'browsers')
+    for name,channel in (('shell',None),('chromium','chromium')):
+        screenshot=root/('synthetic-'+name+'.png')
+        command=[str(node),str(driver/'package'/'cli.js'),'screenshot','--timeout','15000']
+        if channel:command += ['--channel',channel]
+        command += ['data:text/html,<html><body>Synthetic bundled screenshot</body></html>',str(screenshot)]
+        subprocess.run(command,check=True,timeout=60,env=environment)
+        assert screenshot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
     data=root/'HTTP test ü space';data.mkdir(exist_ok=True)
     process=subprocess.Popen([str(executable),'--data-dir',str(data),'--port','0','--no-browser'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=environment)
-    checks={'frozen_self_test':True,'bundled_driver_and_both_browsers':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
+    checks={'frozen_self_test':True,'bundled_driver_and_both_browsers':True,'both_bundled_screenshots_without_video_helper':True,'developer_python_environment_removed':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
     try:
         endpoint_file=data/'runtime.json';deadline=time.monotonic()+60
         while time.monotonic()<deadline:

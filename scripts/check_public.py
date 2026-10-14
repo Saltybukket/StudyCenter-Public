@@ -24,6 +24,12 @@ RULES = {
 def git(*args):
     return subprocess.check_output(['git', '-C', str(ROOT), *args])
 
+def source_scanner_example(name, content, committed_blob):
+    """Own deny examples in a source archive require exact committed bytes."""
+    return name.replace('\\', '/') in {
+        'scripts/check_public.py', 'StudyCenter-Public/scripts/check_public.py'
+    } and content == committed_blob
+
 def check(name, content, artifacts=False):
     problems = []
     parts = name.replace('\\', '/').split('/')
@@ -74,8 +80,10 @@ def reviewed_artifact_matches(path, failures, reviews_path):
     unresolved=[];reviewed=[]
     for name,rule in sorted(set(failures)):
         relative=name.replace('\\','/')
-        record=records.get(relative,{})
-        if rule not in {'credential','personal path','private endpoint'} or rule not in record.get('rules',[]) or not record.get('reason') or not record.get('origin'):
+        variants=records.get(relative,records.get(relative.removeprefix('StudyCenter-Public/'),{}))
+        if isinstance(variants,dict):variants=[variants]
+        eligible=[record for record in variants if rule in record.get('rules',[]) and record.get('reason') and record.get('origin')]
+        if rule not in {'credential','personal path','private endpoint'} or not eligible:
             unresolved.append((name,rule));continue
         if path.is_dir():
             file=path/relative
@@ -85,7 +93,7 @@ def reviewed_artifact_matches(path, failures, reviews_path):
             with zipfile.ZipFile(path) as archive,archive.open(name) as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
         else:
             with tarfile.open(path) as archive,archive.extractfile(name) as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
-        if digest==record.get('sha256'):reviewed.append((name,rule))
+        if any(digest==record.get('sha256') for record in eligible):reviewed.append((name,rule))
         else:unresolved.append((name,rule))
     return unresolved, reviewed
 
@@ -111,16 +119,23 @@ def main():
             entries.append((name,git('show',f':{name}') if a.staged else (ROOT/name).read_bytes()))
     failures = []
     checked = 0
+    committed_scanner = git('show', 'HEAD:scripts/check_public.py') if a.artifact else None
     for name, content in entries:
         checked += 1
         # The scanner necessarily contains deny-pattern examples, not app data.
-        if name == 'scripts/check_public.py':
+        if (not a.artifact and name == 'scripts/check_public.py') or (
+            a.artifact and source_scanner_example(name, content, committed_scanner)
+        ):
             failures.extend((name,'credential') for _ in RULES['credential'].finditer(content))
         else: failures.extend(check(name,content,bool(a.artifact)))
     raw_count=len(set(failures));reviewed=[]
     if a.artifact:failures,reviewed=reviewed_artifact_matches(a.artifact,failures,a.artifact_reviews)
     elif a.artifact_reviews:raise ValueError('Artifact reviews never exempt public source files')
-    for name,rule in sorted(set(failures)): print(f'{name}: {rule}')
+    for name,rule in sorted(set(failures)):
+        if a.artifact and a.artifact.is_dir():
+            with (a.artifact/name).open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+            print(f'{name}: {rule}; sha256={digest}')
+        else:print(f'{name}: {rule}')
     print(f'Checked {checked} file versions/chunks; {raw_count} raw findings; {len(reviewed)} exact reviewed upstream findings; {len(set(failures))} unresolved findings.')
     return bool(failures)
 

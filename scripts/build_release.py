@@ -86,6 +86,12 @@ def strip_build_artifacts(bundle):
         if path.is_dir():shutil.rmtree(path)
     browsers=bundle/'components'/'browsers'
     if browsers.exists():
+        for path in browsers.glob('ffmpeg-*'):
+            if not path.resolve().is_relative_to(bundle) or path.is_symlink():raise ValueError('Browser helper escaped bundle')
+            if path.is_dir():shutil.rmtree(path)
+        for path in browsers.rglob('WidevineCdm'):
+            if not path.resolve().is_relative_to(bundle) or path.is_symlink():raise ValueError('DRM helper escaped bundle')
+            if path.is_dir():shutil.rmtree(path)
         # Official browser archives also contain system-installation helpers.
         # Runtime browser launches do not need them and never execute them.
         for path in browsers.rglob('*'):

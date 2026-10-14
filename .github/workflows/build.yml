@@ -52,14 +52,22 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: '"$TASK_PYTHON" scripts/build_linux_ocr.py --output build/linux-ocr'
+      - name: Stage pinned unbranded Windows Chromium and licensed headless shell
+        if: runner.os == 'Windows'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/build_browser_runtime.py --platform windows --original build/browser-runtime --output build/unbranded-browser-runtime'
+      - name: Stage pinned unbranded Linux Chromium and licensed headless shell
+        if: runner.os == 'Linux'
+        shell: bash
+        run: '"$TASK_PYTHON" scripts/build_browser_runtime.py --platform linux --original build/browser-runtime --output build/unbranded-browser-runtime'
       - name: Freeze Windows bundle
         if: runner.os == 'Windows'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/browser-runtime --source-commit "$GITHUB_SHA"'
+        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA"'
       - name: Freeze Linux bundle
         if: runner.os == 'Linux'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/browser-runtime --source-commit "$GITHUB_SHA"'
+        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA"'
       - name: Synthetic Windows package smoke
         if: runner.os == 'Windows'
         shell: bash

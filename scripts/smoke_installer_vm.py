@@ -46,7 +46,17 @@ def run(installer=None):
         subprocess.run([str(compiler()),'/DAppVersion='+version,'/DBundleDir='+str(bundle),'/DOutputDir='+str(root),str(ROOT/'packaging/windows/installer.iss')],check=True)
         installer=next(root.glob('*-setup.exe'))
     command=[str(Path(installer).resolve()),'/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR='+str(program),'/DATADIR='+str(data),'/TASKS=startup,desktopicon']
-    subprocess.run(command,check=True,timeout=180)
+    def install(label):
+        log=root/(label+'-setup.log')
+        outcome=subprocess.run(command+['/LOG='+str(log)],check=False,timeout=180)
+        if outcome.returncode:
+            text=log.read_text(encoding='utf-8-sig',errors='replace') if log.exists() else 'Inno did not create its own setup log.'
+            for variable in ('RUNNER_TEMP','USERPROFILE','APPDATA','GITHUB_WORKSPACE'):
+                value=os.environ.get(variable)
+                if value:text=text.replace(value,'<'+variable+'>')
+            print(text[-20000:],flush=True)
+            raise RuntimeError('Own VM installer failed during '+label+' with exit '+str(outcome.returncode))
+    install('first-install')
     executable=program/'StudyCenter-Public.exe'
     if not executable.is_file():raise RuntimeError('Installer did not create the own application executable')
     smoke(executable,root/'First installed smoke')
@@ -61,7 +71,7 @@ def run(installer=None):
             time.sleep(.2)
         return process
     running=start_own_instance()
-    subprocess.run(command,check=True,timeout=180)
+    install('update')
     running.wait(timeout=30)
     if json.loads((data/'instance.json').read_text())!=before or (data/'studycenter-public.sqlite3').read_bytes()!=database:raise RuntimeError('Update changed own instance identity or database')
     snapshots=list((data/'backups').glob('before-update-*/studycenter-public.sqlite3'))
