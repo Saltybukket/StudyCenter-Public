@@ -115,3 +115,59 @@ def test_late_verification_failure_never_keeps_ui_pass_or_opens_blocked_source()
     assert result['UI_lane']['status'] == 'OPEN'
     assert result['UI_lane']['overview_rendered'] is True
     assert result['source_lane'] == {'status': 'BLOCKED', 'reason': 'Strict source ownership failed'}
+
+
+def test_dispatch_failure_diagnostics_preserve_code_and_redact_own_paths(tmp_path):
+    base = 'http://127.0.0.1:41721'
+    output = ('dispatcher failed ' + str(tmp_path) + '/own-wrapper ' + base + '/overview password=synthetic-value').encode()
+    details = controller.collect_dispatch_diagnostics(tmp_path, base, 4, output, b'synthetic error')
+    assert details['returncode'] == 4 and details['timed_out'] is False
+    assert details['wrapper_pid_receipt']['present'] is False
+    assert 'dispatcher failed' in details['stdout_tail']
+    assert str(tmp_path) not in details['stdout_tail'] and base not in details['stdout_tail']
+    assert 'synthetic-value' not in details['stdout_tail']
+    assert details['stderr_tail'] == 'synthetic error'
+
+
+def test_dispatch_own_browser_log_tail_is_bounded_and_empty_receipt_is_visible(tmp_path):
+    (tmp_path / 'own-ui-browser.json').write_bytes(b'')
+    (tmp_path / 'own-ui-browser.log').write_text('x' * 30000 + '\nOWN_CHROME_STARTUP_ERROR ' + str(tmp_path))
+    details = controller.collect_dispatch_diagnostics(tmp_path, 'http://127.0.0.1:41721', 1)
+    assert details['wrapper_pid_receipt']['present'] is True
+    assert details['wrapper_pid_receipt']['regular_file'] is True
+    assert details['wrapper_pid_receipt']['size'] == 0
+    tail = details['own_browser_output']['tail']
+    assert len(tail) <= 2048 and 'OWN_CHROME_STARTUP_ERROR' in tail and str(tmp_path) not in tail
+    assert details['own_browser_output']['truncated'] is True
+    assert details['own_chrome_log']['present'] is False
+
+
+def test_dispatch_timeout_partial_binary_output_is_json_safe(tmp_path):
+    details = controller.collect_dispatch_diagnostics(tmp_path, 'http://127.0.0.1:41721', stdout=b'partial\xff', timed_out=True)
+    assert details['returncode'] is None and details['timed_out'] is True
+    assert details['stdout_tail'].startswith('partial')
+
+
+def test_dispatch_diagnostics_never_follow_linked_log(tmp_path):
+    foreign = tmp_path / 'own-foreign-sentinel'
+    foreign.write_bytes(b'SYNTHETIC_FOREIGN_SENTINEL_DO_NOT_READ')
+    link = tmp_path / 'own-ui-browser.log'
+    try:
+        link.symlink_to(foreign)
+    except OSError:
+        pytest.skip('Own synthetic link unavailable')
+    details = controller.collect_dispatch_diagnostics(tmp_path, 'http://127.0.0.1:41721', 1)
+    assert details['own_browser_output']['read_error_type'] == 'ValueError'
+    assert 'SYNTHETIC_FOREIGN_SENTINEL_DO_NOT_READ' not in str(details)
+    assert foreign.read_bytes() == b'SYNTHETIC_FOREIGN_SENTINEL_DO_NOT_READ'
+
+
+def test_dispatch_diagnostics_redact_entire_authorization_and_bearer_lines(tmp_path):
+    value = (b'first useful line\nAuthorization: Bearer SYNTHETIC_TWO_PART_VALUE\n'
+             b'Bearer SYNTHETIC_STANDALONE_VALUE\n"Authorization": "Basic SYNTHETIC_BASIC_VALUE"\nlast useful line')
+    details = controller.collect_dispatch_diagnostics(tmp_path, 'http://127.0.0.1:41721', 4, stderr=value)
+    assert details['returncode'] == 4
+    assert all(marker not in details['stderr_tail'] for marker in
+               ('SYNTHETIC_TWO_PART_VALUE', 'SYNTHETIC_STANDALONE_VALUE', 'SYNTHETIC_BASIC_VALUE'))
+    assert details['stderr_tail'].startswith('first useful line\n')
+    assert details['stderr_tail'].endswith('\nlast useful line')

@@ -304,6 +304,58 @@ def stop_own_browser(pid_receipt, profile):
         pass
 
 
+def collect_dispatch_diagnostics(fixture, base, returncode=None, stdout=b'', stderr=b'', timed_out=False):
+    def redacted(value, limit):
+        if isinstance(value, bytes):
+            value = value[-8192:].decode('utf-8', errors='replace')
+        else:
+            value = str(value or '')[-8192:]
+        for path in (str(fixture), str(ROOT), os.environ.get('HOME', '')):
+            if path:
+                value = value.replace(path, '<OWN_VM_PATH>')
+        value = value.replace(base, '<OWN_LOOPBACK>')
+        value = re.sub(r'https?://[^\s\"<>]+', '<URL>', value)
+        value = re.sub(r'/home/[^\s\"<>]+', '<USER_PATH>', value)
+        value = re.sub(r"(?im)^.*\b(?:authorization[\"']?\s*[:=]|bearer\s+)[^\r\n]*", '<AUTHORIZATION_REDACTED>', value)
+        value = re.sub(r'(?i)\b(authorization|password|passwd|secret|token|api[_-]?key)\s*[:=]\s*[^\s,;]+', r'\1=<REDACTED>', value)
+        return value[-limit:]
+
+    def metadata(path):
+        found = {'present': os.path.lexists(path)}
+        if found['present']:
+            try:
+                info = path.lstat()
+                found.update(regular_file=stat.S_ISREG(info.st_mode), size=info.st_size)
+            except OSError as error:
+                found['metadata_error_type'] = type(error).__name__
+        return found
+
+    def own_tail(name):
+        path = fixture / name
+        found = metadata(path)
+        if not found['present']:
+            return found
+        try:
+            if any(candidate.is_symlink() for candidate in (path, *path.parents)) or not path.resolve().is_relative_to(fixture.resolve()):
+                raise ValueError('Own diagnostic log is linked or outside the fixture.')
+            flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0)
+            with os.fdopen(os.open(path, flags), 'rb') as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode):
+                    raise ValueError('Own diagnostic log is not regular.')
+                stream.seek(max(0, info.st_size - 8192))
+                value = stream.read(8192)
+            found.update(tail=redacted(value, 2048), truncated=info.st_size > 2048)
+        except (OSError, ValueError) as error:
+            found['read_error_type'] = type(error).__name__
+        return found
+
+    return {'returncode': returncode, 'timed_out': timed_out,
+            'stdout_tail': redacted(stdout, 1600), 'stderr_tail': redacted(stderr, 1600),
+            'wrapper_pid_receipt': metadata(fixture / 'own-ui-browser.json'),
+            'own_browser_output': own_tail('own-ui-browser.log'), 'own_chrome_log': own_tail('chrome.log')}
+
+
 def sandbox_evidence(context, profile):
     browser = context.browser
     session = browser.new_browser_cdp_session()
@@ -350,11 +402,16 @@ def sandbox_evidence(context, profile):
             'renderer_processes': renderers, 'chromium_sandbox_bypass_flags': False}
 
 
-def ui_probe(playwright, fixture, environment, base, stack):
+def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
     profile = own_directory(fixture / ('ui-profile-' + uuid4().hex))
     child, pid_receipt = install_own_xdg_dispatch(fixture, profile, base, environment)
     stack.callback(stop_own_browser, pid_receipt, profile)
-    dispatch = subprocess.run(['xdg-open', base + '/overview'], env=child, capture_output=True, timeout=30)
+    try:
+        dispatch = subprocess.run(['xdg-open', base + '/overview'], env=child, capture_output=True, timeout=30)
+    except subprocess.TimeoutExpired as error:
+        diagnostics.update(collect_dispatch_diagnostics(fixture, base, stdout=error.stdout, stderr=error.stderr, timed_out=True))
+        raise RuntimeError('Own xdg-open browser dispatch timed out.') from None
+    diagnostics.update(collect_dispatch_diagnostics(fixture, base, dispatch.returncode, dispatch.stdout, dispatch.stderr))
     if dispatch.returncode:
         raise RuntimeError('Own xdg-open browser dispatch failed.')
     acknowledgement = wait_for(lambda: json.loads(pid_receipt.read_text()) if pid_receipt.is_file() and pid_receipt.stat().st_size else None)
@@ -486,9 +543,14 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
                     else:
                         backend = backend_start(fixture, display_environment, executable, stack)
                         base = backend[0]
-                        result['UI_lane'] = ui_probe(playwright, fixture, display_environment, base, stack)
+                        result['UI_dispatch_diagnostics'] = {}
+                        result['UI_lane'] = ui_probe(playwright, fixture, display_environment, base, stack, result['UI_dispatch_diagnostics'])
                 except Exception as error:
                     result['UI_lane'] = {'status': 'OPEN', 'error': error_message(error)}
+                    if 'UI_dispatch_diagnostics' in result:
+                        details = result['UI_dispatch_diagnostics']
+                        details.update(collect_dispatch_diagnostics(fixture, base, details.get('returncode'),
+                            details.get('stdout_tail', ''), details.get('stderr_tail', ''), details.get('timed_out', False)))
         if backend is not None:
             result['backend_cooperative_shutdown'] = backend[1].returncode == 0 and not (backend[2]/'runtime.json').exists()
         after = confinement_snapshot(); result['confinement_after'] = after
