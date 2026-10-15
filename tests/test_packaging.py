@@ -225,6 +225,8 @@ class PackagingContract(unittest.TestCase):
   class StopProbe(Exception):pass
   with tempfile.TemporaryDirectory() as tmp:
    root=pathlib.Path(tmp).resolve();executable=root/'bundle/StudyCenter-Public';output=root/'synthetic-diagnostic'
+   executable.parent.mkdir();executable.write_bytes(b'Synthetic executable; mocked native command prevents execution')
+   (executable.parent/'BUILD-MANIFEST.json').write_text(__import__('json').dumps({'files':{'StudyCenter-Public':{'size':executable.stat().st_size,'sha256':__import__('hashlib').sha256(executable.read_bytes()).hexdigest()}}}))
    captured={}
    def inspect(command,**options):captured.update(options['env']);raise StopProbe()
    with patch('scripts.smoke_release.sys.platform','linux'),patch('scripts.smoke_release.subprocess.run',side_effect=inspect):

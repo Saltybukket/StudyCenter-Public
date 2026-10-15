@@ -1,11 +1,13 @@
 """Exercise a frozen bundle with synthetic data, real local HTTP and optional OCR."""
 import argparse
 import http.cookiejar
+import hashlib
 import io
 import json
 import os
 from pathlib import Path
 import socket
+import stat
 import sqlite3
 import subprocess
 import sys
@@ -16,9 +18,101 @@ import urllib.request
 from uuid import uuid4
 
 
+def _manifest_files(program):
+    path=program/'BUILD-MANIFEST.json';info=path.lstat()
+    if not stat.S_ISREG(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+        raise ValueError('Program manifest is not a regular owned file')
+    expected=json.loads(path.read_text(encoding='utf-8'))['files']
+    if any(not isinstance(name,str) or name.startswith(('/','\\')) or ':' in name or '..' in name or '\\' in name for name in expected):
+        raise ValueError('Program manifest contains an invalid relative member')
+    return expected
+
+
+def _program_files(program):
+    program=Path(program).absolute();files={}
+    for ancestor in (program,*program.parents):
+        info=ancestor.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+            raise ValueError('Program path contains a link or reparse point')
+    expected=_manifest_files(program)
+    def regular_record(path):
+        descriptor=os.open(path,os.O_RDONLY|getattr(os,'O_BINARY',0)|getattr(os,'O_NOFOLLOW',0))
+        with os.fdopen(descriptor,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):raise ValueError('Program alias target is not regular')
+            return {'size':info.st_size,'sha256':hashlib.file_digest(stream,'sha256').hexdigest()}
+    def alias_record(path):
+        original=os.readlink(path);current=path;seen=set()
+        for _ in range(64):
+            if current in seen:raise ValueError('Program alias contains a loop')
+            seen.add(current)
+            if current.relative_to(program).as_posix() not in expected:
+                raise ValueError('Program alias target is not manifest bound')
+            for ancestor in current.parents:
+                if ancestor==program:break
+                info=ancestor.lstat()
+                if not stat.S_ISDIR(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+                    raise ValueError('Program alias traverses a linked or non-directory ancestor')
+            info=current.lstat()
+            if stat.S_ISLNK(info.st_mode):
+                target=os.readlink(current)
+                if os.path.isabs(target):raise ValueError('Program alias target is absolute')
+                current=Path(os.path.abspath(current.parent/target))
+                if current==program or not current.is_relative_to(program):
+                    raise ValueError('Program alias target escapes the program')
+            elif stat.S_ISREG(info.st_mode):
+                return {**regular_record(current),'link_target':original}
+            else:raise ValueError('Program alias target is not a regular file')
+        raise ValueError('Program alias chain exceeds the bounded limit')
+    def visit(directory):
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                path=Path(entry.path);info=path.lstat()
+                if stat.S_ISLNK(info.st_mode) and sys.platform=='linux' and os.name!='nt':
+                    files[path.relative_to(program).as_posix()]=alias_record(path)
+                    continue
+                if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+                    raise ValueError('Program member contains a link or reparse point')
+                if stat.S_ISDIR(info.st_mode):visit(path)
+                elif stat.S_ISREG(info.st_mode):
+                    files[path.relative_to(program).as_posix()]=regular_record(path)
+                else:raise ValueError('Program contains a non-regular member')
+    visit(program)
+    return files
+
+
+def program_inventory(program, *, installed_inventory=None):
+    """Bind the complete program before native tests; never bless unknown files."""
+    program=Path(program).absolute()
+    actual=_program_files(program)
+    expected=_manifest_files(program)
+    if any(name not in actual or {key:actual[name][key] for key in ('size','sha256')}!=record for name,record in expected.items()):
+        raise ValueError('Program bytes differ from the build manifest')
+    allowed=set(expected)|{'BUILD-MANIFEST.json'}
+    if installed_inventory is not None:
+        try:from .smoke_installer_vm import installation_inventory_diagnostics
+        except ImportError:from smoke_installer_vm import installation_inventory_diagnostics
+        diagnostic=installation_inventory_diagnostics(program,installed_inventory['data_directory'],installed_inventory['registered_install_location'])
+        required=('program_path_safe','marker_application_matches','marker_data_directory_matches','registry_install_location_matches','inventory_hash_matches_marker','inventory_parse_valid')
+        if (not all(diagnostic.get(key) is True for key in required) or diagnostic['blocked_member_count'] or diagnostic['read_error_count'] or any(diagnostic['inventory_delta'][key] for key in ('added_count','missing_count','changed_count'))):
+            raise ValueError('Program installation inventory is not a validated unchanged own tree')
+        inno={'installation-files.txt','installation-marker.ini','unins000.exe','unins000.dat','unins000.msg'}
+        if not {'installation-files.txt','installation-marker.ini','unins000.exe','unins000.dat'}.issubset(actual):
+            raise ValueError('Program installation metadata is incomplete')
+        allowed|=inno
+    if set(actual)!=allowed.intersection(actual) or not (set(expected)|{'BUILD-MANIFEST.json'}).issubset(actual):
+        raise ValueError('Program has files outside the exact manifest and validated installer metadata')
+    return actual
+
+
+def require_program_unchanged(program, before):
+    if _program_files(program)!=before:
+        raise ValueError('Program files changed during native smoke; candidate remains unaccepted')
+
+
 def sandbox_screenshot_script(package, screenshot, channel):
     channel_option=('channel:'+json.dumps(channel)+',') if channel else ''
-    return "const fs=require('fs');const {chromium}=require("+json.dumps(str(package))+");(async()=>{const browser=await chromium.launch({headless:true,chromiumSandbox:true,"+channel_option+"args:['--host-resolver-rules=MAP * ~NOTFOUND']});const page=await browser.newPage();await page.setContent('<html><body>Synthetic bundled screenshot</body></html>');await page.screenshot({path:"+json.dumps(str(screenshot))+"});await browser.close();})().catch(error=>{console.error(error);process.exitCode=1;});"
+    return "const fs=require('fs');const {chromium}=require("+json.dumps(str(package))+");(async()=>{const browser=await chromium.launch({headless:true,chromiumSandbox:true,"+channel_option+"args:['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND']});const page=await browser.newPage();await page.setContent('<html><body>Synthetic bundled screenshot</body></html>');await page.screenshot({path:"+json.dumps(str(screenshot))+"});await browser.close();})().catch(error=>{console.error(error);process.exitCode=1;});"
 
 
 def run_component_diagnostic(command, data, environment):
@@ -66,8 +160,16 @@ def run_browser_checks(executable,root,environment,enabled=True):
     return {'bundled_driver_and_both_browsers':True,'both_bundled_screenshots_without_video_helper':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
 
 
-def smoke(executable,output=None,ocr=True,browsers=True):
-    executable=Path(executable).resolve()
+def smoke(executable,output=None,ocr=True,browsers=True,*,installed_inventory=None):
+    executable=Path(executable).absolute()
+    for path in (executable,*executable.parents):
+        info=path.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+            raise ValueError('Program executable path contains a link or reparse point')
+        if not (stat.S_ISREG(info.st_mode) if path==executable else stat.S_ISDIR(info.st_mode)):
+            raise ValueError('Program executable or ancestor is not a regular file or directory')
+    executable=executable.resolve()
+    initial_program=program_inventory(executable.parent,installed_inventory=installed_inventory)
     root=Path(output).resolve() if output else Path(tempfile.mkdtemp(prefix='studycenter-public-package-smoke-'))
     root.mkdir(parents=True,exist_ok=True)
     environment=os.environ.copy()
@@ -93,6 +195,7 @@ def smoke(executable,output=None,ocr=True,browsers=True):
     with sqlite3.connect(self_data/'studycenter-public.sqlite3') as con:
         assert con.execute('SELECT count(*) FROM action_receipts').fetchone()[0]==1
     browser_checks=run_browser_checks(executable,root,environment,browsers)
+    require_program_unchanged(executable.parent,initial_program)
     data=root/'HTTP test ü space';data.mkdir(exist_ok=True)
     process=subprocess.Popen([str(executable),'--data-dir',str(data),'--port','0','--no-browser'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=environment)
     checks={'frozen_self_test':True,'developer_python_environment_removed':True,**browser_checks}
@@ -149,6 +252,7 @@ def smoke(executable,output=None,ocr=True,browsers=True):
             try:process.wait(timeout=20)
             except subprocess.TimeoutExpired:process.terminate();process.wait(timeout=10)
     result={'platform':sys.platform,'scope':'full' if browsers else 'core_docs_ocr_http','checks':checks,'isolated_directory':str(root)}
+    require_program_unchanged(executable.parent,initial_program)
     (root/'package-smoke.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     print(json.dumps(result));return result
 

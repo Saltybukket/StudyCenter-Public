@@ -236,7 +236,11 @@ def run(installer=None,expected_source=None):
             raise RuntimeError('Frozen startup did not refuse foreign data headlessly: '+quiet_flag)
         if list(foreign_frozen.iterdir())!=[marker] or marker.read_bytes()!=b'Synthetic unrelated frozen-start sentinel':
             raise RuntimeError('Frozen refusal altered unrelated data: '+quiet_flag)
-    smoke(executable,root/'First installed smoke')
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,registry,0,winreg.KEY_READ|winreg.KEY_WOW64_64KEY) as key:
+            installed_location=winreg.QueryValueEx(key,'InstallLocation')[0]
+    except OSError:installed_location=None
+    smoke(executable,root/'First installed smoke',installed_inventory={'data_directory':data,'registered_install_location':installed_location})
     subprocess.run([str(executable),'--self-test','--data-dir',str(data),'--no-browser'],check=True,timeout=60)
     before=json.loads((data/'instance.json').read_text());database=(data/'studycenter-public.sqlite3').read_bytes()
     def start_own_instance():
@@ -260,7 +264,11 @@ def run(installer=None,expected_source=None):
     if json.loads((data/'instance.json').read_text())!=before or (data/'studycenter-public.sqlite3').read_bytes()!=database:raise RuntimeError('Update changed own instance identity or database')
     snapshots=list((data/'backups').glob('before-update-*/studycenter-public.sqlite3'))
     if not snapshots or snapshots[-1].read_bytes()!=database:raise RuntimeError('Update did not preserve the existing database before replacing program files')
-    smoke(executable,root/'Updated installed smoke')
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,registry,0,winreg.KEY_READ|winreg.KEY_WOW64_64KEY) as key:
+            updated_location=winreg.QueryValueEx(key,'InstallLocation')[0]
+    except OSError:updated_location=None
+    smoke(executable,root/'Updated installed smoke',installed_inventory={'data_directory':data,'registered_install_location':updated_location})
     uninstaller=program/'unins000.exe'
     running=start_own_instance()
     uninstall_log=root/'own-uninstall.log'

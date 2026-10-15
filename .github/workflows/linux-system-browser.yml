@@ -19,7 +19,8 @@ permissions:
 jobs:
   existing-system-browser:
     # Exact-package probes need push access to see the own unpublished draft.
-    # The token is passed only to its fixed-tag download step; no release writes.
+    # GH_TOKEN is set in the download step; github.token authority is job-wide.
+    # This workflow contains no release-write or upload commands.
     permissions:
       contents: write
     runs-on: ubuntu-24.04

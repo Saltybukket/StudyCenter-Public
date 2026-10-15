@@ -138,7 +138,7 @@ class BrowserManager:
             self.context = await self.playwright.chromium.launch_persistent_context(
                 str(self.profile), headless=not visible, chromium_sandbox=True, accept_downloads=True,
                 env=environment, **selection,
-                args=['--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
+                args=['--enable-logging=stderr', '--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
             self.visible = visible
             if not visible:
                 await self.context.route('**/*', self._readonly_route)

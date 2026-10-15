@@ -16,7 +16,7 @@ jobs:
   verify-candidate:
     # GitHub hides unpublished drafts from tokens without push access.
     # This job only downloads the fixed own draft; it never publishes or uploads.
-    # The token is passed only to the checksum-bound download step below.
+    # GH_TOKEN is set in the download step; github.token authority is job-wide.
     permissions:
       contents: write
     runs-on: windows-2022

@@ -1,5 +1,6 @@
 """Pure child-environment boundary; this does not authorize a VM/browser run."""
 import importlib.util
+import json
 from contextlib import ExitStack
 import os
 from pathlib import Path
@@ -255,3 +256,49 @@ def test_short_child_temp_binds_chrome_singleton_socket_and_closes_last(tmp_path
     assert events == [('browser', True), ('xvfb', True), ('backend', True)]
     assert not temporary.exists()
     assert parent == original and dict(os.environ) == global_environment
+
+
+def test_late_sandbox_failure_retains_only_observed_render_proofs_as_open():
+    diagnostics = {'partial_render_evidence': {
+        'status': 'PASS', 'normal_dispatch': True, 'overview_rendered': True,
+        'PDF_reader_DOM_and_image': True, 'UI_screenshot_sha256': 'a' * 64,
+        'reader_screenshot_sha256': 'b' * 64, 'untrusted_extra': 'SYNTHETIC_PRIVATE_VALUE'},
+        'sandbox_diagnostics': {'native_processes': {'complete': False}}}
+    result = controller.ui_failure_result('Actual sandbox evidence is missing.', diagnostics)
+    assert result['status'] == 'OPEN'
+    assert result['overview_rendered'] is True and result['PDF_reader_DOM_and_image'] is True
+    assert result['UI_screenshot_sha256'] == 'a' * 64 and result['reader_screenshot_sha256'] == 'b' * 64
+    assert 'untrusted_extra' not in result and 'SYNTHETIC_PRIVATE_VALUE' not in json.dumps(result)
+
+
+def test_sandbox_page_diagnostics_expose_case_without_relaxing_gate_or_leaking_secrets():
+    body = ('Namespace sandbox\tYes\nSeccomp-BPF sandbox\tYes\n'
+            'Authorization: Bearer SYNTHETIC_AUTH_VALUE\n"token": "SYNTHETIC_TOKEN_VALUE"\n'
+            'https://synthetic.invalid/private /tmp/synthetic-private/path C:\\synthetic\\private\\path\n')
+    result = controller.sandbox_page_diagnostics(body)
+    assert result['case_sensitive_gate'] == {'namespace': False, 'seccomp': True}
+    assert 'Namespace sandbox' in json.dumps(result)
+    assert all(value not in json.dumps(result) for value in ('SYNTHETIC_AUTH_VALUE', 'SYNTHETIC_TOKEN_VALUE',
+        'https://synthetic.invalid', '/tmp/synthetic-private', 'C:\\synthetic'))
+    large = controller.sandbox_page_diagnostics(body + 'x' * 40000)
+    assert len(large['body_excerpt']) <= 4096 and len(large['observed_lines']) <= 32
+
+
+def test_missing_renderer_native_facts_never_confirm_sandbox():
+    assert controller.renderer_sandbox_eligible([{'pid': 1, 'Seccomp': 2}]) is False
+
+
+def test_sandbox_diagnostics_never_print_quoted_multiline_token_values():
+    body = 'Namespace Sandbox\tYes\n"token":\n  "SYNTHETIC_MULTILINE_VALUE"\nSeccomp-BPF sandbox\tYes'
+    result = controller.sandbox_page_diagnostics(body)
+    assert result['case_sensitive_gate'] == {'namespace': True, 'seccomp': True}
+    assert 'SYNTHETIC_MULTILINE_VALUE' not in json.dumps(result)
+
+
+def test_open_ui_failure_never_projects_an_invalid_hash_or_raw_error_secret():
+    result = controller.ui_failure_result('Authorization: Bearer SYNTHETIC_ERROR_VALUE', {
+        'partial_render_evidence': {'UI_screenshot_sha256': 'https://synthetic.invalid/path',
+                                    'reader_screenshot_sha256': 'b' * 64}})
+    assert result['status'] == 'OPEN' and result['reader_screenshot_sha256'] == 'b' * 64
+    assert 'UI_screenshot_sha256' not in result
+    assert 'SYNTHETIC_ERROR_VALUE' not in json.dumps(result)

@@ -192,9 +192,49 @@ def chrome_label(label):
 
 
 def renderer_sandbox_eligible(renderers):
-    return bool(renderers) and all(value['Seccomp'] == 2 and value['NoNewPrivs'] == 1
-                                   and value['different_user_namespace'] and chrome_label(value['AppArmor_label'])
+    return bool(renderers) and all(value.get('Seccomp') == 2 and value.get('NoNewPrivs') == 1
+                                   and value.get('different_user_namespace') is True
+                                   and isinstance(value.get('AppArmor_label'), str) and chrome_label(value['AppArmor_label'])
                                    for value in renderers)
+
+
+def sandbox_diagnostic_text(value, limit=4096):
+    lines = []
+    for line in str(value or '')[:8192].splitlines():
+        if re.search(r'(?i)\b(authorization|bearer|password|passwd|secret|token|api[_-]?key)\b', line):
+            lines.append('<SENSITIVE_LINE_REDACTED>')
+            continue
+        if '"' in line or "'" in line:
+            lines.append('<QUOTED_LINE_REDACTED>')
+            continue
+        line = re.sub(r'https?://[^\s\"\'<>]+', '<URL_REDACTED>', line)
+        line = re.sub(r'[A-Za-z]:[\\/][^\s\"\'<>]+|/[^\s\"\'<>]+', '<PATH_REDACTED>', line)
+        lines.append(line)
+    return '\n'.join(lines)[:limit]
+
+
+def sandbox_page_diagnostics(text):
+    # These are the existing exact gates. Diagnostic case inspection never
+    # changes the acceptance parser.
+    return {'case_sensitive_gate': {
+                'namespace': bool(re.search(r'Namespace Sandbox\s+Yes', text)),
+                'seccomp': bool(re.search(r'Seccomp-BPF sandbox\s+Yes', text))},
+            'body_excerpt': sandbox_diagnostic_text(text),
+            'body_truncated': len(text) > 4096,
+            'observed_lines': [sandbox_diagnostic_text(line, 256) for line in text[:8192].splitlines()
+                               if re.search(r'(?i)sandbox|namespace|seccomp', line)][:32]}
+
+
+def ui_failure_result(error, diagnostics):
+    result = {'status': 'OPEN', 'error': sandbox_diagnostic_text(error, 1600)}
+    partial = diagnostics.get('partial_render_evidence', {})
+    for name in ('normal_dispatch', 'overview_rendered', 'PDF_reader_DOM', 'PDF_reader_image_loaded', 'PDF_reader_DOM_and_image'):
+        if type(partial.get(name)) is bool:
+            result[name] = partial[name]
+    for name in ('UI_screenshot_sha256', 'reader_screenshot_sha256'):
+        if isinstance(partial.get(name), str) and re.fullmatch(r'[0-9a-f]{64}', partial[name]):
+            result[name] = partial[name]
+    return result
 
 
 def invalidate_passes(result, reason):
@@ -383,50 +423,79 @@ def collect_dispatch_diagnostics(fixture, base, returncode=None, stdout=b'', std
             'own_browser_output': own_tail('own-ui-browser.log'), 'own_chrome_log': own_tail('chrome.log')}
 
 
-def sandbox_evidence(context, profile):
+def sandbox_evidence(context, profile, diagnostics=None):
+    diagnostics = diagnostics if diagnostics is not None else {}
     browser = context.browser
     session = browser.new_browser_cdp_session()
     command = session.send('Browser.getBrowserCommandLine')['arguments']
-    if '--user-data-dir=' + str(profile) not in command or any(flag in command for flag in ('--no-sandbox', '--disable-setuid-sandbox', '--disable-namespace-sandbox')):
+    own_argument = '--user-data-dir=' + str(profile) in command
+    forbidden = any(flag in command for flag in ('--no-sandbox', '--disable-setuid-sandbox', '--disable-namespace-sandbox'))
+    diagnostics['browser_commandline'] = {'own_profile_argument': own_argument, 'forbidden_bypass_flag_present': forbidden}
+    if not own_argument or forbidden:
         raise RuntimeError('Actual browser command line does not preserve the required sandbox/profile.')
     version = context.new_page()
-    version.goto('chrome://version')
-    executable = version.locator('#executable_path').inner_text().strip()
-    actual_profile = Path(version.locator('#profile_path').inner_text().strip())
-    if Path(executable).resolve() != SYSTEM_CHROME.resolve() or not actual_profile.is_relative_to(profile):
-        raise RuntimeError('Actual Chrome executable/profile differs from the own selected installation.')
-    version.goto('chrome://sandbox')
-    text = version.locator('body').inner_text()
-    namespace = bool(re.search(r'Namespace Sandbox\s+Yes', text))
-    seccomp = bool(re.search(r'Seccomp-BPF sandbox\s+Yes', text))
-    if not namespace or not seccomp:
-        raise RuntimeError('Actual Chromium namespace/seccomp sandbox is not confirmed.')
-    own_namespace = os.readlink('/proc/self/ns/user')
-    own_pid_namespace = os.readlink('/proc/self/ns/pid')
-    processes = session.send('SystemInfo.getProcessInfo')['processInfo']
-    browser_pid = int(next(info['id'] for info in processes if info['type'] == 'browser'))
-    own_browser_process(browser_pid, profile)
-    browser_label = read_audit(f'/proc/{browser_pid}/attr/current').strip()
-    if not chrome_label(browser_label):
-        raise RuntimeError('Actual own Chrome process is not using the attested existing Chrome profile.')
-    renderers = []
-    for info in processes:
-        if info['type'] != 'renderer':
-            continue
-        pid = int(info['id'])
-        status = read_audit(f'/proc/{pid}/status')
-        fields = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
-        renderer = {'pid': pid, 'Seccomp': int(fields['Seccomp'].strip()), 'NoNewPrivs': int(fields['NoNewPrivs'].strip()),
-                    'AppArmor_label': read_audit(f'/proc/{pid}/attr/current').strip(),
-                    'different_user_namespace': read_audit(f'/proc/{pid}/ns/user', link=True) != own_namespace,
-                    'different_pid_namespace': read_audit(f'/proc/{pid}/ns/pid', link=True) != own_pid_namespace}
-        renderers.append(renderer)
-    if not renderer_sandbox_eligible(renderers):
-        raise RuntimeError('Own renderer sandbox process evidence is incomplete.')
-    version.close()
-    return {'version': browser.version, 'executable': executable, 'own_profile': True, 'namespace_sandbox': namespace,
-            'seccomp_sandbox': seccomp, 'existing_browser_AppArmor_label': browser_label,
-            'renderer_processes': renderers, 'chromium_sandbox_bypass_flags': False}
+    try:
+        version.goto('chrome://version')
+        executable = version.locator('#executable_path').inner_text().strip()
+        actual_profile = Path(version.locator('#profile_path').inner_text().strip())
+        executable_matches = Path(executable).resolve() == SYSTEM_CHROME.resolve()
+        profile_matches = actual_profile.is_relative_to(profile)
+        diagnostics['version_page'] = {'expected_executable': executable_matches, 'own_profile': profile_matches}
+        if not executable_matches or not profile_matches:
+            raise RuntimeError('Actual Chrome executable/profile differs from the own selected installation.')
+        native = {'complete': False, 'renderers': []}
+        diagnostics['native_processes'] = native
+        renderers = []
+        browser_label = None
+        try:
+            own_namespace = os.readlink('/proc/self/ns/user')
+            own_pid_namespace = os.readlink('/proc/self/ns/pid')
+            processes = session.send('SystemInfo.getProcessInfo')['processInfo']
+            if len(processes) > 256 or sum(info['type'] == 'renderer' for info in processes) > 64:
+                raise RuntimeError('Own native process inventory exceeds the diagnostic bound.')
+            browser_pid = int(next(info['id'] for info in processes if info['type'] == 'browser'))
+            own_browser_process(browser_pid, profile)
+            def facts(pid):
+                status = read_audit(f'/proc/{pid}/status')
+                fields = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
+                return {'pid': pid, 'Seccomp': int(fields['Seccomp'].strip()), 'NoNewPrivs': int(fields['NoNewPrivs'].strip()),
+                        'AppArmor_label': read_audit(f'/proc/{pid}/attr/current').strip(),
+                        'different_user_namespace': read_audit(f'/proc/{pid}/ns/user', link=True) != own_namespace,
+                        'different_pid_namespace': read_audit(f'/proc/{pid}/ns/pid', link=True) != own_pid_namespace}
+            browser_facts = facts(browser_pid)
+            browser_label = browser_facts['AppArmor_label']
+            native['browser'] = dict(browser_facts, AppArmor_label=sandbox_diagnostic_text(browser_label, 160))
+            for info in processes:
+                if info['type'] != 'renderer':
+                    continue
+                renderer = facts(int(info['id']))
+                renderers.append(renderer)
+                native['renderers'].append(dict(renderer, AppArmor_label=sandbox_diagnostic_text(renderer['AppArmor_label'], 160)))
+            native['complete'] = bool(renderers)
+            native['existing_browser_chrome_label'] = chrome_label(browser_label)
+            native['renderer_gate'] = renderer_sandbox_eligible(renderers)
+        except Exception as error:
+            native['error_type'] = type(error).__name__
+        version.goto('chrome://sandbox')
+        text = version.locator('body').inner_text()
+        diagnostics['sandbox_page'] = sandbox_page_diagnostics(text)
+        namespace = diagnostics['sandbox_page']['case_sensitive_gate']['namespace']
+        seccomp = diagnostics['sandbox_page']['case_sensitive_gate']['seccomp']
+        # Collect only attested own native process facts even when the unchanged
+        # DOM gates fail, then retain the original fail-closed acceptance order.
+        if not namespace or not seccomp:
+            raise RuntimeError('Actual Chromium namespace/seccomp sandbox is not confirmed.')
+        if not native['complete'] or native.get('error_type'):
+            raise RuntimeError('Own native sandbox process evidence is incomplete.')
+        if not chrome_label(browser_label):
+            raise RuntimeError('Actual own Chrome process is not using the attested existing Chrome profile.')
+        if not renderer_sandbox_eligible(renderers):
+            raise RuntimeError('Own renderer sandbox process evidence is incomplete.')
+        return {'version': browser.version, 'executable': executable, 'own_profile': True, 'namespace_sandbox': namespace,
+                'seccomp_sandbox': seccomp, 'existing_browser_AppArmor_label': sandbox_diagnostic_text(browser_label, 160),
+                'renderer_processes': native['renderers'], 'chromium_sandbox_bypass_flags': False}
+    finally:
+        version.close()
 
 
 def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
@@ -441,6 +510,8 @@ def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
     diagnostics.update(collect_dispatch_diagnostics(fixture, base, dispatch.returncode, dispatch.stdout, dispatch.stderr))
     if dispatch.returncode:
         raise RuntimeError('Own xdg-open browser dispatch failed.')
+    partial = diagnostics.setdefault('partial_render_evidence', {})
+    partial['normal_dispatch'] = True
     acknowledgement = wait_for(lambda: json.loads(pid_receipt.read_text()) if pid_receipt.is_file() and pid_receipt.stat().st_size else None)
     own_browser_process(acknowledgement['pid'], profile)
     active = profile / 'DevToolsActivePort'
@@ -453,8 +524,10 @@ def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
     page = next((page for page in context.pages if page.url.startswith(base)), None) or context.new_page()
     page.goto(base + '/overview')
     page.get_by_role('heading', name='Übersicht', exact=True).wait_for()
+    partial['overview_rendered'] = True
     screen = fixture / 'own-xdg-ui.png'
     page.screenshot(path=screen, full_page=True)
+    partial['UI_screenshot_sha256'] = digest(screen)
     session = context.request.get(base + '/api/session').json()
     import pymupdf
     pdf = pymupdf.open()
@@ -466,10 +539,14 @@ def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
         raise RuntimeError('Own synthetic PDF import failed.')
     page.goto(base + '/documents/' + str(imported.json()['id']))
     page.get_by_text('Synthetic Public PDF reader sentinel', exact=False).first.wait_for()
+    partial['PDF_reader_DOM'] = True
     page.locator('img.pdf-page').first.wait_for(state='visible')
     page.wait_for_function("() => { const image = document.querySelector('img.pdf-page'); return image && image.complete && image.naturalWidth > 0; }", timeout=30000)
+    partial['PDF_reader_image_loaded'] = True
+    partial['PDF_reader_DOM_and_image'] = True
     reader = fixture / 'own-pdf-reader.png'; page.screenshot(path=reader, full_page=True)
-    evidence = sandbox_evidence(context, profile)
+    partial['reader_screenshot_sha256'] = digest(reader)
+    evidence = sandbox_evidence(context, profile, diagnostics.setdefault('sandbox_diagnostics', {}))
     return {'status': 'PASS', 'scope': 'own xdg-open dispatch, Xvfb-headed UI; no real desktop acceptance',
             'normal_dispatch': True, 'overview_rendered': True, 'PDF_reader_DOM_and_image': True,
             'UI_screenshot_sha256': digest(screen), 'reader_screenshot_sha256': digest(reader), 'sandbox': evidence}
@@ -577,7 +654,7 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
                         result['UI_dispatch_diagnostics'] = {}
                         result['UI_lane'] = ui_probe(playwright, fixture, display_environment, base, stack, result['UI_dispatch_diagnostics'])
                 except Exception as error:
-                    result['UI_lane'] = {'status': 'OPEN', 'error': error_message(error)}
+                    result['UI_lane'] = ui_failure_result(error_message(error), result.get('UI_dispatch_diagnostics', {}))
                     if 'UI_dispatch_diagnostics' in result:
                         details = result['UI_dispatch_diagnostics']
                         details.update(collect_dispatch_diagnostics(fixture, base, details.get('returncode'),

@@ -11,7 +11,7 @@ def show_startup_error(message):
 
 
 def browser_launch_options(channel,paths=None):
-    result={'headless':True,'channel':channel,'chromium_sandbox':True,'args':['--host-resolver-rules=MAP * ~NOTFOUND']}
+    result={'headless':True,'channel':channel,'chromium_sandbox':True,'args':['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND']}
     if paths:
         import os
         from studycenter_public.platform.paths import owned_path
