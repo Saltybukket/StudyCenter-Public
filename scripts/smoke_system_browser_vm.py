@@ -23,13 +23,23 @@ ROOT = Path(__file__).resolve().parents[1]
 SYSTEM_CHROME_NAME = '/opt/google/chrome/chrome'
 SYSTEM_CHROME = Path(SYSTEM_CHROME_NAME)
 PROFILE_POLICY = Path('/etc/apparmor.d/chrome')
-# Exact observed VM 38652957431; this is a disposable UI consumer admission,
-# never permission for the production source browser. The matching image recipe
-# sets /opt to 0777: actions/runner-images tag ubuntu24/20261004.327,
-# images/ubuntu/scripts/build/configure-system.sh, lines 10-13.
-KNOWN_UI_IMAGE = '20261004.327.1'
-KNOWN_UI_CHROME_VERSION = '154.0.8037.97-1'
-KNOWN_UI_CHROME_SHA256 = '6c792041b07547a662e1b17974d1dc34a3db630379b45d9d89ddd7e3e68cc587'
+# Exact disposable VM UI observations, never production source admission.
+# The matching official recipes set /opt to 0777. ELF hashes below were
+# observed in those VMs; they are not publisher-supplied checksums.
+KNOWN_UI_IMAGES = {
+    '20261004.327.1': {
+        'package_version': '154.0.8037.97-1',
+        'sha256': '6c792041b07547a662e1b17974d1dc34a3db630379b45d9d89ddd7e3e68cc587',
+        'observed_workflow_run': '38652957431',
+        'recipe': 'https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/scripts/build/configure-system.sh',
+    },
+    '20261012.334.1': {
+        'package_version': '155.0.8059.39-1',
+        'sha256': '9bfb381296dffe75f3419d07b6cc64525105ed117d1453a4ef3b291cb97d2b58',
+        'observed_workflow_run': '38658373042',
+        'recipe': 'https://github.com/actions/runner-images/blob/7e7dc1bcc0ef464e5e315a2b4c33609590c6cffe/images/ubuntu/scripts/build/configure-system.sh',
+    },
+}
 NAMESPACE_VALUES = (
     'kernel/apparmor_restrict_unprivileged_userns',
     'kernel/unprivileged_userns_clone', 'user/max_user_namespaces',
@@ -150,10 +160,11 @@ def candidate_eligibility(entry, image_version):
                    and entry.get('file_uid') == 0 and entry.get('setid') is False and entry.get('executable') is True
                    and entry.get('package_owner') == 'google-chrome-stable: ' + SYSTEM_CHROME_NAME)
     strict = regular and entry.get('root_controlled') is True
+    known_image = KNOWN_UI_IMAGES.get(image_version)
     ancestors = entry.get('ancestor_metadata', [])
-    known_writable_ui = bool(regular and entry.get('root_controlled') is False and entry.get('mode') == '0o777'
-                            and image_version == KNOWN_UI_IMAGE and entry.get('package_version') == KNOWN_UI_CHROME_VERSION
-                            and entry.get('sha256') == KNOWN_UI_CHROME_SHA256
+    known_writable_ui = bool(known_image and regular and entry.get('root_controlled') is False and entry.get('mode') == '0o777'
+                            and entry.get('package_version') == known_image['package_version']
+                            and entry.get('sha256') == known_image['sha256']
                             and [ancestor.get('path') for ancestor in ancestors] == ['/opt/google/chrome', '/opt/google', '/opt', '/']
                             and all(ancestor.get('uid') == 0 and ancestor.get('directory') is True for ancestor in ancestors))
     return strict, strict or known_writable_ui
@@ -497,7 +508,9 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
             'source_eligible': source_allowed, 'UI_eligible': ui_allowed,
             'known_writable_image_UI_only': ui_allowed and not source_allowed,
             'production_source_approval': False if not source_allowed else 'not claimed by this controller',
-            'image_recipe': 'actions/runner-images ubuntu24/20261004.327 configure-system.sh lines 10-13'}
+            'image_recipe': KNOWN_UI_IMAGES.get(result['runner_image'], {}).get('recipe'),
+            'known_image_observed_workflow_run': KNOWN_UI_IMAGES.get(result['runner_image'], {}).get('observed_workflow_run'),
+            'known_image_checksum_origin': 'Exact VM observation, not publisher checksum'}
         result['selected_system_browser_sha256'] = selected.get('sha256')
         result['prerequisites']['strict_source_Chrome'] = {'status': 'AVAILABLE' if source_allowed else 'BLOCKED'}
         result['prerequisites']['independent_UI_Chrome'] = {'status': 'AVAILABLE' if ui_allowed else 'BLOCKED'}

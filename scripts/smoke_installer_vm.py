@@ -1,5 +1,6 @@
 """Installer lifecycle probe restricted to ephemeral GitHub-hosted Windows runners."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -7,9 +8,108 @@ import shutil
 import subprocess
 import sys
 import time
+import stat
+import re
 from uuid import uuid4
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+def installation_inventory_diagnostics(program, data_directory, registered_install_location,
+                                       *, marker_values=None, limit=32):
+    """Read only: identify a VM update refusal without trusting extra files."""
+    program=Path(program).absolute()
+    if type(limit) is not int or not 1<=limit<=128:raise ValueError('Bounded diagnostic limit required')
+    blocked=[];errors=[];actual={}
+    excluded={'installation-files.txt','installation-marker.ini','unins000.dat','unins000.msg'}
+    def no_links(path):
+        for entry in (path,*path.parents):
+            try:info=entry.lstat()
+            except FileNotFoundError:continue
+            if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:return False
+        return True
+    def own_member(name):
+        normalized=name.replace('\\','/')
+        if not normalized or ':' in normalized or '..' in normalized or normalized.startswith('/'):
+            raise ValueError('Invalid relative inventory member')
+        return program/normalized
+    def hash_file(path):
+        with path.open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
+    if not no_links(program):return {'program_path_safe':False,'diagnostic_error':'link_or_reparse_ancestor'}
+    def visit(directory):
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    path=Path(entry.path);name=path.relative_to(program).as_posix()
+                    try:
+                        info=path.lstat()
+                        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+                            blocked.append({'path':name,'reason':'link_or_reparse'});continue
+                        if stat.S_ISDIR(info.st_mode):visit(path)
+                        elif stat.S_ISREG(info.st_mode):actual[name]={'sha256':hash_file(path),'size':info.st_size}
+                        else:blocked.append({'path':name,'reason':'special_file'})
+                    except OSError as error:errors.append({'path':name,'reason':type(error).__name__})
+        except OSError as error:errors.append({'path':directory.relative_to(program).as_posix(),'reason':type(error).__name__})
+    visit(program)
+    def read_known(name):
+        path=own_member(name)
+        if name not in actual or not no_links(path):raise ValueError('Diagnostic metadata unavailable')
+        return path.read_bytes()
+    if marker_values is None:
+        if sys.platform!='win32':raise RuntimeError('Native marker read requires the disposable Windows runner')
+        import ctypes
+        from ctypes import wintypes
+        read_ini=ctypes.WinDLL('kernel32',use_last_error=True).GetPrivateProfileStringW
+        read_ini.argtypes=[wintypes.LPCWSTR,wintypes.LPCWSTR,wintypes.LPCWSTR,wintypes.LPWSTR,wintypes.DWORD,wintypes.LPCWSTR]
+        read_ini.restype=wintypes.DWORD
+        marker=own_member('installation-marker.ini')
+        marker_values={}
+        if 'installation-marker.ini' in actual and no_links(marker):
+            for key in ('application','data_directory','inventory_sha256'):
+                value=ctypes.create_unicode_buffer(4097)
+                length=read_ini('identity',key,'',value,len(value),str(marker))
+                marker_values[key]=value.value if length<len(value)-1 else ''
+    def comparable(value):
+        if not value:return None
+        normalized=os.path.abspath(value).rstrip('\\/')
+        return normalized.casefold() if os.name=='nt' else normalized
+    invalid=0;inventory={};manifest={};inventory_encoding=None;inventory_sha=None
+    try:
+        raw=read_known('installation-files.txt');inventory_sha=hashlib.sha256(raw).hexdigest()
+        try:text=raw.decode('utf-8-sig');inventory_encoding='utf-8-sig'
+        except UnicodeDecodeError:text=raw.decode('mbcs' if os.name=='nt' else 'cp1252');inventory_encoding='system_ansi'
+        for line in text.splitlines():
+            if not line:continue
+            try:
+                digest,name=line.split('|',1)
+                if not re.fullmatch('[0-9a-fA-F]{64}',digest):raise ValueError('Invalid digest')
+                name=own_member(name).relative_to(program).as_posix()
+                if name in inventory:raise ValueError('Duplicate member')
+                inventory[name]={'sha256':digest.lower()}
+            except ValueError:invalid+=1
+    except (OSError,ValueError,UnicodeError) as error:errors.append({'path':'installation-files.txt','reason':type(error).__name__})
+    try:
+        payload=json.loads(read_known('BUILD-MANIFEST.json'))['files']
+        for name,row in payload.items():
+            relative=own_member(name).relative_to(program).as_posix()
+            if not re.fullmatch('[0-9a-f]{64}',row['sha256']):raise ValueError('Invalid manifest digest')
+            manifest[relative]={'sha256':row['sha256'],'size':row['size']}
+    except (OSError,ValueError,KeyError,TypeError) as error:errors.append({'path':'BUILD-MANIFEST.json','reason':type(error).__name__})
+    def delta(expected,ignored):
+        observed={name:row for name,row in actual.items() if name not in ignored}
+        added=[{'path':name,**observed[name]} for name in sorted(set(observed)-set(expected))]
+        missing=[{'path':name,**expected[name]} for name in sorted(set(expected)-set(observed))]
+        changed=[{'path':name,'expected_sha256':expected[name]['sha256'],'actual_sha256':observed[name]['sha256']} for name in sorted(set(expected)&set(observed)) if expected[name]['sha256']!=observed[name]['sha256'] or ('size' in expected[name] and expected[name]['size']!=observed[name]['size'])]
+        return {label+'_count':len(rows) for label,rows in [('added',added),('missing',missing),('changed',changed)]}|{label:rows[:limit] for label,rows in [('added',added),('missing',missing),('changed',changed)]}
+    return {'program_path_safe':True,'marker_application_matches':marker_values.get('application')=='StudyCenter.Public',
+            'marker_data_directory_matches':comparable(marker_values.get('data_directory'))==comparable(str(data_directory)),
+            'registry_install_location_matches':comparable(registered_install_location)==comparable(str(program)),
+            'inventory_hash_matches_marker':inventory_sha is not None and marker_values.get('inventory_sha256')==inventory_sha,
+            'inventory_sha256':inventory_sha,'inventory_encoding':inventory_encoding,'inventory_parse_valid':invalid==0 and inventory_sha is not None,
+            'invalid_inventory_entries':invalid,'inventory_entries':len(inventory),'manifest_entries':len(manifest),
+            'inventory_delta':delta(inventory,excluded),'manifest_delta':delta(manifest,excluded|{'BUILD-MANIFEST.json'}),
+            'blocked_member_count':len(blocked),'blocked_members':blocked[:limit],'read_error_count':len(errors),'read_errors':errors[:limit],
+            'scope':'Read-only diagnostics, not installation ownership approval; only relative paths and byte hashes.'}
 
 
 def require_disposable_runner():
@@ -148,6 +248,13 @@ def run(installer=None,expected_source=None):
             time.sleep(.2)
         return process
     running=start_own_instance()
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,registry,0,winreg.KEY_READ|winreg.KEY_WOW64_64KEY) as key:
+            registered_location=winreg.QueryValueEx(key,'InstallLocation')[0]
+    except OSError:registered_location=None
+    diagnostic=installation_inventory_diagnostics(program,data,registered_location)
+    (root/'before-update-inventory-diagnostic.json').write_text(json.dumps(diagnostic,indent=2),encoding='utf-8')
+    print(json.dumps({'before_update_inventory_diagnostic':diagnostic}),flush=True)
     install('update')
     running.wait(timeout=30)
     if json.loads((data/'instance.json').read_text())!=before or (data/'studycenter-public.sqlite3').read_bytes()!=database:raise RuntimeError('Update changed own instance identity or database')

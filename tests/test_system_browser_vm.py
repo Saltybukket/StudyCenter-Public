@@ -58,6 +58,18 @@ def test_known_writable_image_allows_only_independent_ui():
     assert ui_allowed is True
 
 
+def current_runner_browser():
+    """Metadata observed in UI VM run 38658373042; no browser is launched."""
+    entry = known_runner_browser()
+    entry.update(package_version='155.0.8059.39-1',
+                 sha256='9bfb381296dffe75f3419d07b6cc64525105ed117d1453a4ef3b291cb97d2b58')
+    return entry
+
+
+def test_current_exact_writable_image_allows_only_independent_ui():
+    assert controller.candidate_eligibility(current_runner_browser(), '20261012.334.1') == (False, True)
+
+
 @pytest.mark.parametrize('field,value', [
     ('path', '/synthetic-other/chrome'), ('resolved', '/synthetic-other/chrome'),
     ('regular_file', False), ('ELF', False), ('file_uid', 1001), ('setid', True),
@@ -65,14 +77,33 @@ def test_known_writable_image_allows_only_independent_ui():
     ('package_version', '154.0.8037.98-1'), ('sha256', '0' * 64),
     ('ancestor_metadata', [{'path': '/opt', 'uid': 1001, 'mode': '0o777'}]),
 ])
-def test_writable_ui_exception_never_accepts_other_candidate(field, value):
-    entry = known_runner_browser()
+@pytest.mark.parametrize('fixture,image', [(known_runner_browser, '20261004.327.1'),
+                                          (current_runner_browser, '20261012.334.1')])
+def test_writable_ui_exception_never_accepts_other_candidate(field, value, fixture, image):
+    entry = fixture()
     entry[field] = value
-    assert controller.candidate_eligibility(entry, '20261004.327.1') == (False, False)
+    assert controller.candidate_eligibility(entry, image) == (False, False)
 
 
 def test_other_image_does_not_inherit_writable_ui_exception():
     assert controller.candidate_eligibility(known_runner_browser(), '20261005.1') == (False, False)
+
+
+@pytest.mark.parametrize('fixture,image', [(known_runner_browser, '20261012.334.1'),
+                                          (current_runner_browser, '20261004.327.1'),
+                                          (current_runner_browser, '20261013.334.1')])
+def test_image_records_never_mix_or_admit_a_future_image(fixture, image):
+    assert controller.candidate_eligibility(fixture(), image) == (False, False)
+
+
+@pytest.mark.parametrize('field,value', [
+    ('package_version', '154.0.8037.97-1'),
+    ('sha256', '6c792041b07547a662e1b17974d1dc34a3db630379b45d9d89ddd7e3e68cc587'),
+])
+def test_current_image_never_accepts_an_old_package_or_old_elf(field, value):
+    entry = current_runner_browser()
+    entry[field] = value
+    assert controller.candidate_eligibility(entry, '20261012.334.1') == (False, False)
 
 
 def test_normal_strict_browser_keeps_both_lanes_eligible():
