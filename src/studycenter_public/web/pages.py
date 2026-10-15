@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date,timedelta
 import calendar
 from pathlib import Path
-from fastapi import APIRouter,Request
+from fastapi import APIRouter,Query,Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import PlainTextResponse
 router=APIRouter()
@@ -42,10 +42,13 @@ def timeline(r:Request,start:str='',end:str=''):
     return render(r,'timeline','Timeline',groups=sorted(groups.items()),start=start,end=end)
 
 @router.get('/calendar')
-def cal(r:Request,month:str='',view:str='month'):
+def cal(r:Request,month:str='',view:str='month',anchor:str=Query('',alias='date')):
     from ..config import VIENNA
     from datetime import datetime
-    day=date.fromisoformat(month+'-01') if month else datetime.now(VIENNA).date().replace(day=1)
+    selected=date.fromisoformat(anchor) if anchor else (date.fromisoformat(month+'-01') if month else datetime.now(VIENNA).date())
+    day=date.fromisoformat(month+'-01') if month else selected.replace(day=1)
+    week_start=selected-timedelta(days=selected.weekday())
+    week_days=[week_start+timedelta(days=n) for n in range(7)]
     rows=calendar.Calendar(firstweekday=0).monthdatescalendar(day.year,day.month)
     groups=defaultdict(list)
     for item in r.app.state.db.items():
@@ -62,7 +65,7 @@ def cal(r:Request,month:str='',view:str='month'):
         left=(max(first,days[0])-days[0]).days
         span=(min(last,days[-1])-max(first,days[0])).days+1
         lanes.append({'item':item,'left':left/len(days)*100,'width':span/len(days)*100,'point':first==last,'before':first<days[0],'after':last>days[-1]})
-    return render(r,'calendar','Kalender',weeks=rows,groups=groups,gantt_days=days,gantt_lanes=lanes,month=day.strftime('%Y-%m'),previous=previous,next_month=next_month,view=view)
+    return render(r,'calendar','Kalender',weeks=rows,week_days=week_days,selected_date=selected.isoformat(),previous_week=(week_start-timedelta(days=7)).isoformat(),next_week=(week_start+timedelta(days=7)).isoformat(),groups=groups,gantt_days=days,gantt_lanes=lanes,month=day.strftime('%Y-%m'),previous=previous,next_month=next_month,view=view)
 
 @router.get('/items/{item_id}')
 def item(r:Request,item_id:int):

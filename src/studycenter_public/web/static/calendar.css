@@ -5,6 +5,12 @@
 .calendar-navigation{display:flex;align-items:center;flex-wrap:wrap;gap:1rem;justify-content:space-between}
 .calendar-navigation h2{margin:0;flex:1;text-align:center;font-size:1.3rem}
 .calendar-navigation label{font-size:.75rem}.calendar-navigation input{padding:.3rem .5rem}
+.week-scroll{overflow-x:auto;margin-top:1rem;border:1px solid var(--line);border-radius:8px}
+.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-width:840px;background:#fff}
+.week-grid .calendar-day{min-height:320px;border-right:1px solid var(--line);padding:.8rem;overflow-wrap:anywhere}
+.week-grid .calendar-day:last-child{border-right:0}
+.week-grid .calendar-day>strong,.week-grid .calendar-day>time{display:block;margin-bottom:.4rem}
+.week-grid .calendar-day>time{font-size:.85rem;font-variant-numeric:tabular-nums}
 .calendar-arrows{display:flex;gap:.4rem}.calendar-explanation{font-size:.8rem;color:var(--muted);margin:1rem 0 1.3rem}
 .calendar-surface{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:white}
 #calendar{padding:.3rem;--fc-border-color:#dce4e5;--fc-today-bg-color:#eef5fb;--fc-event-bg-color:#426f5b;--fc-event-border-color:#426f5b}

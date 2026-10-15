@@ -98,7 +98,7 @@ def launch(state,name,work):
     return {'job':name,'state':'working'}
 
 @router.post('/documents/{document_id}/extract')
-def extract(r:Request,document_id:int):
+async def extract(r:Request,document_id:int):
     s=r.app.state;require_content_consent(s)
     return launch(s,'extract/'+str(document_id),s.extraction.extract(document_id))
 
@@ -266,7 +266,7 @@ def calendar_export(r:Request):
     return Response('\r\n'.join(lines)+'\r\n',media_type='text/calendar',headers={'Content-Disposition':'attachment; filename="studycenter-public.ics"'})
 
 @router.post('/sources/{source_id}/discover')
-def discover(r:Request,source_id:int):return launch(r.app.state,'discover/'+str(source_id),r.app.state.sync.discover_courses(source_id))
+async def discover(r:Request,source_id:int):return launch(r.app.state,'discover/'+str(source_id),r.app.state.sync.discover_courses(source_id))
 
 @router.post('/sources/{source_id}/select')
 async def select_courses(r:Request,source_id:int):return r.app.state.sync.select_courses(source_id,(await r.json())['courses'])
