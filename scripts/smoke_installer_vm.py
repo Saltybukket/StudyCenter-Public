@@ -10,9 +10,32 @@ import sys
 import time
 import stat
 import re
+import urllib.request
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 ROOT=Path(__file__).resolve().parents[1]
+
+
+def ready_instance_snapshot(process, data, timeout=60):
+    """Take the strict byte baseline after normal first-start initialization."""
+    identity=json.loads((data/'instance.json').read_text())
+    deadline=time.monotonic()+timeout
+    while time.monotonic()<deadline:
+        if process.poll() is not None:raise RuntimeError('Installed own application exited before readiness')
+        try:
+            endpoint=json.loads((data/'runtime.json').read_text())['url']
+            parsed=urlsplit(endpoint)
+            if parsed.scheme!='http' or parsed.hostname!='127.0.0.1' or not parsed.port or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment:
+                raise RuntimeError('Own VM readiness endpoint is not a loopback origin')
+            with urllib.request.urlopen(endpoint+'/api/health',timeout=2) as response:health=json.load(response)
+            if health.get('application')!='StudyCenter.Public' or health.get('instance_id')!=identity['instance_id']:
+                raise RuntimeError('Own VM readiness identity differs')
+            if json.loads((data/'instance.json').read_text())!=identity:
+                raise RuntimeError('Own instance identity changed during readiness')
+            return identity,(data/'studycenter-public.sqlite3').read_bytes()
+        except (OSError,json.JSONDecodeError):time.sleep(.1)
+    raise RuntimeError('Installed own application did not become ready')
 
 
 def installation_inventory_diagnostics(program, data_directory, registered_install_location,
@@ -242,7 +265,6 @@ def run(installer=None,expected_source=None):
     except OSError:installed_location=None
     smoke(executable,root/'First installed smoke',installed_inventory={'data_directory':data,'registered_install_location':installed_location})
     subprocess.run([str(executable),'--self-test','--data-dir',str(data),'--no-browser'],check=True,timeout=60)
-    before=json.loads((data/'instance.json').read_text());database=(data/'studycenter-public.sqlite3').read_bytes()
     def start_own_instance():
         process=subprocess.Popen([str(executable),'--no-browser','--port','0','--data-dir',str(data)])
         deadline=time.monotonic()+60
@@ -252,6 +274,7 @@ def run(installer=None,expected_source=None):
             time.sleep(.2)
         return process
     running=start_own_instance()
+    before,database=ready_instance_snapshot(running,data)
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,registry,0,winreg.KEY_READ|winreg.KEY_WOW64_64KEY) as key:
             registered_location=winreg.QueryValueEx(key,'InstallLocation')[0]
@@ -271,6 +294,7 @@ def run(installer=None,expected_source=None):
     smoke(executable,root/'Updated installed smoke',installed_inventory={'data_directory':data,'registered_install_location':updated_location})
     uninstaller=program/'unins000.exe'
     running=start_own_instance()
+    if ready_instance_snapshot(running,data)!=(before,database):raise RuntimeError('Reopening the updated instance changed identity or database')
     uninstall_log=root/'own-uninstall.log'
     outcome=setup_run([str(uninstaller),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG='+str(uninstall_log)],uninstall_log)
     if outcome.returncode:
