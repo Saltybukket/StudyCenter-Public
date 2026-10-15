@@ -16,3 +16,20 @@ def test_missing_portable_component_is_explicit_and_no_install_fallback(tmp_path
     paths=SimpleNamespace(cache=tmp_path/'public-cache')
     with pytest.raises(ValueError,match='Release'):ComponentService(paths).verify()
     assert not paths.cache.exists()
+
+
+def test_platform_browser_availability_matches_shipped_engines(tmp_path,monkeypatch):
+    from studycenter_public.platform import components
+    paths=SimpleNamespace(cache=tmp_path/'cache')
+    browsers=paths.cache/'components/browsers'
+    full=browsers/'chromium-synthetic';full.mkdir(parents=True)
+    monkeypatch.setattr(components.sys,'platform','win32')
+    assert ComponentService(paths).status()['browser'] is True
+    monkeypatch.setattr(components.sys,'platform','linux')
+    assert ComponentService(paths).status()['browser'] is False
+    shell=browsers/'chromium_headless_shell-synthetic';shell.mkdir()
+    assert ComponentService(paths).status()['browser'] is True
+    full.rmdir()
+    assert ComponentService(paths).status()['browser'] is False
+    monkeypatch.setattr(components.sys,'platform','win32')
+    assert ComponentService(paths).status()['browser'] is False

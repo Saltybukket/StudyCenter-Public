@@ -27,7 +27,9 @@ class ComponentService:
         root=component_root(self.paths);browser=root/'browsers';ocr=root/'ocr'
         tesseract=ocr/('tesseract.exe' if sys.platform=='win32' else 'usr/bin/tesseract')
         languages=ocr/('tessdata' if sys.platform=='win32' else 'usr/share/tesseract-ocr/5/tessdata')
-        return {'browser':bool(list(browser.glob('chromium-*')) and list(browser.glob('chromium_headless_shell-*'))),
+        full=bool(list(browser.glob('chromium-*')))
+        shell=bool(list(browser.glob('chromium_headless_shell-*')))
+        return {'browser':full and (sys.platform=='win32' or shell),
                 'ocr':tesseract.is_file() and all((languages/(lang+'.traineddata')).is_file() for lang in ('eng','deu')),
                 'status':'Portable Komponenten aus dieser Public-Installation; kein Zugriff auf vorhandene Systeminstallationen.'}
 

@@ -205,6 +205,7 @@ def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, vis
     monkeypatch.setenv('CHROME_DEVEL_SANDBOX', 'synthetic-forbidden-helper')
     monkeypatch.setenv('LD_PRELOAD', 'synthetic-forbidden-preload')
     manager = browser.BrowserManager(paths)
+    monkeypatch.setattr(browser.sys,'platform','linux' if engine=='system-chrome' or launch_failure or path_mode=='default-linux' else 'win32')
     if launch_failure:
         monkeypatch.setattr(browser.sys, 'platform', 'linux')
         with pytest.raises(browser.BrowserUnavailable) as refused:
@@ -218,7 +219,8 @@ def test_own_browser_always_requires_chromium_sandbox(monkeypatch, tmp_path, vis
     assert len(options) == 1
     assert options[0].get('chromium_sandbox') is True
     assert options[0]['headless'] is (not visible)
-    assert 'channel' not in options[0]
+    selected_channel=options[0].get('channel')
+    assert selected_channel==('chromium' if browser.sys.platform=='win32' else None)
     expected_profile = 'tu-browser-system-chrome' if system_path else 'tu-browser'
     assert launch_profiles == [str(profiles / expected_profile)]
     assert options[0].get('executable_path') == system_path

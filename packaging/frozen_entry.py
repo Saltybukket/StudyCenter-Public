@@ -10,11 +10,17 @@ def show_startup_error(message):
         ctypes.windll.user32.MessageBoxW(None,message,'StudyCenter-Public: Start nicht möglich',0x10)
 
 
+def browser_engines():
+    import sys
+    return (('full_chromium','chromium'),) if sys.platform=='win32' else (('dedicated_headless_shell',None),('full_chromium','chromium'))
+
+
 def browser_launch_options(channel,paths=None):
     import sys
     from uuid import uuid4
     if sys.platform=='win32' and paths is None:
         raise ValueError('Windows-Browserlogging braucht einen eigenen Cacheordner.')
+    if sys.platform=='win32':channel='chromium'
     result={'headless':True,'channel':channel,'chromium_sandbox':True,'args':['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND']}
     if paths:
         import os
@@ -78,12 +84,12 @@ def component_check(argv):
     async def browsers():
         result={}
         async with async_playwright() as driver:
-            for name,channel in (('dedicated_headless_shell',None),('full_chromium','chromium')):
+            for name,channel in browser_engines():
                 phase('launch '+name)
                 browser=await driver.chromium.launch(**browser_launch_options(channel,paths))
                 page=await browser.new_page();await page.set_content('<html><title>Synthetic package browser</title><body>Own bundled driver</body></html>')
                 if await page.title()!='Synthetic package browser':raise RuntimeError('Bundled browser did not render synthetic content')
-                result[name]={'version':browser.version,'rendered':True}
+                result[name]={'version':browser.version,'rendered':True,'headless':True}
                 await browser.close()
         return result
     checks={'speech_runtime_imports':True,'cpu_compute_types':sorted(ctranslate2.get_supported_compute_types('cpu')),'pdf_runtime_import':True,'browsers':asyncio.run(browsers()),'browser_runtime_path':os.environ['PLAYWRIGHT_BROWSERS_PATH'],'models_downloaded':False,'platform':sys.platform}

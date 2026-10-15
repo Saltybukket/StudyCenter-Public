@@ -89,7 +89,7 @@ class BrowserManager:
 
     async def _launch(self, visible):
         await self._close_context()
-        system_chrome = linux_system_chrome()
+        system_chrome = linux_system_chrome() if sys.platform == 'linux' else None
         self.using_system_chrome = bool(system_chrome)
         self.profile = Path(self.paths.profiles) / ('tu-browser-system-chrome' if system_chrome else 'tu-browser')
         if not system_chrome:
@@ -138,9 +138,10 @@ class BrowserManager:
                 raise BrowserUnavailable('Institutionelle Dienste derzeit nicht erreichbar')
             mappings.append('MAP * ~NOTFOUND')
             self.playwright = await async_playwright().start()
-            # Default headless Chromium uses Playwright's dedicated Headless Shell.
-            # Setting channel='chromium' would select the full browser instead.
-            selection = {'executable_path': system_chrome} if system_chrome else {}
+            # Windows uses the same owned full engine for login and background work.
+            # Linux retains its dedicated shell or its verified system executable.
+            selection = ({'executable_path': system_chrome} if system_chrome else
+                         {'channel': 'chromium'} if sys.platform == 'win32' else {})
             self.context = await self.playwright.chromium.launch_persistent_context(
                 str(self.profile), headless=not visible, chromium_sandbox=True, accept_downloads=True,
                 env=environment, **selection,
@@ -155,7 +156,7 @@ class BrowserManager:
                 raise
             if sys.platform == 'linux':
                 raise BrowserUnavailable('TU-Quellenbrowser unter Linux derzeit nicht verfügbar. Die lokale Oberfläche, Dokumente und manuelle Importe bleiben nutzbar. Die Browsersandbox wird nicht abgeschaltet.') from None
-            raise BrowserUnavailable('Eigener Browser nicht verfügbar; Chromium und Chromium Headless Shell für diese Installation installieren. Kein anderer Browser wird verwendet.') from None
+            raise BrowserUnavailable('Eigener Chromium-Browser nicht verfügbar; vollständiges Release-Paket prüfen oder reparieren. Kein anderer Browser wird verwendet.') from None
 
     async def _readonly_route(self, route):
         request = route.request

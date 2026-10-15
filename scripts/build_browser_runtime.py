@@ -1,10 +1,11 @@
-"""Stage unbranded official Chromium snapshots beside a licensed headless shell."""
+"""Stage unbranded official Chromium; Linux also retains its dedicated shell."""
 import argparse
 import base64
 import hashlib
 import json
 from pathlib import Path,PurePosixPath
 import shutil
+import stat
 import urllib.parse
 import urllib.request
 import zipfile
@@ -35,11 +36,22 @@ def extract_snapshot(archive,target,folder,platform):
 
 
 def stage(platform,original,output):
-    item=PLATFORMS[platform];output=Path(output).resolve();output.mkdir(parents=True,exist_ok=True)
-    runtime=output/'runtime';runtime.mkdir(exist_ok=True);original=Path(original).resolve()
+    item=PLATFORMS[platform];output=Path(output).absolute()
+    for path in (output,*output.parents):
+        try:info=path.lstat()
+        except FileNotFoundError:continue
+        if stat.S_ISLNK(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400:
+            raise ValueError('Browser stage output contains a link or reparse point; use a fresh stage')
+    output.mkdir(parents=True,exist_ok=True)
+    runtime=output/'runtime'
+    if runtime.exists() or runtime.is_symlink():
+        info=runtime.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or getattr(info,'st_file_attributes',0)&0x400 or any(runtime.iterdir())):
+            raise ValueError('Browser runtime output must be an empty regular directory; use a fresh stage')
+    runtime.mkdir(exist_ok=True);original=Path(original).resolve()
     for path in original.iterdir():
-        if path.name.startswith('chromium_headless_shell-') or path.name.startswith('winldd-'):
-            shutil.copytree(path,runtime/path.name,dirs_exist_ok=True)
+        if (platform=='linux' and path.name.startswith('chromium_headless_shell-')) or path.name.startswith('winldd-'):
+            shutil.copytree(path,runtime/path.name)
     object_name='/'.join((item['directory'],item['revision'],item['archive']))
     metadata=get_json('https://storage.googleapis.com/storage/v1/b/chromium-browser-snapshots/o/'+urllib.parse.quote(object_name,safe=''))
     origin=BASE+object_name;archive=output/item['archive']
@@ -67,7 +79,7 @@ def stage(platform,original,output):
     with urllib.request.urlopen(license_url,timeout=60) as response:license_data=base64.b64decode(response.read())
     if b'Redistribution and use in source and binary forms' not in license_data:raise ValueError('Snapshot source license does not contain the expected BSD grant')
     (target/'LICENSE.chromium').write_bytes(license_data)
-    manifest={'component':'Unbranded Chromium official snapshot','platform':platform,'revision':item['revision'],'origin':origin,'archive_sha256':digest,'archive_size':archive.stat().st_size,'upstream_md5_base64':md5,'source_git_sha':revisions['got_revision'],'source_license_origin':license_url,'source_revisions':revisions,'playwright_runtime_layout_revision':'1243','headless_shell_preserved':True,'video_drm_helpers_removed':True}
+    manifest={'component':'Unbranded Chromium official snapshot','platform':platform,'revision':item['revision'],'origin':origin,'archive_sha256':digest,'archive_size':archive.stat().st_size,'upstream_md5_base64':md5,'source_git_sha':revisions['got_revision'],'source_license_origin':license_url,'source_revisions':revisions,'playwright_runtime_layout_revision':'1243','headless_shell_preserved':any(path.name.startswith('chromium_headless_shell-') for path in runtime.iterdir()),'video_drm_helpers_removed':True}
     (runtime/'UNBRANDED-MANIFEST.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     print(json.dumps(manifest));return runtime
 

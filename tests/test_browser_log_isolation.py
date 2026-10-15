@@ -34,6 +34,7 @@ def test_diagnostic_browser_uses_owned_platform_logging_without_parent_changes(t
     before=dict(os.environ)
     options=frozen_module().browser_launch_options(channel,SimpleNamespace(cache=tmp_path))
     if platform=='win32':
+        assert options['channel']=='chromium'
         assert '--enable-logging' in options['args'] and '--enable-logging=stderr' not in options['args']
         assert '--log-file='+options['env']['CHROME_LOG_FILE'] in options['args']
     else:assert '--enable-logging=stderr' in options['args']
@@ -50,6 +51,7 @@ def test_screenshot_browser_uses_platform_logging_with_sandbox(tmp_path,monkeypa
     screenshot=tmp_path/('synthetic-'+str(channel)+'.png')
     script=sandbox_screenshot_script('synthetic-own-package',screenshot,channel)
     if platform=='win32':
+        assert "channel:\"chromium\"" in script
         assert '--enable-logging=stderr' not in script and '--enable-logging' in script
         assert json.dumps('--log-file='+str(screenshot.with_suffix('.browser.log'))) in script
         assert 'CHROME_LOG_FILE:'+json.dumps(str(screenshot.with_suffix('.browser.log'))) in script
@@ -99,6 +101,9 @@ def test_source_browser_uses_owned_platform_logs_in_both_modes(tmp_path,monkeypa
     try:
         complete(manager._launch(visible))
         if platform=='win32':
+            selected_channel=captured.get('channel')
+            assert selected_channel=='chromium'
+            assert 'executable_path' not in captured
             assert '--enable-logging' in captured['args'] and '--enable-logging=stderr' not in captured['args']
             assert '--log-file='+captured['env']['CHROME_LOG_FILE'] in captured['args']
         else:assert '--enable-logging=stderr' in captured['args']
@@ -115,6 +120,92 @@ def test_source_browser_uses_owned_platform_logs_in_both_modes(tmp_path,monkeypa
         environment_unchanged=dict(os.environ)==before
         assert environment_unchanged
     finally:complete(manager.close())
+
+
+@pytest.mark.parametrize('platform,expected',[
+    ('win32',(('full_chromium','chromium'),)),
+    ('linux',(('dedicated_headless_shell',None),('full_chromium','chromium'))),
+])
+def test_diagnostics_require_only_the_engines_shipped_on_the_platform(monkeypatch,platform,expected):
+    from scripts import smoke_release
+    monkeypatch.setattr(sys,'platform',platform)
+    assert frozen_module().browser_engines()==expected
+    assert smoke_release.browser_engines()==expected
+
+
+def test_windows_missing_full_browser_refuses_without_shell_retry(tmp_path,monkeypatch):
+    import playwright.async_api
+    from studycenter_public.collectors import browser
+    from studycenter_public.platform import components
+    monkeypatch.setattr(sys,'platform','win32')
+    data=tmp_path/'data';profiles=data/'profiles';profiles.mkdir(parents=True)
+    launches=[]
+    class Chromium:
+        async def launch_persistent_context(self,profile,**options):
+            launches.append(options)
+            raise RuntimeError('Synthetic missing full executable')
+    class Driver:
+        chromium=Chromium()
+        async def stop(self):pass
+    class Starter:
+        async def start(self):return Driver()
+    async def immediate(function,*args):return function(*args)
+    monkeypatch.setattr(playwright.async_api,'async_playwright',Starter)
+    monkeypatch.setattr(components,'configure_browser_runtime',lambda paths:None)
+    monkeypatch.setattr(browser,'restrict_permissions',lambda path:None)
+    monkeypatch.setattr(browser,'linux_system_chrome',lambda:pytest.fail('Windows must not discover a system browser'))
+    monkeypatch.setattr(browser,'resolve_public',lambda host:['93.184.216.34'])
+    monkeypatch.setattr(asyncio,'to_thread',immediate)
+    manager=browser.BrowserManager(SimpleNamespace(data=data,profiles=profiles,cache=tmp_path/'cache'))
+    coroutine=manager._launch(False)
+    with pytest.raises(browser.BrowserUnavailable) as error:
+        try:coroutine.send(None)
+        finally:coroutine.close()
+    assert len(launches)==1
+    selected_channel=launches[0].get('channel')
+    assert selected_channel=='chromium'
+    assert launches[0]['chromium_sandbox'] is True
+    assert 'Headless Shell' not in str(error.value) and 'installieren' not in str(error.value)
+    assert manager.context is None and manager.playwright is None
+
+
+@pytest.mark.parametrize('platform,expected',[
+    ('win32',['full_chromium']),
+    ('linux',['dedicated_headless_shell','full_chromium']),
+])
+def test_smoke_protocol_checks_only_required_engines_and_reports_truthfully(tmp_path,monkeypatch,platform,expected):
+    from scripts import smoke_release
+    monkeypatch.setattr(sys,'platform',platform)
+    calls=[]
+    def component(command,data,environment):
+        data.mkdir()
+        (data/'component-check.json').write_text(json.dumps({'speech_runtime_imports':True,
+            'browsers':{name:{'rendered':True,'headless':True} for name in expected}}))
+    def screenshot(command,**options):
+        script=Path(command[1])
+        name=script.stem.removeprefix('sandbox-screenshot-')
+        calls.append((name,script.read_text()))
+        (tmp_path/('synthetic-'+name+'.png')).write_bytes(b'\x89PNG\r\n\x1a\nsynthetic')
+    monkeypatch.setattr(smoke_release,'run_component_diagnostic',component)
+    monkeypatch.setattr(smoke_release.subprocess,'run',screenshot)
+    result=smoke_release.run_browser_checks(tmp_path/'program.exe',tmp_path,{},True)
+    assert [name for name,script in calls]==expected
+    assert result['bundled_browser_engines']==expected and result['browser_mode']=='headless'
+    assert result['bundled_driver_and_required_browsers'] is True
+    assert all('both' not in key and 'dedicated' not in key for key in result)
+    if platform=='win32':assert all('channel:"chromium"' in script for name,script in calls)
+
+
+def test_windows_component_result_cannot_substitute_shell_for_required_full(tmp_path,monkeypatch):
+    from scripts import smoke_release
+    monkeypatch.setattr(sys,'platform','win32')
+    def component(command,data,environment):
+        data.mkdir()
+        (data/'component-check.json').write_text(json.dumps({'speech_runtime_imports':True,
+            'browsers':{'dedicated_headless_shell':{'rendered':True,'headless':True}}}))
+    monkeypatch.setattr(smoke_release,'run_component_diagnostic',component)
+    monkeypatch.setattr(smoke_release.subprocess,'run',lambda *args,**kwargs:pytest.fail('No native fallback'))
+    with pytest.raises(AssertionError):smoke_release.run_browser_checks(tmp_path/'program.exe',tmp_path,{},True)
 
 
 def test_component_logs_are_distinct_per_browser_and_launch(tmp_path,monkeypatch):

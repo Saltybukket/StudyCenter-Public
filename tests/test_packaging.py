@@ -166,7 +166,7 @@ class PackagingContract(unittest.TestCase):
   for channel in (None,'chromium'):
    script=sandbox_screenshot_script('synthetic/package','synthetic.png',channel)
    self.assertIn('chromiumSandbox:true',script);self.assertNotIn('--no-sandbox',script);self.assertNotIn('cli.js',script)
-   if channel is None:self.assertNotIn('channel:',script)
+   if channel is None and sys.platform!='win32':self.assertNotIn('channel:',script)
  def test_installer_preflight_checks_identity_and_ancestors_before_mutation(self):
   script=(pathlib.Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
   self.assertNotIn('Assigned(DataDirectoryPage)',script)
@@ -220,8 +220,8 @@ class PackagingContract(unittest.TestCase):
   from unittest.mock import patch
   with patch('scripts.smoke_release.subprocess.run',side_effect=AssertionError('Browser must not start')):
    result=run_browser_checks(pathlib.Path('synthetic/StudyCenter-Public'),pathlib.Path('synthetic/output'),{},False)
-  self.assertEqual(result['bundled_driver_and_both_browsers'],'not_run')
-  self.assertEqual(result['both_bundled_screenshots_without_video_helper'],'not_run')
+  self.assertEqual(result['bundled_driver_and_required_browsers'],'not_run')
+  self.assertEqual(result['bundled_screenshots_without_video_helper'],'not_run')
   self.assertEqual(result['native_speech_imports_cpu'],'not_run')
  def test_linux_smoke_child_resolves_only_bundled_native_libraries_and_own_caches(self):
   from scripts.smoke_release import smoke
@@ -272,3 +272,56 @@ class PackagingContract(unittest.TestCase):
    with patch('scripts.build_release.NOTICE_COMPLETION_FILE',index,create=True):
     with self.assertRaisesRegex(ValueError,'completion'):validate_component_notices(bundle)
 if __name__=='__main__':unittest.main()
+
+
+def test_browser_stage_refuses_nonempty_runtime_without_mutation_or_network(tmp_path,monkeypatch):
+ from scripts import build_browser_runtime as staging
+ import pytest
+ output=tmp_path/'output';runtime=output/'runtime';runtime.mkdir(parents=True)
+ unknown=runtime/'unknown-owned-fixture.txt';unknown.write_bytes(b'preserve unknown fixture')
+ monkeypatch.setattr(staging,'get_json',lambda url:pytest.fail('Network must not precede stale-stage refusal'))
+ with pytest.raises(ValueError,match='empty|nonempty'):
+  staging.stage('windows',tmp_path/'original',output)
+ assert unknown.read_bytes()==b'preserve unknown fixture' and list(runtime.iterdir())==[unknown]
+
+
+def test_browser_stage_preserves_only_platform_required_shell(tmp_path,monkeypatch):
+ import base64,hashlib,io,json,zipfile
+ from scripts import build_browser_runtime as staging
+ for platform in ('windows','linux'):
+  original=tmp_path/platform/'original';shell=original/'chromium_headless_shell-synthetic';shell.mkdir(parents=True);(shell/'synthetic').write_bytes(b'synthetic shell')
+  helper=original/'winldd-synthetic';helper.mkdir();(helper/'synthetic').write_bytes(b'synthetic helper')
+  output=tmp_path/platform/'output';output.mkdir()
+  item=dict(staging.PLATFORMS[platform]);archive=output/item['archive']
+  with zipfile.ZipFile(archive,'w') as file:file.writestr(item['folder']+'/synthetic-browser',b'synthetic unbranded full browser')
+  data=archive.read_bytes();item.update(size=len(data),sha256=hashlib.sha256(data).hexdigest())
+  monkeypatch.setitem(staging.PLATFORMS,platform,item)
+  monkeypatch.setattr(staging,'get_json',lambda url:{'got_revision':item['source_git_sha']} if url.endswith('/REVISIONS') else {'size':len(data),'md5Hash':base64.b64encode(hashlib.md5(data).digest()).decode()})
+  def license_only(url,**kwargs):
+   assert url.endswith('/LICENSE?format=TEXT')
+   return io.BytesIO(base64.b64encode(b'Synthetic BSD notice: Redistribution and use in source and binary forms'))
+  monkeypatch.setattr(staging.urllib.request,'urlopen',license_only)
+  runtime=staging.stage(platform,original,output)
+  assert (runtime/shell.name).exists() is (platform=='linux')
+  assert (shell/'synthetic').read_bytes()==b'synthetic shell'
+  manifest=json.loads((runtime/'UNBRANDED-MANIFEST.json').read_text())
+  assert manifest['headless_shell_preserved'] is (platform=='linux')
+
+
+def test_browser_stage_refuses_linked_output_without_touching_target(tmp_path,monkeypatch):
+ from scripts import build_browser_runtime as staging
+ import pytest
+ foreign=tmp_path/'other-fixture';foreign.mkdir();marker=foreign/'preserved.txt';marker.write_bytes(b'unchanged')
+ link=tmp_path/'linked-output'
+ try:link.symlink_to(foreign,target_is_directory=True)
+ except (OSError,NotImplementedError):pytest.skip('This account cannot create an own directory symlink')
+ monkeypatch.setattr(staging,'get_json',lambda url:pytest.fail('No network before link refusal'))
+ with pytest.raises(ValueError,match='link|reparse'):staging.stage('windows',tmp_path/'original',link)
+ assert marker.read_bytes()==b'unchanged' and list(foreign.iterdir())==[marker]
+
+
+def test_windows_prefreeze_validates_only_shipped_full_engine():
+ workflow=(pathlib.Path(__file__).parents[1]/'.github/workflows/build.yml').read_text()
+ validation=workflow.split('- name: Validate own Windows browser stage before freezing',1)[1].split('- name: Freeze Windows bundle',1)[0]
+ assert 'registry.findExecutable("chromium")' in validation
+ assert 'registry.findExecutable("chromium-headless-shell")' not in validation

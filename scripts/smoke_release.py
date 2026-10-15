@@ -164,6 +164,7 @@ def require_program_unchanged(program, before):
 
 
 def sandbox_screenshot_script(package, screenshot, channel):
+    if sys.platform=='win32':channel='chromium'
     channel_option=('channel:'+json.dumps(channel)+',') if channel else ''
     arguments=['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND'];environment=''
     if sys.platform=='win32':
@@ -200,24 +201,30 @@ def run_component_diagnostic(command, data, environment):
         raise
 
 
+def browser_engines():
+    return (('full_chromium','chromium'),) if sys.platform=='win32' else (('dedicated_headless_shell',None),('full_chromium','chromium'))
+
+
 def run_browser_checks(executable,root,environment,enabled=True):
     if not enabled:
-        return {key:'not_run' for key in ('bundled_driver_and_both_browsers','both_bundled_screenshots_without_video_helper','native_speech_imports_cpu')}
+        return {key:'not_run' for key in ('bundled_driver_and_required_browsers','bundled_screenshots_without_video_helper','native_speech_imports_cpu')}
     component_data=root/'Native components ö space'
     run_component_diagnostic([str(executable),'--component-test','--data-dir',str(component_data)], component_data, environment)
     component_result=json.loads((component_data/'component-check.json').read_text())
-    assert component_result['browsers']['dedicated_headless_shell']['rendered'] and component_result['browsers']['full_chromium']['rendered']
+    engines=browser_engines()
+    assert set(component_result['browsers'])=={name for name,channel in engines}
+    assert all(component_result['browsers'][name]['rendered'] and component_result['browsers'][name]['headless'] for name,channel in engines)
     driver=executable.parent/'_internal'/'playwright'/'driver'
     node=driver/('node.exe' if sys.platform=='win32' else 'node')
     environment['PLAYWRIGHT_BROWSERS_PATH']=str(executable.parent/'components'/'browsers')
-    for name,channel in (('shell',None),('chromium','chromium')):
+    for name,channel in engines:
         screenshot=root/('synthetic-'+name+'.png')
         script=root/('sandbox-screenshot-'+name+'.js')
         script.write_text(sandbox_screenshot_script(driver/'package',screenshot,channel),encoding='utf-8')
         command=[str(node),str(script)]
         subprocess.run(command,check=True,timeout=60,env=environment)
         assert screenshot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
-    return {'bundled_driver_and_both_browsers':True,'both_bundled_screenshots_without_video_helper':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
+    return {'bundled_driver_and_required_browsers':True,'bundled_browser_engines':[name for name,channel in engines],'browser_mode':'headless','bundled_screenshots_without_video_helper':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
 
 
 def smoke(executable,output=None,ocr=True,browsers=True,*,installed_inventory=None):

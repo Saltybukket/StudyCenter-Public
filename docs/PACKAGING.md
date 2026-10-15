@@ -2,8 +2,10 @@
 
 The release consists of a Windows x86-64 per-user Inno Setup installer and a
 Linux x86-64 tar.gz directory. Each contains its own Python runtime, local web
-assets, Playwright Node driver, visible Chromium, dedicated Chromium Headless
-Shell, PDF support, Tesseract with English/German data, and speech libraries.
+assets, Playwright Node driver, Chromium, PDF support, Tesseract with
+English/German data, and speech libraries. Windows uses its own unbranded full
+Chromium for both visible login and headless background work. Linux additionally
+includes the dedicated Chromium Headless Shell.
 Speech model weights are downloaded only after an explicit user choice.
 
 Windows supports Windows 10/11. The embedded window uses the Microsoft WebView2
@@ -33,10 +35,17 @@ application's environment, data or browser profile.
 
 ```powershell
 $env:PLAYWRIGHT_BROWSERS_PATH = "$PWD/build/browser-runtime/windows"
-.venv/Scripts/python -m playwright install chromium
+.venv/Scripts/python -m playwright install chromium --no-shell
 .venv/Scripts/python scripts/build_browser_runtime.py --platform windows --original build/browser-runtime/windows --output build/unbranded-browser-runtime/windows
 .venv/Scripts/python scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/windows/runtime --iscc build/tools/inno/ISCC.exe
 ```
+
+Use a fresh, empty runtime stage for each browser build. Existing stages are
+refused rather than cleared or merged. The Windows stage excludes Headless
+Shell; its full Chromium runs with the sandbox enabled and its own Public
+profile in both modes. Browser logs use the instance's own cache. Source
+automation reuses neither a Windows system browser nor a private profile, and
+adds no browser security overrides.
 
 The Windows OCR input is a portable extracted tree containing `tesseract.exe`,
 its runtime DLLs, `tessdata/eng.traineddata`, `tessdata/deu.traineddata`, and
@@ -77,8 +86,11 @@ The full browser comes from fixed official unbranded Chromium snapshot archives,
 with exact archive size/SHA256, publisher checksum and source commit checked by
 `build_browser_runtime.py`. Chrome for Testing full binaries, Widevine DRM,
 installation/elevation helpers and unused separate video helpers are excluded.
-The independently licensed Chromium Headless Shell retains its complete BSD
-and third-party notices. Speech/PyAV codec libraries retain their own notices
+Linux's independently licensed Chromium Headless Shell retains its complete BSD
+and third-party notices. The shared source companion also retains the unchanged
+Windows Headless Shell sources and notices used by earlier held test candidates;
+that executable is excluded from the current Windows shipment.
+Speech/PyAV codec libraries retain their own notices
 and corresponding sources.
 
 Upstream component sources:

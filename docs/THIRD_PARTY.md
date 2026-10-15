@@ -12,8 +12,11 @@ and the package's `licenses/` directory by the native build.
 Portable OCR includes Tesseract (Apache-2.0), Leptonica and required image/runtime
 dependencies, with their own notices and recorded distribution sources/checksums.
 No system OCR installer or uninstaller is included. Full unbranded Chromium
-snapshots and Chromium Headless Shell have separate pinned archive/source commits
-and complete original notices; the bundled Playwright driver is version-pinned
+snapshots and Linux's Chromium Headless Shell have separate pinned archive/source
+commits and complete original notices. Windows uses the full unbranded Chromium
+for both visible and headless work and excludes the Windows Headless Shell.
+The shared source companion retains the unchanged sources/notices for the latter's
+earlier held test candidates. The bundled Playwright driver is version-pinned
 independently. Windows Dawn's DirectX compiler retains its original NCSA/LLVM
 notices. The WebView2 SDK files retain their Microsoft BSD-3-Clause license and
 NOTICE, separate from an installed Evergreen runtime. Optional Whisper weights are downloaded only after explicit

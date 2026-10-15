@@ -45,7 +45,12 @@ jobs:
         run: '"$TASK_PYTHON" -m pytest -q'
       - name: Download own official browser components
         shell: bash
-        run: '"$TASK_PYTHON" -m playwright install chromium'
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$TASK_PYTHON" -m playwright install chromium --no-shell
+          else
+            "$TASK_PYTHON" -m playwright install chromium
+          fi
       - name: Extract fresh portable Windows OCR
         if: runner.os == 'Windows'
         shell: bash
@@ -54,7 +59,7 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: '"$TASK_PYTHON" scripts/build_linux_ocr.py --output build/linux-ocr'
-      - name: Stage pinned unbranded Windows Chromium and licensed headless shell
+      - name: Stage pinned unbranded Windows Chromium
         if: runner.os == 'Windows'
         shell: bash
         run: '"$TASK_PYTHON" scripts/build_browser_runtime.py --platform windows --original build/browser-runtime --output build/unbranded-browser-runtime'
@@ -74,7 +79,7 @@ jobs:
               raise ValueError('Own browser stage and active dependency validation are required')
           driver=pathlib.Path(playwright.__file__).resolve().parent/'driver'
           script=root/'build/validate-own-windows-browser-stage.js'
-          script.write_text('const {registry}=require('+json.dumps(str(driver/'package/lib/coreBundle.js'))+').registry;(async()=>{await registry.validateHostRequirementsForExecutablesIfNeeded([registry.findExecutable("chromium"),registry.findExecutable("chromium-headless-shell")],"javascript");console.log("Own Windows browser dependency validation finished before freeze");})().catch(error=>{console.error(error);process.exitCode=1;});',encoding='utf-8')
+          script.write_text('const {registry}=require('+json.dumps(str(driver/'package/lib/coreBundle.js'))+').registry;(async()=>{await registry.validateHostRequirementsForExecutablesIfNeeded([registry.findExecutable("chromium")],"javascript");console.log("Own Windows browser dependency validation finished before freeze");})().catch(error=>{console.error(error);process.exitCode=1;});',encoding='utf-8')
           child=dict(os.environ,PLAYWRIGHT_BROWSERS_PATH=str(runtime))
           subprocess.run([str(driver/'node.exe'),str(script)],env=child,check=True,timeout=90)
           PY
