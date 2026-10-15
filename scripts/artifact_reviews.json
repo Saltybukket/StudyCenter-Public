@@ -764,17 +764,31 @@
     ],
     "sha256": "f42d25a1ff3271d581c15f7fd9870415535806b66d738717d7d1212123c19cac"
   },
-  "_internal/python312.dll": {
-    "match_sha256": [
-      "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
-    ],
-    "origin": "https://www.python.org/downloads/release/python-3126/",
-    "reason": "Published CPython splitroot docstring example",
-    "rules": [
-      "personal path"
-    ],
-    "sha256": "c045b57348c21f5f810bae60654ae39490846b487378e917595f1f95438f9546"
-  },
+  "_internal/python312.dll": [
+    {
+      "match_sha256": [
+        "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
+      ],
+      "origin": "https://www.python.org/downloads/release/python-3126/",
+      "reason": "Published CPython splitroot docstring example",
+      "rules": [
+        "personal path"
+      ],
+      "sha256": "c045b57348c21f5f810bae60654ae39490846b487378e917595f1f95438f9546"
+    },
+    {
+      "match_sha256": [
+        "be1936f2977011e877d40b5aef9f8dce4b320e71d0c3297f68b7eef2064177ba"
+      ],
+      "origin": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+      "published_archive_sha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3",
+      "reason": "Exact regular member of the official CPython 3.12.10 x64 embeddable archive. Both matched contexts are public splitroot docstring examples, not developer-local paths. CI interpreter variant only; classification applies exclusively to this whole-file SHA256.",
+      "rules": [
+        "personal path"
+      ],
+      "sha256": "9a0e3435aaa680d868150f87ab3e388ad2eebc22f87e036155c7b4eda8cd2120"
+    }
+  ],
   "_internal/rpds/rpds.cp312-win_amd64.pyd": {
     "match_sha256": [
       "af7ea99f2a7de2009fbe4e508e640ee2489d6ebfea3559bb8ff50f1ea0adc17d"
