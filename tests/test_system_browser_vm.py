@@ -3,6 +3,7 @@ import importlib.util
 import os
 from pathlib import Path
 import stat
+import subprocess
 
 import pytest
 
@@ -202,3 +203,23 @@ def test_dispatch_diagnostics_redact_entire_authorization_and_bearer_lines(tmp_p
                ('SYNTHETIC_TWO_PART_VALUE', 'SYNTHETIC_STANDALONE_VALUE', 'SYNTHETIC_BASIC_VALUE'))
     assert details['stderr_tail'].startswith('first useful line\n')
     assert details['stderr_tail'].endswith('\nlast useful line')
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='Actual Ubuntu-style /bin/sh dispatch boundary')
+def test_own_xdg_exec_resolves_owned_wrapper_with_legacy_ubuntu_parser(tmp_path):
+    fixture = tmp_path / 'own fixture with space'
+    fixture.mkdir()
+    parent = {'PATH': '/usr/bin:/bin', 'HOME': str(fixture), 'LC_ALL': 'C'}
+    original = dict(parent)
+    child, _ = controller.install_own_xdg_dispatch(fixture, fixture / 'own-profile',
+                                                  'http://127.0.0.1:41721', parent)
+    desktop = fixture / 'own-xdg-data/applications/StudyCenter-Public-Synthetic.desktop'
+    entry = next(line.removeprefix('Exec=') for line in desktop.read_text().splitlines() if line.startswith('Exec='))
+    # Noble xdg-utils 1.1.3-4.1ubuntu3 first_word preserves quote characters.
+    # Resolve only; never execute the generated browser wrapper.
+    script = 'read first rest; command_exec=`which $first 2>/dev/null`; [ "$command_exec" = "$EXPECTED_WRAPPER" ]'
+    result = subprocess.run(['/bin/sh', '-c', script], input=entry+'\n', text=True,
+                            env=dict(child, EXPECTED_WRAPPER=str(fixture/'own-system-browser-wrapper')),
+                            capture_output=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    assert parent == original

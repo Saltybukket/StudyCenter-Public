@@ -287,11 +287,15 @@ def install_own_xdg_dispatch(fixture, profile, base, environment):
     applications = own_directory(data / 'applications')
     desktop = 'StudyCenter-Public-Synthetic.desktop'
     (applications / desktop).write_text('[Desktop Entry]\nType=Application\nName=StudyCenter Public own test browser\n' +
-        'Exec="' + str(wrapper).replace('\\', '\\\\').replace('"', '\\"') + '" %u\nTerminal=false\n' +
+        'Exec=' + wrapper.name + ' %u\nTerminal=false\n' +
         'MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;\n', encoding='utf-8')
     (config / 'mimeapps.list').write_text('[Default Applications]\nx-scheme-handler/http=' + desktop + ';\n' +
         'x-scheme-handler/https=' + desktop + ';\ntext/html=' + desktop + ';\n', encoding='utf-8')
-    return dict(environment, XDG_CONFIG_HOME=str(config), XDG_DATA_HOME=str(data), BROWSER=str(wrapper)), pid_receipt
+    # Noble's legacy xdg-open first_word preserves quotes. A fixed basename
+    # resolves the own wrapper through this child-only PATH, including spaces
+    # in the fixture directory. DE and the BROWSER assignment stay as before.
+    return dict(environment, XDG_CONFIG_HOME=str(config), XDG_DATA_HOME=str(data), BROWSER=str(wrapper),
+                PATH=str(fixture) + os.pathsep + environment.get('PATH', os.defpath)), pid_receipt
 
 
 def own_browser_process(pid, profile):

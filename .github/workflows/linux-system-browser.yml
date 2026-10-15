@@ -18,6 +18,10 @@ permissions:
   contents: read
 jobs:
   existing-system-browser:
+    # Exact-package probes need push access to see the own unpublished draft.
+    # The token is passed only to its fixed-tag download step; no release writes.
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
