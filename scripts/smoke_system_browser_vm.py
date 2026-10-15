@@ -213,12 +213,38 @@ def sandbox_diagnostic_text(value, limit=4096):
     return '\n'.join(lines)[:limit]
 
 
+def sandbox_rows_verified(body):
+    required = {'Layer 1 Sandbox': 'Namespace', 'PID namespaces': 'Yes',
+                'Network namespaces': 'Yes', 'Seccomp-BPF sandbox': 'Yes'}
+    optional = {'Seccomp-BPF sandbox supports TSYNC', 'Ptrace Protection with Yama LSM (Broker)',
+                'Ptrace Protection with Yama LSM (Non-broker)'}
+    if not isinstance(body,str) or len(body)>4096 or '\r' in body:return False
+    lines=[line for line in body.split('\n') if line!='']
+    if not lines or len(lines)>16 or lines[0]!='Sandbox Status' or lines[-1]!='You are adequately sandboxed.':return False
+    seen={}
+    for line in lines[1:-1]:
+        cells=line.split('\t')
+        if len(cells)!=2:return False
+        name,value=cells
+        if name in seen:return False
+        if name in required:
+            if value!=required[name]:return False
+        elif name in optional:
+            # Non-broker Yama No is emitted by the primary namespace implementation.
+            # These ancillary booleans never replace any of the four required rows.
+            if value not in {'Yes','No'}:return False
+        else:return False
+        seen[name]=value
+    return required.items()<=seen.items()
+
+
 def sandbox_page_diagnostics(text):
-    # These are the existing exact gates. Diagnostic case inspection never
-    # changes the acceptance parser.
+    # Keep the historical phrase matches diagnostic only. Acceptance requires
+    # the exact current desktop rows and independent native process evidence.
     return {'case_sensitive_gate': {
                 'namespace': bool(re.search(r'Namespace Sandbox\s+Yes', text)),
                 'seccomp': bool(re.search(r'Seccomp-BPF sandbox\s+Yes', text))},
+            'verified_desktop_rows': sandbox_rows_verified(text),
             'body_excerpt': sandbox_diagnostic_text(text),
             'body_truncated': len(text) > 4096,
             'observed_lines': [sandbox_diagnostic_text(line, 256) for line in text[:8192].splitlines()
@@ -479,10 +505,9 @@ def sandbox_evidence(context, profile, diagnostics=None):
         version.goto('chrome://sandbox')
         text = version.locator('body').inner_text()
         diagnostics['sandbox_page'] = sandbox_page_diagnostics(text)
-        namespace = diagnostics['sandbox_page']['case_sensitive_gate']['namespace']
-        seccomp = diagnostics['sandbox_page']['case_sensitive_gate']['seccomp']
+        namespace = seccomp = diagnostics['sandbox_page']['verified_desktop_rows']
         # Collect only attested own native process facts even when the unchanged
-        # DOM gates fail, then retain the original fail-closed acceptance order.
+        # row gates fail, then retain the fail-closed native acceptance order.
         if not namespace or not seccomp:
             raise RuntimeError('Actual Chromium namespace/seccomp sandbox is not confirmed.')
         if not native['complete'] or native.get('error_type'):

@@ -302,3 +302,43 @@ def test_open_ui_failure_never_projects_an_invalid_hash_or_raw_error_secret():
     assert result['status'] == 'OPEN' and result['reader_screenshot_sha256'] == 'b' * 64
     assert 'UI_screenshot_sha256' not in result
     assert 'SYNTHETIC_ERROR_VALUE' not in json.dumps(result)
+
+
+SANDBOX_REQUIRED_ROWS=['Layer 1 Sandbox\tNamespace','PID namespaces\tYes',
+                       'Network namespaces\tYes','Seccomp-BPF sandbox\tYes']
+SANDBOX_BODY='Sandbox Status\n'+'\n'.join(SANDBOX_REQUIRED_ROWS)+'\nSeccomp-BPF sandbox supports TSYNC\tYes\nPtrace Protection with Yama LSM (Broker)\tYes\nPtrace Protection with Yama LSM (Non-broker)\tNo\n\nYou are adequately sandboxed.'
+
+
+def test_current_desktop_sandbox_rows_accept_legitimate_nonbroker_yama_no():
+    assert controller.sandbox_rows_verified(SANDBOX_BODY) is True
+    assert controller.sandbox_page_diagnostics(SANDBOX_BODY)['verified_desktop_rows'] is True
+
+
+@pytest.mark.parametrize('row',SANDBOX_REQUIRED_ROWS)
+@pytest.mark.parametrize('mutation',['missing','duplicate','no','unknown','malformed'])
+def test_current_sandbox_required_rows_fail_closed(row,mutation):
+    if mutation=='missing':bad=SANDBOX_BODY.replace(row+'\n','')
+    elif mutation=='duplicate':bad=SANDBOX_BODY.replace(row,row+'\n'+row)
+    elif mutation in ('no','unknown'):bad=SANDBOX_BODY.replace(row,row.split('\t')[0]+'\t'+mutation.title())
+    else:bad=SANDBOX_BODY.replace(row,row.replace('\t',' '))
+    assert controller.sandbox_rows_verified(bad) is False
+
+
+@pytest.mark.parametrize('extra',['Unknown sandbox row\tYes','Layer 1 Sandbox\tSUID',
+    'Layer 1 Sandbox\tNone','PID namespaces\tNo','Network namespaces\tUnknown',
+    'Seccomp-BPF sandbox\tYes\textra','Seccomp-BPF sandbox supports TSYNC\tUnknown',
+    'Seccomp-BPF sandbox supports TSYNC\tYes','fake positive summary'])
+def test_current_sandbox_extra_rows_never_supply_or_conflict_with_proof(extra):
+    bad=SANDBOX_BODY.replace('\n\nYou are adequately sandboxed.','\n'+extra+'\n\nYou are adequately sandboxed.')
+    assert controller.sandbox_rows_verified(bad) is False
+
+
+def test_legacy_sandbox_phrase_never_substitutes_for_complete_current_rows():
+    assert controller.sandbox_rows_verified('Namespace Sandbox\tYes\nSeccomp-BPF sandbox\tYes') is False
+
+
+@pytest.mark.parametrize('bad',[SANDBOX_BODY.lower(),SANDBOX_BODY.replace('Namespace','Namespace '),
+    SANDBOX_BODY.replace('Sandbox Status','Sandbox Status\nSandbox Status'),
+    SANDBOX_BODY.replace('You are adequately sandboxed.','You are NOT adequately sandboxed.')])
+def test_current_sandbox_changed_case_values_or_summary_fail_closed(bad):
+    assert controller.sandbox_rows_verified(bad) is False

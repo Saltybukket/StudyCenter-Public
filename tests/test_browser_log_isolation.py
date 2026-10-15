@@ -4,6 +4,9 @@ import os
 import json
 import subprocess
 import sys
+import re
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,27 +22,46 @@ def frozen_module():
     return module
 
 
+def ordinary_log_path(value):
+    if value.startswith('\\\\?\\UNC\\'):return Path('\\\\'+value[8:])
+    return Path(value[4:] if value.startswith('\\\\?\\') else value)
+
+
 @pytest.mark.parametrize('channel',[None,'chromium'])
-def test_diagnostic_browser_routes_logging_to_stderr_without_parent_changes(tmp_path,channel):
+@pytest.mark.parametrize('platform',['win32','linux'])
+def test_diagnostic_browser_uses_owned_platform_logging_without_parent_changes(tmp_path,monkeypatch,channel,platform):
+    monkeypatch.setattr(sys,'platform',platform)
     before=dict(os.environ)
     options=frozen_module().browser_launch_options(channel,SimpleNamespace(cache=tmp_path))
-    assert '--enable-logging=stderr' in options['args']
+    if platform=='win32':
+        assert '--enable-logging' in options['args'] and '--enable-logging=stderr' not in options['args']
+        assert '--log-file='+options['env']['CHROME_LOG_FILE'] in options['args']
+    else:assert '--enable-logging=stderr' in options['args']
     assert options['chromium_sandbox'] is True
-    assert Path(options['env']['CHROME_LOG_FILE']).is_relative_to(tmp_path)
+    assert ordinary_log_path(options['env']['CHROME_LOG_FILE']).is_relative_to(tmp_path)
     environment_unchanged=dict(os.environ)==before
     assert environment_unchanged
 
 
 @pytest.mark.parametrize('channel',[None,'chromium'])
-def test_screenshot_browser_routes_logging_to_stderr_with_sandbox(channel):
-    script=sandbox_screenshot_script('synthetic-own-package','synthetic-own.png',channel)
-    assert '--enable-logging=stderr' in script
+@pytest.mark.parametrize('platform',['win32','linux'])
+def test_screenshot_browser_uses_platform_logging_with_sandbox(tmp_path,monkeypatch,channel,platform):
+    monkeypatch.setattr(sys,'platform',platform)
+    screenshot=tmp_path/('synthetic-'+str(channel)+'.png')
+    script=sandbox_screenshot_script('synthetic-own-package',screenshot,channel)
+    if platform=='win32':
+        assert '--enable-logging=stderr' not in script and '--enable-logging' in script
+        assert json.dumps('--log-file='+str(screenshot.with_suffix('.browser.log'))) in script
+        assert 'CHROME_LOG_FILE:'+json.dumps(str(screenshot.with_suffix('.browser.log'))) in script
+    else:assert '--enable-logging=stderr' in script
     assert 'chromiumSandbox:true' in script and '--no-sandbox' not in script
 
 
 @pytest.mark.parametrize('visible',[False,True])
 @pytest.mark.parametrize('system',[False,True])
-def test_source_browser_logs_stderr_in_both_modes_using_own_profile(tmp_path,monkeypatch,visible,system):
+@pytest.mark.parametrize('platform',['win32','linux'])
+def test_source_browser_uses_owned_platform_logs_in_both_modes(tmp_path,monkeypatch,visible,system,platform,supplementary=False):
+    monkeypatch.setattr(sys,'platform',platform)
     import playwright.async_api
     from studycenter_public.collectors import browser
     from studycenter_public.platform import components
@@ -76,16 +98,127 @@ def test_source_browser_logs_stderr_in_both_modes_using_own_profile(tmp_path,mon
         raise AssertionError('Options fixture unexpectedly attempted asynchronous I/O')
     try:
         complete(manager._launch(visible))
-        assert '--enable-logging=stderr' in captured['args']
+        if platform=='win32':
+            assert '--enable-logging' in captured['args'] and '--enable-logging=stderr' not in captured['args']
+            assert '--log-file='+captured['env']['CHROME_LOG_FILE'] in captured['args']
+        else:assert '--enable-logging=stderr' in captured['args']
         assert captured['chromium_sandbox'] is True
         assert captured['headless'] is (not visible)
-        assert Path(captured['env']['CHROME_LOG_FILE']).is_relative_to(cache)
+        assert ordinary_log_path(captured['env']['CHROME_LOG_FILE']).is_relative_to(cache)
+        if supplementary:
+            value=captured['env']['CHROME_LOG_FILE'];raw=str(ordinary_log_path(value))
+            assert len(raw)<260 and len(raw.encode('utf-16-le'))//2>=260
+            assert value.startswith('\\\\?\\')
         assert captured['env'].get('CHROME_DEVEL_SANDBOX') is None
         assert captured['env'].get('LD_PRELOAD') is None
         assert Path(captured['profile']).parent==profiles
         environment_unchanged=dict(os.environ)==before
         assert environment_unchanged
     finally:complete(manager.close())
+
+
+def test_component_logs_are_distinct_per_browser_and_launch(tmp_path,monkeypatch):
+    monkeypatch.setattr(sys,'platform','win32')
+    entry=frozen_module();paths=SimpleNamespace(cache=tmp_path)
+    logs=[entry.browser_launch_options(channel,paths)['env']['CHROME_LOG_FILE'] for channel in (None,'chromium',None)]
+    assert len(set(logs))==3
+    assert all(Path(value).is_absolute() and Path(value).is_relative_to(tmp_path) for value in logs)
+
+
+def test_windows_component_requires_explicit_owned_cache(monkeypatch):
+    monkeypatch.setattr(sys,'platform','win32')
+    with pytest.raises(ValueError,match='Cache'):
+        frozen_module().browser_launch_options(None)
+
+
+@pytest.mark.skipif(os.name!='nt',reason='Actual Windows path representation required')
+def test_windows_long_log_paths_use_extended_syntax_after_owned_checks(tmp_path,monkeypatch):
+    monkeypatch.setattr(sys,'platform','win32')
+    cache=tmp_path/('x'*max(40,275-len(str(tmp_path))-1));cache.mkdir()
+    options=frozen_module().browser_launch_options(None,SimpleNamespace(cache=cache))
+    value=options['env']['CHROME_LOG_FILE']
+    assert len(str(ordinary_log_path(value)))>=260 and value.startswith('\\\\?\\')
+    assert ordinary_log_path(value).is_relative_to(cache)
+    assert '--log-file='+value in options['args']
+    image=cache/'synthetic.png';expected='\\\\?\\'+str(image.with_suffix('.browser.log'))
+    script=sandbox_screenshot_script('synthetic-package',image,None)
+    assert json.dumps('--log-file='+expected) in script
+    assert 'CHROME_LOG_FILE:'+json.dumps(expected) in script
+
+
+@pytest.mark.skipif(os.name!='nt',reason='Actual Windows long cache representation required')
+def test_source_long_cache_keeps_own_extended_log_path(tmp_path,monkeypatch):
+    folder=tmp_path/('x'*max(40,260-len(str(tmp_path))-1));folder.mkdir()
+    test_source_browser_uses_owned_platform_logs_in_both_modes(folder,monkeypatch,False,False,'win32')
+
+
+@pytest.mark.skipif(os.name!='nt',reason='Actual Windows supplementary Unicode path required')
+@pytest.mark.parametrize('route',['component','source','screenshot'])
+def test_win_wchar_logs(tmp_path,monkeypatch,route):
+    monkeypatch.setattr(sys,'platform','win32')
+    suffix={'component':'component-shell-'+'a'*32+'.log','source':'cache/browser-logs/tu-'+'a'*32+'.log','screenshot':'synthetic.browser.log'}[route]
+    count=245-len(str(tmp_path))-2-len(suffix)
+    assert count>=20
+    folder=tmp_path/(chr(0x1f600)*20+'x'*(count-20));folder.mkdir()
+    if route=='component':
+        options=frozen_module().browser_launch_options(None,SimpleNamespace(cache=folder))
+        value=options['env']['CHROME_LOG_FILE'];raw=str(ordinary_log_path(value))
+        assert len(raw)<260 and len(raw.encode('utf-16-le'))//2>=260
+        assert value.startswith('\\\\?\\') and '--log-file='+value in options['args']
+    elif route=='source':
+        test_source_browser_uses_owned_platform_logs_in_both_modes(folder,monkeypatch,False,False,'win32',supplementary=True)
+    else:
+        image=folder/'synthetic.png';raw=str(image.with_suffix('.browser.log'))
+        assert len(raw)<260 and len(raw.encode('utf-16-le'))//2>=260
+        script=sandbox_screenshot_script('synthetic-package',image,None)
+        value='\\\\?\\'+raw
+        assert json.dumps('--log-file='+value) in script
+        assert 'CHROME_LOG_FILE:'+json.dumps(value) in script
+
+
+def test_component_temp_is_new_private_and_independent_of_long_data(tmp_path,monkeypatch):
+    import tempfile
+    from studycenter_public.platform import paths
+    monkeypatch.setattr(sys,'platform','win32')
+    standard=tmp_path/'short-temp';standard.mkdir()
+    sentinel=standard/'unrelated.txt';sentinel.write_bytes(b'synthetic unrelated temp member')
+    data=tmp_path/('d'*max(20,220-len(str(tmp_path))-1));data.mkdir()
+    monkeypatch.setattr(tempfile,'gettempdir',lambda:str(standard))
+    restricted=[];monkeypatch.setattr(paths,'restrict_permissions',lambda p:restricted.append(Path(p)))
+    parent=dict(os.environ)
+    temporary=frozen_module().browser_temporary_directory();created=Path(temporary.name)
+    assert created.parent==standard and created!=data and created.name.startswith('studycenter-public-build-')
+    assert restricted==[created]
+    temporary.cleanup()
+    assert not created.exists() and sentinel.read_bytes()==b'synthetic unrelated temp member'
+    parent_environment_unchanged=dict(os.environ)==parent
+    assert parent_environment_unchanged
+
+
+def test_component_temp_parent_link_is_refused_before_creation_or_permissions(tmp_path,monkeypatch):
+    import tempfile
+    from studycenter_public.platform import paths
+    monkeypatch.setattr(sys,'platform','win32')
+    target=tmp_path/'foreign';target.mkdir();sentinel=target/'sentinel';sentinel.write_bytes(b'synthetic foreign preserved')
+    link=tmp_path/'temp-link'
+    try:link.symlink_to(target,target_is_directory=True)
+    except OSError:pytest.skip('Own link fixture unavailable')
+    monkeypatch.setattr(tempfile,'gettempdir',lambda:str(link))
+    restricted=[];monkeypatch.setattr(paths,'restrict_permissions',lambda p:restricted.append(Path(p)))
+    with pytest.raises(ValueError,match='Symlink|Reparse|link'):
+        frozen_module().browser_temporary_directory()
+    assert restricted==[] and list(target.iterdir())==[sentinel]
+    assert sentinel.read_bytes()==b'synthetic foreign preserved'
+
+
+@pytest.mark.skipif(sys.platform!='linux',reason='Actual Linux diagnostic temp permissions required')
+def test_linux_component_temp_retains_short_private_tmp_root():
+    import stat
+    temporary=frozen_module().browser_temporary_directory()
+    try:
+        created=Path(temporary.name)
+        assert created.parent==Path('/tmp') and stat.S_IMODE(created.stat().st_mode)==0o700
+    finally:temporary.cleanup()
 
 
 def synthetic_bundle(tmp_path):
@@ -183,8 +316,8 @@ def test_installed_program_gate_accepts_only_validated_finite_inno_metadata(tmp_
 
 @pytest.mark.skipif(os.name!='nt' or not os.environ.get('STUDYCENTER_TEST_LOG_OWN_BUNDLE'),reason='Explicit own packaged Windows fixture required')
 @pytest.mark.parametrize('channel',[None,'chromium'])
-def test_native_packaged_logging_emits_stderr_and_preserves_every_program_byte(tmp_path,channel):
-    """Real embedded Node/browser, synthetic console warning, no external navigation."""
+def test_native_packaged_file_logging_inherits_handles_and_preserves_program(tmp_path,channel):
+    """Real embedded Node/browser, own native FILE logs and child handles, no navigation."""
     from scripts.smoke_release import _program_files
     repo=Path(__file__).resolve().parents[1]
     program=Path(os.environ['STUDYCENTER_TEST_LOG_OWN_BUNDLE']).resolve(strict=True)
@@ -199,14 +332,40 @@ def test_native_packaged_logging_emits_stderr_and_preserves_every_program_byte(t
     system=Path(env.get('SystemRoot','C:/Windows'))
     env.update(PATH=os.pathsep.join(map(str,[program,program/'_internal',program/'components/ocr',system/'System32',system])),PLAYWRIGHT_BROWSERS_PATH=str(program/'components/browsers'),DEBUG='pw:browser',CHROME_LOG_FILE=str(tmp_path/'cache'/'own.log'),XDG_CONFIG_HOME=str(tmp_path/'config'),XDG_CACHE_HOME=str(tmp_path/'cache'),TEMP=str(tmp_path/'tmp'),TMP=str(tmp_path/'tmp'))
     script=sandbox_screenshot_script(driver/'package',tmp_path/'synthetic.png',channel)
-    # Force an observable native log message; retain the production route/options.
+    # Force observable native logging; retain the production FILE route/options.
     script=script.replace('args:[','args:["--log-level=0","--v=1",',1)
     script=script.replace('await page.screenshot','await page.evaluate(()=>console.warn("SYNTHETIC OWN NATIVE LOG ROUTE"));await page.screenshot',1)
+    script=script.replace('await browser.close()','await new Promise(resolve=>setTimeout(resolve,3000));await browser.close()',1)
     script_path=tmp_path/'native-log-control.js';script_path.write_text(script,encoding='utf8')
     before=_program_files(program)
-    process=subprocess.run([str(driver/'node.exe'),str(script_path)],cwd=program,env=env,capture_output=True,timeout=90,creationflags=subprocess.CREATE_NO_WINDOW)
-    assert process.returncode==0
-    native_logging_emitted=any(b'[err]' in line and b'SYNTHETIC OWN NATIVE LOG ROUTE' in line for line in process.stderr.splitlines())
+    output=[];browser_pid=[];launched=threading.Event()
+    with subprocess.Popen([str(driver/'node.exe'),str(script_path)],cwd=program,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,creationflags=subprocess.CREATE_NO_WINDOW) as process:
+        def read_debug():
+            for line in process.stderr:
+                output.append(line)
+                match=re.search(rb'<launched> pid=(\d+)',line)
+                if match and not browser_pid:
+                    browser_pid.append(int(match.group(1)));launched.set()
+        reader=threading.Thread(target=read_debug,daemon=True);reader.start()
+        try:
+            assert launched.wait(15)
+            deadline=time.monotonic()+15
+            while not (tmp_path/'synthetic.png').exists() and process.poll() is None and time.monotonic()<deadline:time.sleep(.05)
+            assert (tmp_path/'synthetic.png').exists()
+            powershell=system/'System32/WindowsPowerShell/v1.0/powershell.exe'
+            command='[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); @(Get-CimInstance Win32_Process -Filter "ParentProcessId='+str(browser_pid[0])+'" | Select-Object CommandLine) | ConvertTo-Json -Compress'
+            child_query=subprocess.run([str(powershell),'-NoProfile','-NonInteractive','-Command',command],capture_output=True,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
+            assert child_query.returncode==0
+            rows=json.loads(child_query.stdout.decode('utf-8-sig'))
+            if isinstance(rows,dict):rows=[rows]
+            native_child_handles_observed=any(re.search(r'--enable-logging=handle(?: |$)',row.get('CommandLine') or '') and re.search(r'--log-file=\d+(?: |$)',row.get('CommandLine') or '') for row in rows)
+            assert native_child_handles_observed
+            assert process.wait(timeout=90)==0
+        finally:
+            if process.poll() is None:process.terminate();process.wait(timeout=10)
+            reader.join(timeout=5)
+    log=tmp_path/'synthetic.browser.log'
+    native_logging_emitted=log.exists() and b'SYNTHETIC OWN NATIVE LOG ROUTE' in log.read_bytes()
     assert native_logging_emitted
     program_unchanged=_program_files(program)==before
     assert program_unchanged

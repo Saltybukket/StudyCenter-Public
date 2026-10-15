@@ -62,6 +62,22 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: '"$TASK_PYTHON" scripts/build_browser_runtime.py --platform linux --original build/browser-runtime --output build/unbranded-browser-runtime'
+      - name: Validate own Windows browser stage before freezing
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          "$TASK_PYTHON" - <<'PY'
+          import json, os, pathlib, subprocess, playwright
+          root=pathlib.Path.cwd().resolve()
+          runtime=(root/'build/unbranded-browser-runtime/runtime').resolve(strict=True)
+          if not runtime.is_relative_to(root/'build') or os.environ.get('PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'):
+              raise ValueError('Own browser stage and active dependency validation are required')
+          driver=pathlib.Path(playwright.__file__).resolve().parent/'driver'
+          script=root/'build/validate-own-windows-browser-stage.js'
+          script.write_text('const {registry}=require('+json.dumps(str(driver/'package/lib/coreBundle.js'))+').registry;(async()=>{await registry.validateHostRequirementsForExecutablesIfNeeded([registry.findExecutable("chromium"),registry.findExecutable("chromium-headless-shell")],"javascript");console.log("Own Windows browser dependency validation finished before freeze");})().catch(error=>{console.error(error);process.exitCode=1;});',encoding='utf-8')
+          child=dict(os.environ,PLAYWRIGHT_BROWSERS_PATH=str(runtime))
+          subprocess.run([str(driver/'node.exe'),str(script)],env=child,check=True,timeout=90)
+          PY
       - name: Freeze Windows bundle
         if: runner.os == 'Windows'
         shell: bash

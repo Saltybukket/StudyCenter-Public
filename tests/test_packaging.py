@@ -141,12 +141,16 @@ class PackagingContract(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'Unsafe'):extract_snapshot(archive,root/'runtime','chrome-win','windows')
    self.assertEqual(neighbor.read_text(),'synthetic preserved')
  def test_frozen_browser_diagnostics_require_sandbox(self):
+  from types import SimpleNamespace
   specification=importlib.util.spec_from_file_location('frozen_diagnostic_fixture',pathlib.Path(__file__).parents[1]/'packaging/frozen_entry.py')
   module=importlib.util.module_from_spec(specification);specification.loader.exec_module(module)
-  for channel in (None,'chromium'):
-   options=module.browser_launch_options(channel)
-   self.assertIs(options['chromium_sandbox'],True)
-   self.assertNotIn('--no-sandbox',options.get('args',[]))
+  with tempfile.TemporaryDirectory() as tmp:
+   for channel in (None,'chromium'):
+    options=module.browser_launch_options(channel,SimpleNamespace(cache=pathlib.Path(tmp)))
+    self.assertIs(options['chromium_sandbox'],True)
+    self.assertNotIn('--no-sandbox',options.get('args',[]))
+   if sys.platform=='win32':
+    with self.assertRaises(ValueError):module.browser_launch_options(None)
  def test_frozen_browser_logs_and_xdg_caches_are_owned_child_options(self):
   from types import SimpleNamespace
   specification=importlib.util.spec_from_file_location('frozen_environment_fixture',pathlib.Path(__file__).parents[1]/'packaging/frozen_entry.py')

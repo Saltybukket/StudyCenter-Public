@@ -11,15 +11,44 @@ def show_startup_error(message):
 
 
 def browser_launch_options(channel,paths=None):
+    import sys
+    from uuid import uuid4
+    if sys.platform=='win32' and paths is None:
+        raise ValueError('Windows-Browserlogging braucht einen eigenen Cacheordner.')
     result={'headless':True,'channel':channel,'chromium_sandbox':True,'args':['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND']}
     if paths:
         import os
         from studycenter_public.platform.paths import owned_path
         environment=os.environ.copy()
-        for key,name in (('CHROME_LOG_FILE','component-browser.log'),('XDG_CONFIG_HOME','component-browser-config'),('XDG_CACHE_HOME','component-browser-cache')):
+        log_name='component-'+('full' if channel else 'shell')+'-'+uuid4().hex+'.log'
+        for key,name in (('CHROME_LOG_FILE',log_name),('XDG_CONFIG_HOME','component-browser-config'),('XDG_CACHE_HOME','component-browser-cache')):
             environment[key]=str(owned_path(paths.cache/name,paths.cache))
+        if sys.platform=='win32':
+            filename=environment['CHROME_LOG_FILE']
+            if len(filename.encode('utf-16-le',errors='surrogatepass'))//2>=260 and not filename.startswith('\\\\?\\'):
+                filename=('\\\\?\\UNC\\'+filename[2:]) if filename.startswith('\\\\') else '\\\\?\\'+filename
+            environment['CHROME_LOG_FILE']=filename
+            result['args']=['--enable-logging','--log-file='+environment['CHROME_LOG_FILE'],'--host-resolver-rules=MAP * ~NOTFOUND']
         result['env']=environment
     return result
+
+
+def browser_temporary_directory():
+    """New private diagnostic temp root, independent from the selected data path."""
+    import sys
+    import tempfile
+    from pathlib import Path
+    from studycenter_public.platform.paths import reject_links,restrict_permissions
+    parent=reject_links(Path(tempfile.gettempdir() if sys.platform=='win32' else '/tmp'))
+    if not parent.is_dir():raise ValueError('Browser-Tempordner braucht einen regulären Elternordner.')
+    temporary=tempfile.TemporaryDirectory(prefix='studycenter-public-build-',dir=str(parent))
+    try:
+        created=reject_links(Path(temporary.name))
+        restrict_permissions(created)
+    except Exception:
+        temporary.cleanup()
+        raise
+    return temporary
 
 
 def component_check(argv):
@@ -28,7 +57,6 @@ def component_check(argv):
     import asyncio
     import json
     import os
-    import tempfile
     from pathlib import Path
     import sys
     parser=argparse.ArgumentParser();parser.add_argument('--component-test',action='store_true');parser.add_argument('--data-dir',required=True)
@@ -38,7 +66,7 @@ def component_check(argv):
         owned_path(directory/'component-phase.txt',directory).write_text(value,encoding='utf-8')
     # Chromium's Linux singleton socket must fit the 108-byte Unix-socket limit.
     # A short owned directory on ext4 also works for launches from mounted paths.
-    browser_temporary=tempfile.TemporaryDirectory(prefix='studycenter-public-build-',dir='/tmp' if sys.platform=='linux' else str(directory))
+    browser_temporary=browser_temporary_directory()
     for variable in ('TMPDIR','TMP','TEMP'):os.environ[variable]=browser_temporary.name
     phase('import av');import av
     phase('import ctranslate2');import ctranslate2

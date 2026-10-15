@@ -112,7 +112,14 @@ def require_program_unchanged(program, before):
 
 def sandbox_screenshot_script(package, screenshot, channel):
     channel_option=('channel:'+json.dumps(channel)+',') if channel else ''
-    return "const fs=require('fs');const {chromium}=require("+json.dumps(str(package))+");(async()=>{const browser=await chromium.launch({headless:true,chromiumSandbox:true,"+channel_option+"args:['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND']});const page=await browser.newPage();await page.setContent('<html><body>Synthetic bundled screenshot</body></html>');await page.screenshot({path:"+json.dumps(str(screenshot))+"});await browser.close();})().catch(error=>{console.error(error);process.exitCode=1;});"
+    arguments=['--enable-logging=stderr','--host-resolver-rules=MAP * ~NOTFOUND'];environment=''
+    if sys.platform=='win32':
+        log_path=str(Path(screenshot).absolute().with_suffix('.browser.log'))
+        if len(log_path.encode('utf-16-le',errors='surrogatepass'))//2>=260 and not log_path.startswith('\\\\?\\'):
+            log_path=('\\\\?\\UNC\\'+log_path[2:]) if log_path.startswith('\\\\') else '\\\\?\\'+log_path
+        arguments=['--enable-logging','--log-file='+log_path,'--host-resolver-rules=MAP * ~NOTFOUND']
+        environment='env:{...process.env,CHROME_LOG_FILE:'+json.dumps(log_path)+'},'
+    return "const fs=require('fs');const {chromium}=require("+json.dumps(str(package))+");(async()=>{const browser=await chromium.launch({headless:true,chromiumSandbox:true,"+channel_option+environment+"args:"+json.dumps(arguments)+"});const page=await browser.newPage();await page.setContent('<html><body>Synthetic bundled screenshot</body></html>');await page.screenshot({path:"+json.dumps(str(screenshot))+"});await browser.close();})().catch(error=>{console.error(error);process.exitCode=1;});"
 
 
 def run_component_diagnostic(command, data, environment):

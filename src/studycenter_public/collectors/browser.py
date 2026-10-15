@@ -117,6 +117,12 @@ class BrowserManager:
             target.mkdir(parents=True, exist_ok=True)
             restrict_permissions(target)
             environment[variable] = str(target / ('tu-' + uuid.uuid4().hex + '.log')) if variable == 'CHROME_LOG_FILE' else str(target)
+            if variable=='CHROME_LOG_FILE':owned_path(Path(environment[variable]),self.paths.cache)
+        if sys.platform=='win32':
+            filename=environment['CHROME_LOG_FILE']
+            if len(filename.encode('utf-16-le',errors='surrogatepass'))//2>=260 and not filename.startswith('\\\\?\\'):
+                filename=('\\\\?\\UNC\\'+filename[2:]) if filename.startswith('\\\\') else '\\\\?\\'+filename
+            environment['CHROME_LOG_FILE']=filename
         try:
             from playwright.async_api import async_playwright
             mappings = []
@@ -138,7 +144,7 @@ class BrowserManager:
             self.context = await self.playwright.chromium.launch_persistent_context(
                 str(self.profile), headless=not visible, chromium_sandbox=True, accept_downloads=True,
                 env=environment, **selection,
-                args=['--enable-logging=stderr', '--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
+                args=(['--enable-logging', '--log-file=' + environment['CHROME_LOG_FILE']] if sys.platform=='win32' else ['--enable-logging=stderr']) + ['--no-proxy-server', '--host-resolver-rules=' + ','.join(mappings)])
             self.visible = visible
             if not visible:
                 await self.context.route('**/*', self._readonly_route)
