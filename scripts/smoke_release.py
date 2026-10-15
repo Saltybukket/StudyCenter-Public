@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import stat
 import sqlite3
@@ -105,9 +106,61 @@ def program_inventory(program, *, installed_inventory=None):
     return actual
 
 
+def _diagnostic_records(snapshot):
+    if not isinstance(snapshot, dict):
+        raise ValueError('Invalid snapshot')
+    result = {}
+    for name, record in snapshot.items():
+        if (not isinstance(name, str) or not name or len(name) > 1024
+                or name.startswith('/') or '\\' in name or ':' in name
+                or any(part in ('', '.', '..') for part in name.split('/'))
+                or any(ord(character) < 32 or ord(character) == 127 for character in name)
+                or not isinstance(record, dict)):
+            raise ValueError('Invalid snapshot')
+        size, digest = record.get('size'), record.get('sha256')
+        if (type(size) is not int or size < 0 or not isinstance(digest, str)
+                or re.fullmatch(r'[0-9a-f]{64}', digest) is None):
+            raise ValueError('Invalid snapshot')
+        result[name] = {'size': size, 'sha256': digest}
+    return result
+
+
+def program_mutation_delta(before, after):
+    """Report at most 32 relative names and validated hashes, never file contents."""
+    old_records = _diagnostic_records(before)
+    new_records = _diagnostic_records(after)
+    counts = {'added': 0, 'removed': 0, 'changed': 0}
+    changes = []
+    for name in sorted(before.keys() | after.keys()):
+        if name not in before:
+            kind = 'added'
+        elif name not in after:
+            kind = 'removed'
+        elif before[name] != after[name]:
+            kind = 'changed'
+        else:
+            continue
+        counts[kind] += 1
+        if len(changes) < 32:
+            change = {'path': name, 'kind': kind,
+                      'before': old_records.get(name), 'after': new_records.get(name)}
+            if kind == 'changed' and before[name].get('link_target') != after[name].get('link_target'):
+                change['link_target_changed'] = True
+            changes.append(change)
+    total = sum(counts.values())
+    return {'counts': counts, 'total_changes': total, 'changes': changes,
+            'truncated': total > len(changes)}
+
+
 def require_program_unchanged(program, before):
-    if _program_files(program)!=before:
-        raise ValueError('Program files changed during native smoke; candidate remains unaccepted')
+    after = _program_files(program)
+    if after != before:
+        try:
+            diagnostic = program_mutation_delta(before, after)
+        except ValueError:
+            diagnostic = {'status': 'invalid_snapshot_records'}
+        raise ValueError('Program files changed during native smoke; candidate remains unaccepted; '
+                         'program_delta=' + json.dumps(diagnostic, sort_keys=True, separators=(',', ':')))
 
 
 def sandbox_screenshot_script(package, screenshot, channel):
