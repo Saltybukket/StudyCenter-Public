@@ -1,8 +1,9 @@
 # Release verification record
 
-This record covers the `0.1.0b1` candidate. Final native, installer and CI
-acceptance remains open. A source or notice check alone does not approve a
-binary distribution.
+This record covers the published [v0.1.0-beta.1 prerelease](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.1),
+published on 2026-10-15. The native, installer and privacy results below apply
+to the exact release assets. Personal account and interactive desktop acceptance
+remain separate; Linux automated source browsing is explicitly blocked.
 
 ## Artifact and source binding
 
@@ -22,12 +23,33 @@ recipes and patches. Immutable-origin hashes and independently published recipe
 checksum matches are distinguished. Collection did not execute build recipes
 or reproduce upstream binaries; supplied Debian signatures were not GPG-verified.
 
-Earlier native candidates are held and are not the final release. The final
-runtime build source will be recorded after the integration checkpoint.
-Each final binary must retain its
-actual `BUILD-MANIFEST.json` source identity and file hashes. A later release tag
-may be a descendant only with evidence that its selected runtime and packaging
-files match the build. A later tag must not relabel existing binary provenance.
+Earlier native candidates are held and are not the final release. The current
+runtime build source is `8d8c25d8b93c22abee061c755dc0816b44db84f3`. Its raw
+source archive `studycenter-public-0.1.0b1-source-8d8c25d-rawblobs.zip` is
+411616 bytes, SHA256
+`5f9aa0318c6b96f32a11dbf74939ddbd29d4e702c25d598c49be2c842811bc4c`.
+All 141 regular members, Git modes, tree membership, archive comment and raw
+Git blobs were checked. The source privacy and artifact checks had zero findings.
+The unchanged companion whole-file hash was refreshed; earlier recursive
+content checks are inherited through that exact hash, not repeated.
+
+The current Windows build manifest SHA256 is
+`e48a04bcd6632a0e49d1626f512871009d62aa60e08aa1286bc9a7e6f6864e0b`;
+the Linux build manifest SHA256 is
+`fea59049d0931c43a9e255242072872fd0da4f56faf80c6022e6fb0012b802f1`.
+Each binds exactly 62 runtime sources and 19 packaging definitions to this
+commit. Windows has 63 raw-byte matches, ten exact LF-to-CRLF projections and
+eight projections changing only the terminal LF to CRLF. Linux has 79 raw-byte
+matches and two exact LF-to-CRLF projections. The terminal-only Python
+representations retain identical parsed syntax. These named representations
+do not make the physical checkout bytes identical to the raw Git blobs.
+Source binding is separate from the payload and installer checks below.
+The published tag points to `b4aae7e8e9ef4a7a7f500fdbc4e07dbf6ad542e0`.
+Its four changed paths contain only the installer test controller, its tests,
+and an exact upstream CI privacy classification with its tests. All 81 selected
+application and packaging files have identical raw Git blobs and modes to the
+actual build source. The binaries retain their original build identity; the
+source archive contains that actual build source, rather than relabelling it.
 
 Local frozen interpreters are Windows CPython 3.12.6 and Linux CPython 3.12.3
 with Ubuntu source package `3.12.3-1ubuntu0.17`; corresponding sources and distro
@@ -43,12 +65,14 @@ patches and original notices accompany the dependency sources. PyInstaller's
 bootloader exception, CPython notices and Inno Setup terms are retained.
 
 Full unbranded Chromium and the dedicated Headless Shell have separate source
-and notice bindings. Widevine and the unused standalone video helper are
+and notice bindings. Windows uses full unbranded Chromium for both visible and
+background modes and excludes the unused Windows Headless Shell. Linux retains
+its separately selected source-browser engines. Widevine and the unused standalone video helper are
 excluded. Windows shader compiler notices bind the exact Chromium/Dawn/DXC
 chain. WebView2 SDK 1.0.3856.49 retains its own Microsoft BSD-3-Clause license
 and NOTICE; its Evergreen browser runtime is separate.
 
-This Windows candidate excludes Microsoft CRT/UCRT, API-set forwarding DLLs
+This Windows release excludes Microsoft CRT/UCRT, API-set forwarding DLLs
 and Windows SDK D3DCompiler binaries. Compatible installed x64 system components
 are prerequisites. `SYSTEM-RUNTIME-RECIPE.json` records omissions and the exact
 NumPy consumer import-name changes. No renamed Microsoft DLL copies or runtime
@@ -56,7 +80,9 @@ installer are shipped. A future one-click prerequisite flow needs a verified
 official, license-compliant Redistributable route; no host setup or Visual
 Studio entitlement is implied. Shader build documents are not SDK shipment grants.
 
-Final package notice validation and exact shipment matching remain required.
+Final package validation matched 488 notice records and 589 provenance records
+to the exact shipments. Both source manifests and their declared components
+were validated.
 These provenance checks are not a legal certification. See [component terms](THIRD_PARTY.md)
 and [packaging requirements](PACKAGING.md).
 
@@ -85,18 +111,86 @@ claimed. Encrypted test data was not decrypted. Source distributions include
 original upstream binary build tools and fixtures; static inspection does not
 prove executable behavior or self-extractor contents. No source package was executed.
 
-## Final acceptance fields
+## Short onboarding and local UI evidence
 
-| Check | Status | Required final evidence |
+The README has 383 whitespace-separated words and the Quickstart has 496.
+The Quickstart in each current native package is an exact 4279-byte match to
+both the documentation and embedded source resource, SHA256
+`fa4aeca9ec606c8125784be3263fc9e4eee3e0341ec26d982c9d35d98617a798`.
+UI labels, starter instructions and current package filenames were checked.
+Windows system prerequisites and the Linux UI/source-automation distinction
+remain explicit.
+
+One separate frozen Windows UI check used a new synthetic local task, the
+current real clock and an isolated app/profile. It verified task creation,
+reminder preview without mutation, apply, worker delivery to the in-app bell,
+listing and mark-read. The task remained open and its version unchanged.
+The complete program inventory remained unchanged after a three-second late
+check. No model call, real account, OS notification or human visibility was
+tested in that lane.
+
+## Final artifact and platform results
+
+| Check | Result | Scope |
 | --- | --- | --- |
-| Windows native runtime and sandboxed browsers | OPEN | Exact package hashes and native results |
-| Linux core and normal system-browser UI | OPEN | Exact package hashes; separate core and own XDG/Xvfb browser results |
-| Linux Playwright source browser | OPEN | Existing regular Chrome/profile and own renderer sandbox results; bundled automation may remain blocked |
-| Windows install/update/uninstall and prerequisite refusal | OPEN | Isolated VM lifecycle results |
-| Final CI run | OPEN | Run identity, source identity and results |
-| Final notices and unpacked binary privacy gates | OPEN | Validators against the final distributions |
-| Release tag/build association and publication | OPEN | Selected-file identity proof and final checksums |
+| Windows native runtime | PASS | Four complete synthetic runs, including Unicode and long data paths; 13 controls per run, own Chromium, unchanged program inventory |
+| Windows exact installer | PASS | Install, foreign-directory refusal, prerequisites, update with exact database preservation and backup, reopen, data-retaining uninstall and own shortcut removal |
+| Linux native core | PASS | One accepted serial full 13-control WSL run as an unprivileged user, portable OCR, both own browser engines and unchanged program inventory |
+| Linux normal system-browser UI | PASS | Exact package, own XDG dispatch, overview and PDF reader rendered with Xvfb; six renderer sandbox states checked |
+| Linux automated source browser | BLOCKED | Existing Ubuntu VM Chrome directories have mode 0777; production ownership checks refuse them before launch |
+| Final CI | PASS with separate Linux browser limitation | Both required jobs completed; Linux bundled-browser probe remains blocked by existing sandbox restrictions |
+| Final unpacked privacy and notices | PASS | Exact upstream findings individually bound; zero unresolved; linked members handled separately |
+| Publication and source identity | PASS | Six uploaded assets, server SHA256 values, actual source and tag association verified |
 
-The existing-system-browser VM probe has separate UI and synthetic-source
-statuses. Its successful transport exit alone does not accept either lane or
-the whole Linux release. No AppArmor exception or sandbox bypass is included.
+The exact [Windows installer VM run](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/38721023423)
+performed two installed full workflows. It retained instance identity, compared
+database bytes after application readiness, backed up before update, reopened
+the existing data and retained data on uninstall. Four foreign-data startup modes
+refused without writes. Missing-runtime and missing-export prerequisite fixtures
+were rejected inside that disposable VM. This is not Windows 10/11 human desktop
+acceptance.
+
+The exact [Linux system-browser VM run](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/38722260734)
+used its existing Chrome 154 and existing AppArmor profile. UI rendering passed;
+automated source browsing did not start. Existing browser bytes, confinement
+policy and global restrictions remained unchanged. No AppArmor exception or
+sandbox bypass is included. WSL native checks and Xvfb UI checks do not establish
+a human desktop session or real TU login.
+
+[Final CI run](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/38723573578)
+tested the exact tag commit: Windows 460 passed / 28 skipped; Linux 470 passed /
+18 skipped. Windows completed the installer lifecycle and final privacy scan.
+Linux completed core, frozen-code and privacy gates. Its bundled-browser probe
+failed under the runner's unchanged user-namespace restriction and was reported
+separately; a green required-job result does not convert that probe into a PASS.
+CI builds are diagnostics, not the uploaded native release artifacts.
+
+The Windows release contains 2405 manifest payload files plus the manifest.
+Its completed raw scan checked 2525 chunks: 20 raw findings, 20 exact reviewed
+upstream findings, zero unresolved. The installer was decoded without running
+Setup on the development host; all 2406 decoded regular files matched the scanned
+bundle by size and SHA256, with no extra files or links. This exact byte identity
+inherits the bundle scan; it is not a fresh decoded-content scan. The installer
+outer-byte scan also had zero findings.
+
+The Linux tar scan checked all 3158 regular files in 3328 chunks: 32 raw findings,
+32 exact reviewed upstream findings, zero unresolved. All 54 relative symlinks
+were inventoried without following them and bound to the typed tar headers,
+manifest, native inventory and exact internal regular targets. No hard links,
+sparse members or special members were accepted. Release frozen-code scans
+checked 2303 Windows and 2177 Linux modules with zero unresolved findings.
+
+| Published binary | Bytes | SHA256 |
+| --- | --- | --- |
+| `studycenter-public-0.1.0b1-windows-x86_64-setup.exe` | 338913297 | `87ebaf625aa50a513b95c6e3826a7b7c125835806e659287b07bccc50bca389c` |
+| `studycenter-public-0.1.0b1-linux-x86_64.tar.gz` | 714974815 | `3fbdb322e8153f669edcf1a66570bc8ee6d60b2223b6daa1c9735127f0a58484` |
+
+The release also includes the exact raw build-source ZIP, dependency companion,
+application LICENSE and SHA256SUMS. All six server digests and uploaded states
+were verified after publication. Checksums cover the five accompanying files.
+
+TU/MFA and live provider/OAuth connections, microphone/TTS, visible operating-system
+notifications and human Windows 10/11 desktop acceptance remain unrun. Optional
+speech models were not downloaded, and no paid model calls were made. Windows
+requires compatible existing x64 system runtimes; this build does not install
+them. The separate Linux automated-browser blocker remains open.
