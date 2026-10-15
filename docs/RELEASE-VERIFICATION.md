@@ -194,3 +194,66 @@ notifications and human Windows 10/11 desktop acceptance remain unrun. Optional
 speech models were not downloaded, and no paid model calls were made. Windows
 requires compatible existing x64 system runtimes; this build does not install
 them. The separate Linux automated-browser blocker remains open.
+
+## Additional Windows 11 VM checks (2026-10-15)
+
+The published beta.1 installer was subsequently tested in a dedicated Windows 11
+Enterprise Evaluation VM, measured as build 26300.9457, with VirtualBox 7.2.18,
+4096 MiB RAM and three vCPUs. Shared folders, clipboard and drag-and-drop were
+disabled. These checks do not establish native desktop or human acceptance.
+
+On the fresh guest, all four required Visual C++ runtime DLLs were absent. Setup
+correctly refused with exit 7, creating no program/data directory or uninstall
+registration. The official Microsoft-signed x64 v14 runtime 14.51.36247.0 was then
+installed only inside the guest, followed by the checksum-bound published setup.
+This does not change beta.1's external runtime prerequisite or redistribution.
+
+The actual installed executable passed all five lifecycle checks: empty-instance
+health; synthetic API items, document, UUID retry and initialized FTS backup;
+reinstall against the running instance with byte-identical data and a real
+before-update backup; reopening with retained state; and uninstall removing the
+program, per-user registration and Start menu group while retaining database,
+identity and original bytes. The published setup was installed again afterwards.
+
+With the VM network cable disconnected, the broader installed-app suite reported
+14 PASS and three FAIL. Its bundled Chromium retained its sandbox. Passed checks
+include actual UI actions and conflict-safe undo, PDF/text/scan and bitmap-grid
+OCR, vector-grid/table/strikeout fixtures, reader revisions, browser boundaries
+and unchanged installed program files. The remaining results require care:
+
+- The reminder check reported an early notification. Its first-run diagnostics
+  were insufficient to distinguish a product defect from guest clock behavior;
+  this remains an unresolved RED.
+- Backup comparison incorrectly required unchanged physical storage paths across
+  a portable restore. MCP retry comparison incorrectly required JSON key order.
+  A separate stricter semantic probe is prepared, but has not been run; neither
+  initial FAIL is relabeled as PASS.
+- The requested week route rendered the month grid. Consented document extraction
+  also reproduced HTTP 500 with `RuntimeError: no running event loop`.
+
+A separate synthetic local model-adapter suite passed ten installed-app checks
+for assistant preview/apply/undo, explicit single-action direct mode, ambiguous,
+multiple and question refusal, acknowledgement deduplication and source-decision
+refusal. This is not live model, provider-account or institutional acceptance.
+
+Source commit `25e9057e92eaf0db27dcca59ec774fd930542eb9` fixes the background-job
+dispatch and adds a dated Monday-to-Sunday week calendar. HTTP regressions
+reproduced the defects before the changes. The complete Windows source suite then
+reported 469 passed and 28 skipped; independent scoped review found no findings.
+
+A separate local Windows test candidate was built from that exact commit:
+338916793 bytes, SHA256
+`fad19f5f71cb749fc5850daa3eda682a91a5e197ef451dba8aaac2a9dd7c5b58`.
+It retains the development version string `0.1.0b1`; it is not a new published
+release and does not replace any beta.1 asset. Its bundle scan checked 2525
+chunks, with 20 exact reviewed upstream findings and zero unresolved. Frozen-code
+inspection checked 2303 modules with zero unresolved findings. Decoder-only
+inspection matched all 2406 payload files to the build manifest; decoded metadata
+and installer outer-byte checks also had zero unresolved findings. The frozen
+async handlers and copied calendar assets were separately bound to the source.
+
+The VM was safely saved after sustained host memory pressure. Candidate guest
+retests are blocked on available RAM. Native window/tray/restart checks, the
+registration-opening suite, full Windows Update completion and the improved
+reminder/backup/MCP probes remain unperformed. Clean and beta.1 test-baseline
+snapshots are retained. No full Windows 11 or candidate acceptance is claimed.
