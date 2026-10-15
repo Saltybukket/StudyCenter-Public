@@ -1,9 +1,11 @@
 """Pure child-environment boundary; this does not authorize a VM/browser run."""
 import importlib.util
+from contextlib import ExitStack
 import os
 from pathlib import Path
 import stat
 import subprocess
+import socket
 
 import pytest
 
@@ -223,3 +225,33 @@ def test_own_xdg_exec_resolves_owned_wrapper_with_legacy_ubuntu_parser(tmp_path)
                             capture_output=True, timeout=10)
     assert result.returncode == 0, result.stderr
     assert parent == original
+
+
+@pytest.mark.skipif(not hasattr(socket, 'AF_UNIX') or os.name != 'posix', reason='Actual Linux Unix-socket boundary')
+def test_short_child_temp_binds_chrome_singleton_socket_and_closes_last(tmp_path):
+    fixture = tmp_path / ('own-long-fixture-' + 'x' * 80)
+    fixture.mkdir()
+    parent = {'HOME': '/synthetic-parent-home', 'TMPDIR': '/synthetic-parent-temp',
+              'TMP': '/synthetic-parent-tmp', 'TEMP': '/synthetic-parent-other', 'PATH': '/usr/bin:/bin'}
+    original = dict(parent)
+    global_environment = dict(os.environ)
+    events = []
+    with ExitStack() as stack:
+        child = controller.isolated_child(fixture, parent, temporary_stack=stack)
+        temporary = Path(child['TMPDIR'])
+        chrome = temporary / 'com.google.Chrome.iaHx00'
+        chrome.mkdir()
+        endpoint = chrome / 'SingletonSocket'
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+            connection.bind(str(endpoint))
+        assert len(os.fsencode(endpoint)) < 108
+        assert temporary.parent == Path('/tmp') and not temporary.is_symlink()
+        assert stat.S_IMODE(temporary.stat().st_mode) == 0o700
+        assert temporary.stat().st_uid == os.geteuid()
+        assert child['TMP'] == child['TEMP'] == child['TMPDIR']
+        assert all(Path(child[key]).parent == fixture for key in ('HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME'))
+        for name in ('backend', 'xvfb', 'browser'):
+            stack.callback(lambda label=name: events.append((label, temporary.is_dir())))
+    assert events == [('browser', True), ('xvfb', True), ('backend', True)]
+    assert not temporary.exists()
+    assert parent == original and dict(os.environ) == global_environment

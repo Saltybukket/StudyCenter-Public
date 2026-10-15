@@ -15,6 +15,7 @@ import stat
 import subprocess
 import sys
 import threading
+import tempfile
 import time
 import urllib.request
 from uuid import uuid4
@@ -75,12 +76,23 @@ def cleaned_child(environment):
     return child
 
 
-def isolated_child(fixture, environment):
+def isolated_child(fixture, environment, *, temporary_stack=None):
+    short_temp = None
+    if temporary_stack is not None:
+        temporary_root = Path('/tmp')
+        if not temporary_root.is_dir() or any(candidate.is_symlink() for candidate in (temporary_root, *temporary_root.parents)):
+            raise RuntimeError('Own short Chrome temporary root is unavailable or linked.')
+        short_temp = Path(temporary_stack.enter_context(tempfile.TemporaryDirectory(
+            prefix='scp-' + uuid4().hex + '-', dir=temporary_root)))
+        info = short_temp.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or short_temp.is_symlink() or
+                stat.S_IMODE(info.st_mode) != 0o700 or info.st_uid != os.geteuid()):
+            raise RuntimeError('Own short Chrome temporary directory is not private.')
     child = cleaned_child(environment)
     for name, suffix in (('HOME', 'own-home'), ('XDG_CACHE_HOME', 'own-xdg-cache'),
-                         ('XDG_CONFIG_HOME', 'own-base-config'), ('XDG_DATA_HOME', 'own-base-data'),
-                         ('TMPDIR', 'own-temp')):
+                         ('XDG_CONFIG_HOME', 'own-base-config'), ('XDG_DATA_HOME', 'own-base-data')):
         child[name] = str(own_directory(fixture / suffix))
+    child['TMPDIR'] = str(short_temp if short_temp is not None else own_directory(fixture / 'own-temp'))
     child['TMP'] = child['TEMP'] = child['TMPDIR']
     child['CHROME_LOG_FILE'] = str(fixture / 'chrome.log')
     return child
@@ -542,9 +554,11 @@ def run(executable=None, expected_source=None, expected_executable_sha256=None):
                 if not member.resolve().is_relative_to(executable.parent) or member.stat().st_size != entry['size'] or digest(member) != entry['sha256']:
                     raise RuntimeError('Native package member mismatch.')
             result['source_git_sha'] = expected_source; result['native_executable_sha256'] = expected_executable_sha256
-        environment = isolated_child(fixture, os.environ)
         backend = None
         with ExitStack() as stack:
+            # Enter first so this directory outlives browser, Xvfb and backend
+            # stop callbacks. Chromium's SingletonSocket must fit sun_path.
+            environment = isolated_child(fixture, os.environ, temporary_stack=stack)
             from playwright.sync_api import sync_playwright
             playwright = stack.enter_context(sync_playwright())
             if source_allowed:
