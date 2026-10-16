@@ -17,7 +17,7 @@ set "uv_dir=%tools%\uv-0.8.22"
 for %%D in ("%local_dir%" "%tools%" "%uv_dir%" "%local_dir%\python" "%local_dir%\uv-cache" "%local_dir%\bin") do (
     set "STUDYCENTER_PUBLIC_SETUP_CHECK=%%~D"
     if exist "%%~D" (
-        powershell.exe -NoLogo -NoProfile -Command "$item = Get-Item -LiteralPath $env:STUDYCENTER_PUBLIC_SETUP_CHECK -Force; if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { exit 1 }"
+        powershell.exe -NoLogo -NoProfile -Command "try { if (-not [IO.Directory]::Exists($env:STUDYCENTER_PUBLIC_SETUP_CHECK) -or ([IO.File]::GetAttributes($env:STUDYCENTER_PUBLIC_SETUP_CHECK) -band [IO.FileAttributes]::ReparsePoint)) { exit 1 } } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }"
         if errorlevel 1 goto directory_error
     ) else (
         mkdir "%%~D"
@@ -34,7 +34,7 @@ echo Preparing the project-local Python tool. First start needs internet.
 set "STUDYCENTER_PUBLIC_SETUP_ARCHIVE=%tools%\uv-0.8.22-windows.zip"
 curl.exe --fail --location --proto "=https" --tlsv1.2 "https://github.com/astral-sh/uv/releases/download/0.8.22/uv-x86_64-pc-windows-msvc.zip" --output "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%"
 if errorlevel 1 goto setup_error
-powershell.exe -NoLogo -NoProfile -Command "if ((Get-FileHash -LiteralPath $env:STUDYCENTER_PUBLIC_SETUP_ARCHIVE -Algorithm SHA256).Hash.ToLowerInvariant() -ne '5049375aa2a5162f132b2c1cb992e25d42d47d934cab8c174dbe6f60973dcc12') { Write-Error 'Official uv archive checksum mismatch; no downloaded program was run.'; exit 1 }"
+powershell.exe -NoLogo -NoProfile -Command "$stream = $null; $sha = $null; try { $stream = [IO.File]::OpenRead($env:STUDYCENTER_PUBLIC_SETUP_ARCHIVE); $sha = [Security.Cryptography.SHA256]::Create(); $digest = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant(); if ($digest -ne '5049375aa2a5162f132b2c1cb992e25d42d47d934cab8c174dbe6f60973dcc12') { [Console]::Error.WriteLine('Official uv archive checksum mismatch; no downloaded program was run.'); exit 1 } } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 } finally { if ($stream) { $stream.Dispose() }; if ($sha) { $sha.Dispose() } }"
 if errorlevel 1 goto setup_error
 tar.exe -xf "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%" -C "%uv_dir%" uv.exe
 if errorlevel 1 goto setup_error
