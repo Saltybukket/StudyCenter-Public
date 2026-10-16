@@ -1,6 +1,12 @@
 # Delivery plan
 
-Target: v0.1.0-beta.1, AGPL-3.0-only, Windows x64 setup and Ubuntu 24.04 x64 package.
+Target: v0.1.0-beta.2, AGPL-3.0-only, Windows x64 setup and Ubuntu 24.04 x64 package.
+
+beta.2 simplifies the existing installation paths: official Microsoft prerequisite
+acquisition from Windows Setup, one project-local developer starter and the Linux
+system-browser starter. It also includes the background-job, dated-week and MCP
+retry fixes. Its exact package checks are recorded in RELEASE-VERIFICATION.md.
+The table below records the original beta.1 milestone delivery.
 
 | Milestone | Scope | State |
 |---|---|---|

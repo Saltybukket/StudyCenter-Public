@@ -257,3 +257,18 @@ retests are blocked on available RAM. Native window/tray/restart checks, the
 registration-opening suite, full Windows Update completion and the improved
 reminder/backup/MCP probes remain unperformed. Clean and beta.1 test-baseline
 snapshots are retained. No full Windows 11 or candidate acceptance is claimed.
+
+## beta.2 installation simplification (2026-10-16)
+
+Build `62b235eedae220823229e10823d933b6718ccf63` passed 476 Windows tests (28
+skipped) and 484 Linux tests (20 skipped). Its exact Windows setup passed the
+existing disposable-runner install/update/backup/uninstall checks. Linux core,
+HTTP UI and PDF/OCR checks passed; its separate automated-browser probe remained
+blocked by AppArmor. Unpacked and frozen-code scans had no unresolved findings.
+The fresh Windows developer starter actually downloaded its own Python,
+dependencies, browser and OCR, then started offline with seven week days and
+stopped normally. No host dependency installer or Windows 11 VM was run. The
+new Microsoft prerequisite acquisition compiled and retains its visible license
+and UAC interaction; that missing-runtime UI sequence was not manually exercised.
+Native Windows 11 and live-account acceptance remain separate. The explicitly
+approved temporary draft-upload path is removed from the ordinary build workflow.
