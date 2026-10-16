@@ -272,3 +272,73 @@ new Microsoft prerequisite acquisition compiled and retains its visible license
 and UAC interaction; that missing-runtime UI sequence was not manually exercised.
 Native Windows 11 and live-account acceptance remain separate. The explicitly
 approved temporary draft-upload path is removed from the ordinary build workflow.
+
+## beta.3 slim setup (2026-10-16)
+
+Build source `02fa3e6c9ba54ecbe435ac856e07eb7bc4212cf5` passed 503 local
+Windows source tests, with 28 skipped. The existing exact Linux candidate job
+[38944150728](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/38944150728)
+passed base HTTP/PDF, managed Python in a restricted child PATH, optional
+component installation and offline repetition. Its separate system-browser
+probe passed with namespace and seccomp sandboxing; existing browser files and
+confinement were unchanged. This does not establish that bundled Chromium works
+under every distribution's AppArmor policy.
+
+The exact Windows candidate job
+[38944144818](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/38944144818)
+passed the beta.2 transition, failed-update retention of the functioning old
+executable and data, backup, optional installation, offline HTTP/start/stop,
+uninstall and interrupted first-install retry under a path containing spaces.
+The uninstaller refused a synthetic foreign junction without deleting its
+target, then removed the complete own environment, including 285-character
+notice paths, while retaining user data. Setup now prepares before replacing
+program files, retains its exact manifest outside temporary files, publishes
+a closed stop signal and passes local constraint paths to uv as file URIs.
+These repairs address failures actually exposed by the earlier candidate jobs.
+
+Windows used compatible system Python, including in the restricted-child-PATH
+probe because the hosted image also registers it. No-system-Python selection
+therefore has isolated-test coverage on Windows, not a real absent-interpreter
+runner result. Linux actually downloaded and used its own Python. Existing
+system interpreters were not removed or modified for either test.
+
+The existing [native build](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/38944086155)
+passed on its second unchanged attempt: 503 Windows tests (28 skipped), 510
+Linux tests (21 skipped), native core/PDF/OCR checks, Windows Full installer
+lifecycle and unpacked/frozen public scans. The separate bundled Linux browser
+probe still failed under AppArmor and is not included in that acceptance.
+The first attempt hit an upstream license-download HTTP 503 and a 30-second
+Windows Full-package shutdown timeout. The latter did not reproduce on retry;
+its exact cause remains unresolved, rather than being claimed as a code fix.
+
+Measured cold payloads, in MiB (bootstrap + uv + application/runtime wheels;
+HTTP/index metadata, model weights and a missing Microsoft prerequisite excluded):
+
+| Payload | Windows x64 | Linux x64 |
+|---|---:|---:|
+| Bootstrap file | 2.05 | 0.023 |
+| Base with compatible Python | 57.56 | 61.63 |
+| Base with own Python | 78.30 | 92.76 |
+| Additional browser, including Python extra | 231.15 | 519.67 |
+| Additional OCR | 14.49 | 157.45 |
+| Additional speech libraries and notices, without model | 82.81 | 123.15 |
+
+The Windows runner measured 295.41 MiB for the base and 1819.55 MiB after all
+components. A Windows own-Python storage measurement is not claimed. The Linux
+runner measured 338.95 MiB for the base, 592.93 MiB with its own Python, and
+3960.85 MiB after all components. These are logical file-byte sums
+including retained caches and staged environments, counting hard links more
+than once and excluding the separate personal data directory; physical allocated
+disk space was not measured. Optional archives
+are seeded read-only from the exact own draft in CI; uv obtains Python wheels.
+This is not an offline first-install claim or a hidden full-package download.
+
+The beta.2 downloads were 323.20 MiB (Windows) and 695.27 MiB (Linux). The cold
+base saves approximately 76-82% and 87-91%, respectively. With all extras the
+payload instead reaches about 386-407 MiB and 862-893 MiB, so fully loaded
+download savings are not claimed. Speech model weights are additional.
+
+Release archives and application/source scans have no unresolved findings;
+native archives reuse exact reviewed beta.2 files and their existing source
+offer. No real TU/AI accounts, paid calls, downloaded model weights, host
+dependency installers or native Windows 11 guest acceptance were used.

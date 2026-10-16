@@ -2,13 +2,13 @@
 
 StudyCenter bündelt Aufgaben, Notizen, Termine und Originalquellen in einer lokalen Anwendung. Für Studierende der TU Graz entwickelt, funktioniert es auch ohne TU-Konto und ohne KI.
 
-**Windows 10/11 x64:** [Veröffentlichten beta.2-Installer herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-windows-x86_64-setup.exe).
+**Windows 10/11 x64:** [beta.3-Setup herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-windows-x86_64-setup.exe), öffnen und einrichten.
 
-**Linux x64:** [Veröffentlichtes beta.2-Komplettpaket herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-linux-x86_64.tar.gz), entpacken und `sh start.sh` ausführen.
+**Linux x64:** [beta.3-Slim-Archiv herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-linux-x86_64-slim.tar.gz), entpacken und `sh start.sh` ausführen.
 
-[Release-Dateien und SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2)
+[SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/SHA256SUMS) · [Release mit Größenangaben](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.3)
 
-> **beta.3 Slim wird vorbereitet.** Dafür gibt es hier noch keinen veröffentlichten Download. Das bestehende beta.2-Komplettpaket bleibt verfügbar; es enthält Python, Browser und OCR bereits. Die folgenden Hinweise zur bedarfsgesteuerten Einrichtung gelten für beta.3 und den entsprechend aktualisierten Quellcode.
+Bei einem Update den bisherigen Public-Datenordner beibehalten. Die [beta.2-Komplettpakete](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2) bleiben unverändert verfügbar; ein bereits eingerichteter lokaler Datenbestand wird weiterverwendet.
 
 ## Benutzen
 
