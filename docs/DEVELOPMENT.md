@@ -1,47 +1,38 @@
-# Development
+# Entwicklung – aus Git klonen und starten
 
-Clone this public repository, enter its folder, and run one command:
+**Du willst StudyCenter nur benutzen?** Nimm lieber den [fertigen Windows-Installer oder das Linux-Paket](../README.md#️-jetzt-herunterladen--beta2). Dieser Abschnitt ist für Entwickler und alle, die Änderungen am Quellcode ausprobieren möchten.
+
+## Windows (PowerShell oder Eingabeaufforderung)
+
+Git muss für das Klonen vorhanden sein. Python, pip und Tesseract musst du nicht vorinstallieren.
 
 ```powershell
+git clone https://github.com/Saltybukket/StudyCenter-Public.git
+cd StudyCenter-Public
 .\start.cmd
 ```
 
-On Ubuntu 24.04 x64:
+## Linux (Ubuntu 24.04 x64)
 
 ```sh
+git clone https://github.com/Saltybukket/StudyCenter-Public.git
+cd StudyCenter-Public
 sh start.sh
 ```
 
-The first run needs internet and disk space for Python, dependencies, Chromium
-and portable OCR. It downloads the pinned official Astral uv archive, verifies
-its SHA256, and uses uv's checksummed Python distribution. Python 3.12.11
-(Astral build 20250918), tool caches and downloads stay under this clone's
-ignored `.local/`; application packages go into its own `.venv`. No Python
-installation, environment activation, global pip, PATH changes, administrator
-rights or Tesseract installer are needed. Windows uses its existing curl.exe and
-tar.exe, plus ordinary PowerShell directory/checksum commands; script execution
-policies are left unchanged. On Windows the starter supports x64. The
-Linux source starter requires existing curl, tar, sha256sum and Ubuntu's
-apt-get, apt-cache and dpkg-deb. APT only downloads/extracts portable components
-using the existing isolated builder; it does not install host packages.
+Der erste Start benötigt Internetzugang und freien Speicher. Das Skript richtet die Entwicklungsumgebung ein und startet die lokale Anwendung. Spätere Starts verwenden die bereits vorbereiteten Komponenten.
 
-Setup uses `requirements-windows.lock` or `requirements-linux.lock` as version
-constraints. Runtime packages and pytest are installed automatically; optional
-speech/model packages are not downloaded. Browser and OCR preparation reuses
-the portable build scripts. The starter then opens the application. On Linux,
-the local interface opens in the normal desktop browser independently of the
-Playwright browser used for explicit source synchronisation.
+**Was passiert beim ersten Start?** Der Starter lädt das festgelegte `uv`-Werkzeug (0.8.22), prüft dessen SHA-256, verwendet die projektlokale Python-Version 3.12.11 und richtet die Abhängigkeiten sowie portable Browser-/OCR-Komponenten ein. Python-/Tool-Downloads und Caches liegen unter der ignorierten `.local/`, die Python-Umgebung unter `.venv/`. Es werden keine fremden StudyCenter-Daten oder Browserprofile verwendet, keine globalen Python-Pakete installiert und keine System-Tesseract-Installer gestartet.
 
-Run the same command again to start. The complete environment and components
-are reused. If a copied or incompatible `.venv` cannot run here, the starter
-keeps it under `.local/previous-venv-*` before creating a new environment.
-Dependency setup runs again when this clone's path, setup script, platform
-lock or project metadata changes, so editable imports follow the current clone.
-Linked setup directories are refused. A failed download or setup stops with an
-error; retry the same starter after fixing the connection. Incomplete component
-directories are preserved and the error identifies which one to move aside.
+Der Windows-Starter benötigt die bereits vorhandenen Windows-Werkzeuge `curl.exe` und `tar.exe`. Der Linux-Starter benötigt `curl`, `tar`, `sha256sum` und für die portable Komponentenextraktion die vorhandenen Ubuntu-Werkzeuge `apt-get`, `apt-cache` und `dpkg-deb`. Er installiert **keine Host-Pakete**. Wenn diese Voraussetzungen fehlen, nutze das fertige Release oder kläre sie separat.
 
-Useful commands (use `sh start.sh` instead on Linux):
+## Quellcode aktualisieren
+
+Anwendung vollständig beenden, dann im Projektordner `git pull` ausführen und denselben Starter erneut starten. Der Starter prüft, ob die Entwicklungsumgebung nach einer Änderung erneut vorbereitet werden muss. **Ein Git-Update ist kein Update des bereits installierten Windows-Releasepakets.** Beide Varianten getrennt behandeln.
+
+## Nützliche Befehle
+
+Windows im geklonten Projekt:
 
 ```powershell
 .\start.cmd --setup-only
@@ -50,33 +41,24 @@ Useful commands (use `sh start.sh` instead on Linux):
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Linux tests use `.venv/bin/python -m pytest`. No application key is needed for
-synthetic protocol tests. Tests use isolated directories and never access real
-accounts or existing profiles. Default developer data, profiles and credentials
-belong to the dedicated `.local/data` Public instance. `--data-dir <new-folder>`
-selects a different explicit Public instance; use that same argument when
-stopping it. Never point it at another application's data. `--port 0` chooses a
-free loopback port; the endpoint appears in the console and instance descriptor.
+Ubuntu im geklonten Projekt:
 
-For ordinary Linux use, download the complete Linux release, extract it, and
-run `sh start.sh` in the extracted folder. That package already contains Python,
-dependencies and portable components; it does not run developer setup. Its
-starter opens the normal desktop browser; `sh start.sh --stop` stops its own
-instance. Optional desktop integration remains separate. Distribution sandbox
-restrictions on institutional synchronisation do not prevent the local UI from
-starting; no sandbox or AppArmor settings are changed.
+```sh
+sh start.sh --setup-only
+sh start.sh --no-browser --port 0
+sh start.sh --stop
+.venv/bin/python -m pytest
+```
 
-The bootstrap tool is pinned to [uv 0.8.22](https://github.com/astral-sh/uv/releases/tag/0.8.22).
-Its [Python distribution](https://docs.astral.sh/uv/guides/install-python/) comes
-from Astral's python-build-standalone project. Tool acquisition runs no remote
-installer script. Source edits are reflected by the editable package.
+`--setup-only` richtet Komponenten ein, ohne die Anwendung zu öffnen; `--no-browser` startet ohne grafische Browseröffnung, `--port 0` wählt einen freien lokalen Port, `--stop` beendet die eigene gestartete Instanz. Die lokalen Daten, Browserprofile und Credentials gehören zur Public-Instanz unter `.local/data`. Mit `--data-dir <neuer-ordner>` kann ein anderer **eigener** Datenbestand verwendet werden; denselben Pfad für `--stop` angeben. **Nie auf Datenverzeichnisse anderer Apps zeigen.**
 
-Module contracts are in [CONTRACTS.md](CONTRACTS.md), provider/OAuth details in
-[PROVIDERS.md](PROVIDERS.md), and optional speech/MCP in [OPTIONAL.md](OPTIONAL.md).
-Keep the existing source evidence, transaction, preview, receipts, undo, backup,
-local HTTP/CSRF and credential boundaries. Before commits inspect staged named
-files and run the public-content gate plus offline secret scan; before pushes
-scan outgoing commit versions. Release artifacts need their existing content,
-checksum, source and license checks. See [PLAN.md](PLAN.md) for actual platform
-and account acceptance: synthetic tests do not establish live-account or OS
-acceptance. Windows install/update/uninstall checks belong in a clean VM.
+Falls ein Download fehlschlägt, Verbindung prüfen und denselben Starter erneut ausführen. Abgebrochene Komponenten werden nicht stillschweigend als vollständig akzeptiert. Bei einem nicht kompatiblen geklonten `.venv` sichert der Starter die vorherige Umgebung im eigenen `.local/` und erstellt eine neue.
+
+## Tests, Beiträge und technische Referenz
+
+- Tests nutzen synthetische Inhalte und isolierte Verzeichnisse, keine echten TU- oder KI-Konten. Erfolgreiche Tests ersetzen keine reale Konto- oder Desktopabnahme.
+- Vor einem öffentlichen Commit ausgewählte Dateien prüfen, `scripts/check_public.py --staged` ausführen und keine Credentials, privaten Daten oder lokalen Reports hochladen.
+- Technische Schnittstellen: [CONTRACTS.md](CONTRACTS.md), [PROVIDERS.md](PROVIDERS.md), [OPTIONAL.md](OPTIONAL.md). Build/Installer: [PACKAGING.md](PACKAGING.md). Nachweise und bekannte Einschränkungen: [RELEASE-VERIFICATION.md](RELEASE-VERIFICATION.md).
+- Das private persönliche StudyCenter und dieses Public-Projekt sind vollständig getrennt.
+
+[**← Zur Startseite**](../README.md) · [Schnellstart ohne Git](QUICKSTART.md)

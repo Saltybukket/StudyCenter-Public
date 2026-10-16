@@ -1,84 +1,72 @@
-# StudyCenter Public einrichten
+# StudyCenter Public – Installation und erste Schritte
 
-StudyCenter speichert deinen persönlichen Bestand auf diesem Rechner. Beim ersten
-Start ist er leer. Notizen, eigene Termine und Dateiimport funktionieren ohne Konto.
+**Du möchtest StudyCenter einfach benutzen? Dann lade das fertige Paket herunter. Git und Python sind dafür nicht nötig.**
 
-## Windows
+## 1. Download
 
-Lade das beta.2-Windows-Setup herunter und starte es. Übernimm den empfohlenen
-Programm- und Datenordner oder wähle einen eigenen beschreibbaren Ort. Das Setup
-erkennt eine fehlende **Microsoft Visual C++ v14 Runtime (x64)** und lädt den
-offiziellen Microsoft-Installer mit geprüfter SHA256 herunter. Bestätige dessen
-Lizenzbedingungen und Windows-Administratorabfrage; anschließend setzt das
-StudyCenter-Setup die Installation fort. Eine kompatible vorhandene Runtime
-wird nicht verändert. Falls Microsoft einen Neustart verlangt, starte Windows
-selbst neu und öffne das Setup noch einmal. Visual Studio ist nicht erforderlich.
+- **Windows 10/11 x64:** [**Installer (.exe) herunterladen**](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-windows-x86_64-setup.exe)
+- **Linux x64:** [**Fertiges Paket (.tar.gz) herunterladen**](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-linux-x86_64.tar.gz)
+- [Alle Dateien und SHA-256-Prüfsummen der aktuellen beta.2](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2)
 
-Am Ende des Setups **StudyCenter-Public starten** gewählt lassen; später genügt
-der Eintrag im Startmenü. Ein unsignierter Beta-Installer kann eine
-Windows-Sicherheitsnachfrage auslösen. Die Schutzfunktionen bleiben eingeschaltet.
+**Auf GitHub nicht gefunden?** Öffne die [Release-Seite](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2), klappe **Assets** auf und klicke auf die Datei mit `windows_x86_64-setup.exe`. **Code → Download ZIP** ist nur der Quellcode, kein Windows-Installer.
 
-## Linux
+## 2. Windows installieren
 
-Entpacke das Linux-Paket in einen eigenen Ordner und führe dort `sh start.sh` aus. Die
-Oberfläche erscheint im Standardbrowser. Persönliche Daten liegen standardmäßig
-im XDG-Datenordner. Ein eigener Datenort kann dem Starter mit
-`--data-dir "/gewählter/Ordner"` übergeben werden. **start.sh --stop** beendet
-die dazugehörige Instanz; bei eigenem Datenort dieselbe Ortsangabe verwenden.
-Python, OCR und die Anwendungsabhängigkeiten sind bereits enthalten.
+1. Die heruntergeladene `studycenter-public-0.1.0b2-windows-x86_64-setup.exe` öffnen.
+2. Programmordner und **eigenen Datenordner** auswählen; die Vorschläge sind für den Anfang geeignet.
+3. Falls die **Microsoft Visual C++ v14 Runtime (x64)** fehlt, bietet StudyCenter den offiziellen Microsoft-Download an. Den sichtbaren Microsoft-Lizenz- und gegebenenfalls Administrator-Dialog selbst bestätigen. Eine passende vorhandene Runtime wird nicht erneut installiert.
+4. Falls Microsoft einen Neustart verlangt, Windows normal neu starten und das StudyCenter-Setup erneut öffnen.
+5. Am Ende **StudyCenter-Public starten** auswählen oder später über das Windows-Startmenü öffnen.
 
-Die Oberfläche läuft im normalen Systembrowser. Der Browser für **TU verbinden**
-und den manuellen Quellenabruf ist davon getrennt und verwendet ein eigenes
-Public-Profil. Falls Ubuntu den mitgelieferten Browser blockiert, verwendet die
-Anwendung bei passender Restriktion vorhandenes, rootverwaltetes System-Chrome.
-Vorhandene Browserinstallationen und ihre Profile werden nicht verändert.
-Ist dieser Quellenbrowser nicht verfügbar, funktionieren eigene Einträge,
-Dateiimport und Dokumentleser weiter. Sicherheitsregeln bleiben eingeschaltet.
+Python, Tesseract, Browser-Automation und die übrige Anwendungslaufzeit sind im Paket enthalten. Visual Studio ist **nicht** erforderlich. Eine unsignierte Beta kann einen Windows-Sicherheitsdialog auslösen: Prüfe vor der Ausführung die Herkunft der Datei und gegebenenfalls die SHA-256-Prüfsumme. Keine Windows-Schutzfunktionen abschalten.
 
-## Repository verwenden
+## 3. Linux starten
 
-Nach `git clone https://github.com/Saltybukket/StudyCenter-Public.git` im neuen
-Ordner `start.cmd` (Windows) oder `sh start.sh` (Ubuntu 24.04 x64) ausführen.
-Der erste Start lädt die nötigen Werkzeuge und Komponenten in diesen Ordner;
-spätere Starts verwenden sie wieder. Weitere Befehle sind unter
-[Entwicklung](DEVELOPMENT.md) beschrieben.
+1. Das Linux-`.tar.gz` herunterladen und in einen eigenen Ordner entpacken.
+2. Ein Terminal im entpackten Anwendungsordner öffnen und ausführen:
 
-## Die ersten fünf Schritte
+```sh
+sh start.sh
+```
 
-1. Unter **Einrichtung → Speicher** den angezeigten Datenort prüfen.
-2. Unter **Kurse & Quellen** eine eigene TU-Quelle speichern. **TU verbinden**
-   öffnet das echte Anmeldefenster. Melde dich selbst an; Passwörter und MFA
-   gehören dort hinein. Mit **Eigene Kurse erkennen** anschließend Kurse wählen.
-3. Unter **KI-Verbindung** deinen Anbieter und ein Modell wählen. Eigenen
-   API-Zugang oder einen vorhandenen lokalen Modellserver verwenden; dieser
-   Schritt ist freiwillig. ChatGPT verbindet dein eigenes Konto im Systembrowser.
-4. Bei der Quelle bewusst **Jetzt synchronisieren** drücken. Abruf, Leselücken
-   und Vollständigkeit werden angezeigt. Beim Start läuft kein Quellenabgleich.
-5. Unter **Aufgaben & Notizen** eigene Einträge erstellen oder unter
-   **Dokumente** eine eigene Datei importieren. Jede KI-Auswertung startet auf
-   deinen Klick; Vorschau prüfen und **Übernehmen** wählen.
+3. Die Oberfläche erscheint im normalen Systembrowser. Zum Beenden im selben Ordner `sh start.sh --stop` verwenden.
 
-## Wenn etwas fehlt
+Ein anderer Datenordner kann über `sh start.sh --data-dir "/dein/Ordner"` gewählt werden; beim Stoppen denselben `--data-dir`-Wert verwenden. Das Paket enthält Python, Abhängigkeiten und OCR bereits. Zielplattform ist Ubuntu 24.04 x64 beziehungsweise ein kompatibles Linux-System.
 
-Ein ungültiger TU-Zugang benötigt eine neue eigene Anmeldung. Bei fehlender
-KI-Verbindung Anbieter, Basisadresse und Modell unter **KI-Verbindung** prüfen.
-Der **synthetische Verbindungstest** enthält keine Studieninhalte, kann beim
-Anbieter aber kostenpflichtig sein. Es gibt keinen automatischen Providerwechsel.
-Bei Leselücken das Original im Dokumentleser vergleichen und bei Bedarf
-**Seite neu lesen** wählen. Fehlerhafte Datumsangaben über **Quellenvergleich**
-als persönliche Entscheidung behandeln; eine Planung ist keine offizielle Buchung.
+**Linux-Einschränkung:** Die normale Oberfläche ist von der Playwright-basierten TU-Anmeldung getrennt. Unter bestimmten Ubuntu-AppArmor-/Browser-Berechtigungen kann der TU-Quellenbrowser nicht starten. Eigene Aufgaben, Dateiimport, PDF-Leser und lokale Funktionen bleiben verwendbar. Es werden keine Sandbox-Sicherheitsregeln abgeschaltet.
 
-Mail, Sprache und lokales MCP sind freiwillig. Sprachmodelle werden erst nach
-deiner ausdrücklichen Downloadwahl geladen. **Einstellungen → Glocke & Verlauf**
-zeigt Meldungen unabhängig vom Aufgabenstatus. Ein ausgeschalteter Rechner meldet nichts.
+## 4. Das erste Mal verwenden
 
-**Sicherung erstellen** enthält private Studieninhalte und Originale, aber keine
-Zugänge oder Browserprofile. Teile diese Datei nicht öffentlich. Eine
-Wiederherstellung zeigt zuerst die Vorschau und erstellt eine Rückfallsicherung.
+1. **Einrichtung → Speicher:** Speicherort prüfen. Ein neuer Nutzer beginnt ohne fremde Kurse oder Daten.
+2. **Aufgaben & Notizen** oder **Dokumente:** direkt eine eigene Aufgabe, Notiz oder PDF anlegen – funktioniert offline und ohne Konto.
+3. **Kurse & Quellen (optional):** eigene TU-Quelle hinzufügen, **TU verbinden** öffnen und dich im echten Anmeldefenster anmelden. Danach **Eigene Kurse erkennen** und relevante Kurse auswählen.
+4. **Jetzt synchronisieren (optional):** Quellen nur auf deinen Klick einlesen. Prüfe Lücken, Originalbelege und mögliche Terminwidersprüche im **Quellenvergleich**.
+5. **KI-Verbindung (optional):** einen Anbieter oder lokalen Modellserver auswählen. Bei Cloud-Anbietern dein eigenes Konto oder deinen API-Key verwenden. Ergebnisse erst prüfen und dann **Übernehmen** wählen.
 
-Windows-Hintergrundbetrieb lässt sich unter Einstellungen wählen. **Vollständig
-beenden** im Tray oder in der Oberfläche stoppt ausschließlich diese Public-Instanz.
+Eine persönliche Planung ersetzt keine offizielle Prüfungs- oder Lehrveranstaltungsanmeldung. Cloud-KI-Aktionen können kostenpflichtig sein; es gibt keinen automatischen Anbieterwechsel oder ungefragten Modellaufruf.
 
-Ausgewählte Inhalte gehen nur bei einer ausdrücklich ausgelösten KI-Aktion an
-deinen gewählten Anbieter. Cloud-KI rechnet außerhalb deines Rechners und kann
-Kosten verursachen. Es gibt keine automatische Telemetrie.
+## 5. Wenn etwas nicht funktioniert
+
+| Problem | Was tun? |
+| --- | --- |
+| **Windows-Setup meldet fehlende Runtime** | Den offiziellen Microsoft-Dialog abschließen. Wenn der Download fehlschlägt oder die Freigabe abgelehnt wurde, erneut bei bestehender Internetverbindung versuchen. |
+| **Windows startet nicht** | Über das Startmenü öffnen; prüfen, ob die Setup- und Laufzeitmeldungen vollständig abgeschlossen wurden. |
+| **TU-Quelle zeigt keinen Zugriff** | **TU verbinden** erneut öffnen und die Anmeldung/MFA selbst abschließen. Quellen werden nicht automatisch aktualisiert. |
+| **PDF-Text fehlt** | Original im Dokumentleser ansehen und bei Bedarf **Seite neu lesen** verwenden; nicht lesbare Bereiche können bestehen bleiben. |
+| **KI funktioniert nicht** | Unter **KI-Verbindung** Anbieter, Modell und Zugang kontrollieren. Ein Verbindungstest kann beim Anbieter Kosten auslösen. |
+| **Linux: TU-Browser blockiert** | Lokale Funktionen weiterverwenden; siehe [aktuelle bekannte Grenzen](RELEASE-VERIFICATION.md). Keine AppArmor-Ausnahmen oder `--no-sandbox` aktivieren. |
+
+**Daten und Updates:** Updates erhalten den eigenen Datenbestand; eine Deinstallation löscht persönliche Daten standardmäßig nicht. **Sicherung erstellen** kann Originale und private Studieninformationen enthalten, aber keine Zugangsdaten oder Browserprofile. Backups nicht öffentlich teilen. Die Wiederherstellung zeigt zuerst eine Vorschau. **Vollständig beenden** stoppt die eigene Instanz; Erinnerungen werden nicht ausgelöst, wenn die Anwendung beziehungsweise der Rechner nicht läuft.
+
+## 6. Lieber direkt aus Git starten?
+
+Für Entwickler (nicht nötig für die normale Nutzung):
+
+```sh
+git clone https://github.com/Saltybukket/StudyCenter-Public.git
+cd StudyCenter-Public
+```
+
+Danach unter Windows `start.cmd` beziehungsweise unter Ubuntu 24.04 x64 `sh start.sh` ausführen. Der erste Start richtet die benötigten Werkzeuge im Checkout ein und benötigt Internet. Ausführliche Hinweise: [Entwicklung](DEVELOPMENT.md).
+
+[**← Zur Repository-Startseite**](../README.md)
