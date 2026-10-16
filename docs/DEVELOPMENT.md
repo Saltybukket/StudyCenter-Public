@@ -1,6 +1,6 @@
 # Entwicklung – aus Git klonen und starten
 
-**Du willst StudyCenter nur benutzen?** Nimm lieber den [fertigen Windows-Installer oder das Linux-Paket](../README.md#️-jetzt-herunterladen--beta2). Dieser Abschnitt ist für Entwickler und alle, die Änderungen am Quellcode ausprobieren möchten.
+**Du willst StudyCenter nur benutzen?** Nimm lieber den [fertigen Windows-Installer oder das Linux-Paket](../README.md). Dieser Abschnitt ist für Entwickler und alle, die Änderungen am Quellcode ausprobieren möchten.
 
 ## Windows (PowerShell oder Eingabeaufforderung)
 
