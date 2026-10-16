@@ -184,7 +184,7 @@ def run(installer=None,expected_source=None):
     # They never execute their synthetic placeholder application.
     for label,requirement in (
         ('missing-system-runtime','studycenter-public-synthetic-missing.dll|required'),
-        ('missing-system-export','vcruntime140.dll|StudyCenterPublicSyntheticMissingExport'),
+        ('missing-system-export','kernel32.dll|StudyCenterPublicSyntheticMissingExport'),
     ):
         fixture=root/label;fixture.mkdir();payload=fixture/'payload';payload.mkdir()
         (payload/'StudyCenter-Public.exe').write_bytes(b'Synthetic placeholder; prerequisite refusal prevents execution')

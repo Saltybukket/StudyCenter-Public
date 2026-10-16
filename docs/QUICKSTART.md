@@ -5,24 +5,27 @@ Start ist er leer. Notizen, eigene Termine und Dateiimport funktionieren ohne Ko
 
 ## Windows
 
-Voraussetzung ist eine vorhandene **Microsoft Visual C++ v14 Runtime (x64)**.
-Falls sie fehlt, verweist der Setup auf den
-[offiziellen Microsoft-Download](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
-Die Microsoft-Runtime gehört in diesem Beta-Build zu den Systemvoraussetzungen.
-Visual Studio wird zum Benutzen der Anwendung nicht benötigt.
+Lade das beta.2-Windows-Setup herunter und starte es. Übernimm den empfohlenen
+Programm- und Datenordner oder wähle einen eigenen beschreibbaren Ort. Das Setup
+erkennt eine fehlende **Microsoft Visual C++ v14 Runtime (x64)** und lädt den
+offiziellen Microsoft-Installer mit geprüfter SHA256 herunter. Bestätige dessen
+Lizenzbedingungen und Windows-Administratorabfrage; anschließend setzt das
+StudyCenter-Setup die Installation fort. Eine kompatible vorhandene Runtime
+wird nicht verändert. Falls Microsoft einen Neustart verlangt, starte Windows
+selbst neu und öffne das Setup noch einmal. Visual Studio ist nicht erforderlich.
 
-Öffne das Windows-Setup aus dem geprüften Release. Übernimm den empfohlenen
-Programm- und Datenordner oder wähle einen eigenen beschreibbaren Ort. Starte
-anschließend **StudyCenter-Public** im Startmenü. Ein unsignierter Pilot kann eine
+Am Ende des Setups **StudyCenter-Public starten** gewählt lassen; später genügt
+der Eintrag im Startmenü. Ein unsignierter Beta-Installer kann eine
 Windows-Sicherheitsnachfrage auslösen. Die Schutzfunktionen bleiben eingeschaltet.
 
 ## Linux
 
-Entpacke das Linux-Paket in einen eigenen Ordner und öffne **start.sh**. Die
+Entpacke das Linux-Paket in einen eigenen Ordner und führe dort `sh start.sh` aus. Die
 Oberfläche erscheint im Standardbrowser. Persönliche Daten liegen standardmäßig
 im XDG-Datenordner. Ein eigener Datenort kann dem Starter mit
 `--data-dir "/gewählter/Ordner"` übergeben werden. **start.sh --stop** beendet
 die dazugehörige Instanz; bei eigenem Datenort dieselbe Ortsangabe verwenden.
+Python, OCR und die Anwendungsabhängigkeiten sind bereits enthalten.
 
 Die Oberfläche läuft im normalen Systembrowser. Der Browser für **TU verbinden**
 und den manuellen Quellenabruf ist davon getrennt und verwendet ein eigenes
@@ -31,6 +34,14 @@ Anwendung bei passender Restriktion vorhandenes, rootverwaltetes System-Chrome.
 Vorhandene Browserinstallationen und ihre Profile werden nicht verändert.
 Ist dieser Quellenbrowser nicht verfügbar, funktionieren eigene Einträge,
 Dateiimport und Dokumentleser weiter. Sicherheitsregeln bleiben eingeschaltet.
+
+## Repository verwenden
+
+Nach `git clone https://github.com/Saltybukket/StudyCenter-Public.git` im neuen
+Ordner `start.cmd` (Windows) oder `sh start.sh` (Ubuntu 24.04 x64) ausführen.
+Der erste Start lädt die nötigen Werkzeuge und Komponenten in diesen Ordner;
+spätere Starts verwenden sie wieder. Weitere Befehle sind unter
+[Entwicklung](DEVELOPMENT.md) beschrieben.
 
 ## Die ersten fünf Schritte
 

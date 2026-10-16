@@ -138,10 +138,16 @@ Windows x64 system libraries. `SYSTEM-RUNTIME-RECIPE.json` records omitted
 payload hashes, exact primary NumPy wheel input hashes and the two deterministic
 unsigned consumer import-name changes to canonical `msvcp140.dll`. No local
 renamed runtime copies are generated. Setup reads the x64 system PE headers and
-required exports before destination probes, file copies, updates or program
-execution; missing or incompatible prerequisites cause refusal without repair.
-Visual Studio is not required. See QUICKSTART for the official manual Microsoft
-runtime prerequisite. The installer performs no runtime download or installation.
+required exports before file copies, updates or application execution. In beta.2,
+missing VC components can be obtained directly from Microsoft's pinned, SHA256-
+verified download. The official installer displays its own license and UAC;
+StudyCenter does not bundle Microsoft DLLs or accept those terms on the user's
+behalf. Compatible runtimes are left alone. Windows system-library defects,
+cancelled/failed downloads or denied elevation stop setup; no automatic restart
+occurs. Silent setup requires explicit `/INSTALLPREREQUISITES` before even
+downloading the prerequisite, and the Microsoft window remains interactive.
+Program/data identities are checked again after that window closes. Visual
+Studio is not required. See QUICKSTART for the ordinary installation steps.
 A successful headless smoke does not claim those checks passed. Windows setup
 uses its own application ID, offers optional desktop/startup shortcuts, and
 retains user data and credentials on uninstall. Linux `start.sh --stop` requests

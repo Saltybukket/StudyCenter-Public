@@ -1,4 +1,10 @@
 { Read-only x64 PE/export prerequisite validation. No DLL loading or copying. }
+const
+  { Official Microsoft V14 x64 14.51.36247.0. Downloaded by the end user;
+    neither the installer nor individual Microsoft DLLs are redistributed. }
+  VCRuntimeURL = 'https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe';
+  VCRuntimeSHA256 = '843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c';
+  VCRuntimeFile = 'StudyCenter-Public-VC_redist.x64.exe';
 function RuntimeU16(const Image: AnsiString; Offset: Integer): LongWord;
 begin
   if (Offset < 0) or (Offset > Length(Image) - 2) then RaiseException('Truncated system PE header');
@@ -89,7 +95,14 @@ begin
     if Comparison < 0 then Low := Middle + 1 else High := Middle - 1;
   end;
 end;
-function SystemRuntimeProblem: String;
+function IsVCRuntimeLibrary(Name: String): Boolean;
+begin
+  Name := Lowercase(Name);
+  Result := (Name = 'msvcp140.dll') or (Name = 'msvcp140_1.dll') or
+    (Name = 'vcruntime140.dll') or (Name = 'vcruntime140_1.dll') or
+    (Name = 'concrt140.dll');
+end;
+function SystemRuntimeGroupProblem(VCGroup: Boolean): String;
 var Remaining, Line, Name, Symbol, Previous, Path: String; Image: AnsiString;
   Cut, Separator: Integer; VersionMS, VersionLS: Cardinal;
 begin
@@ -104,22 +117,82 @@ begin
       if Separator = 0 then RaiseException('Invalid packaged runtime requirement');
       Name := Copy(Line, 1, Separator - 1); Symbol := Copy(Line, Separator + 1, Length(Line));
       if (Pos('\', Name) <> 0) or (Pos('/', Name) <> 0) or (Pos(':', Name) <> 0) or (Pos('..', Name) <> 0) then RaiseException('Invalid system library name');
-      if Name <> Previous then begin
-        Log('System runtime prerequisite library: ' + Name);
-        { Setup is explicitly x86 on both compiler versions. Sysnative reaches
-          the authoritative x64 System32 without changing redirection state. }
-        Path := ExpandConstant('{sysnative}\') + Name;
-        if not LoadStringFromFile(Path, Image) then RaiseException('Missing readable x64 system library: ' + Name);
-        if (Pos('msvcp', Name) = 1) or (Pos('vcruntime', Name) = 1) or (Pos('concrt', Name) = 1) then begin
-          if not GetVersionNumbers(Path, VersionMS, VersionLS) or (VersionMS shr 16 <> 14) then RaiseException('Microsoft V14 x64 system runtime required: ' + Name);
+      if IsVCRuntimeLibrary(Name) = VCGroup then begin
+        if Name <> Previous then begin
+          Log('System runtime prerequisite library: ' + Name);
+          { Setup is explicitly x86 on both compiler versions. Sysnative reaches
+            the authoritative x64 System32 without changing redirection state. }
+          Path := ExpandConstant('{sysnative}\') + Name;
+          if not LoadStringFromFile(Path, Image) then RaiseException('Missing readable x64 system library: ' + Name);
+          if VCGroup then begin
+            if not GetVersionNumbers(Path, VersionMS, VersionLS) or (VersionMS shr 16 <> 14) then RaiseException('Microsoft V14 x64 system runtime required: ' + Name);
+          end;
+          Previous := Name;
         end;
-        Previous := Name;
+        if not RuntimeHasExport(Image, Symbol) then RaiseException('System library lacks a required x64 export: ' + Name + ' / ' + Symbol);
       end;
-      if not RuntimeHasExport(Image, Symbol) then RaiseException('System library lacks a required x64 export: ' + Name + ' / ' + Symbol);
     end;
     Log('System runtime prerequisite: complete');
   except
-    Result := 'StudyCenter-Public requires an already installed compatible Microsoft Visual C++ V14 x64 runtime and Windows 10/11 system libraries. ' + GetExceptionMessage + #13#10 +
-      'Visual Studio is not required. No runtime is installed or changed by this setup. See QUICKSTART.md and the official Microsoft runtime download: https://aka.ms/vc14/vc_redist.x64.exe';
+    Result := 'StudyCenter-Public requires compatible Microsoft Visual C++ V14 x64 and Windows 10/11 system libraries. ' + GetExceptionMessage;
+  end;
+end;
+function SystemRuntimeProblem: String;
+begin
+  Result := SystemRuntimeGroupProblem(False);
+  if Result = '' then Result := SystemRuntimeGroupProblem(True);
+end;
+function CmdLineParamExists(Parameter: String): Boolean;
+var I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), Parameter) = 0 then begin Result := True; exit; end;
+end;
+function EnsureSystemRuntime: String;
+var ResultCode: Integer; Progress: TOutputProgressWizardPage;
+begin
+  { Windows defects are never a reason to acquire the VC runtime. }
+  Result := SystemRuntimeGroupProblem(False);
+  if Result <> '' then exit;
+  Result := SystemRuntimeGroupProblem(True);
+  if Result = '' then exit;
+  if WizardSilent and not CmdLineParamExists('/INSTALLPREREQUISITES') then begin
+    Result := Result + #13#10 + 'The Microsoft prerequisite is missing. Rerun interactively or explicitly allow its download and visible Microsoft installer with /INSTALLPREREQUISITES. Microsoft license acceptance and administrator approval are required.';
+    exit;
+  end;
+  if not WizardSilent then begin
+    if MsgBox('A compatible Microsoft Visual C++ V14 x64 runtime is missing.' + #13#10 +
+      'Setup will download the official Microsoft installer (about 18 MB). Accept Microsoft license terms in its window and approve Windows administrator access to continue. No automatic restart will occur.' + #13#10 +
+      'Download and open the Microsoft installer now?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) <> IDYES then begin
+      Result := 'Microsoft prerequisite installation was declined. StudyCenter-Public Setup stopped before writing application files.'; exit;
+    end;
+  end;
+  try
+    Progress := CreateOutputProgressPage('Microsoft runtime prerequisite', 'Download from Microsoft');
+    Progress.SetText('Downloading and verifying Microsoft Visual C++ V14 x64...', 'The Microsoft license and administrator prompt follow.');
+    Progress.Show;
+    try
+      DownloadTemporaryFile(VCRuntimeURL, VCRuntimeFile, VCRuntimeSHA256, nil);
+    finally
+      Progress.Hide;
+    end;
+    if not ShellExec('runas', ExpandConstant('{tmp}\') + VCRuntimeFile, '/install /norestart', '',
+      SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then begin
+      Result := 'Microsoft prerequisite could not start or administrator approval was cancelled: ' + SysErrorMessage(ResultCode); exit;
+    end;
+    Log('Microsoft VC prerequisite exit code: ' + IntToStr(ResultCode));
+    if ResultCode = 3010 then begin
+      Result := 'Microsoft requires a Windows restart. Restart manually, then rerun StudyCenter-Public Setup. Setup stopped before writing application files.'; exit;
+    end;
+    if ResultCode <> 0 then begin
+      Result := 'Microsoft prerequisite was cancelled or failed (exit code ' + IntToStr(ResultCode) + '). StudyCenter-Public Setup stopped before writing application files.'; exit;
+    end;
+    { Success is determined by the same complete x64/export validation, not
+      the child exit code or a registry version alone. }
+    Result := SystemRuntimeProblem;
+    if Result <> '' then Result := 'Microsoft prerequisite did not satisfy all required exports. ' + Result;
+  except
+    Result := 'Microsoft prerequisite download, hash verification or installation failed. Check your Internet connection and retry Setup. ' + GetExceptionMessage;
   end;
 end;

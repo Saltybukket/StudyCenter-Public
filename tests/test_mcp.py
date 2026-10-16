@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from studycenter_public.mcp.server import router
+from studycenter_public import __version__
 from studycenter_public.storage.db import Database
 from studycenter_public.services.actions import ActionService
 from test_providers import Secrets
@@ -48,6 +49,7 @@ def test_initialize_notifications_and_tools_readonly_default(connected):
     c,settings,db=connected;settings['mcp_enabled']=True
     init=c.post('/mcp',headers={'Authorization':'Bearer synthetic-mcp-token'},json={'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-11-25','capabilities':{},'clientInfo':{'name':'synthetic','version':'1'}}})
     assert init.json()['result']['protocolVersion']=='2025-11-25'
+    assert init.json()['result']['serverInfo']['version']==__version__
     listed=c.post('/mcp',headers={'Authorization':'Bearer synthetic-mcp-token'},json={'jsonrpc':'2.0','id':2,'method':'tools/list'})
     names={t['name'] for t in listed.json()['result']['tools']}
     assert {'search','list_items','get_item','get_source'}<=names and 'apply_actions' not in names
@@ -86,7 +88,10 @@ def test_writes_require_separate_enable_preview_versions_uuid_retry(connected):
     missing=call(c,'apply_actions',{'actions':actions,'request_id':request})
     assert missing.json()['result']['isError'] and db.items()==[]
     args={'actions':actions,'request_id':request,'confirmed':True}
-    one=structured(call(c,'apply_actions',args));two=structured(call(c,'apply_actions',args))
+    first=call(c,'apply_actions',args);retry=call(c,'apply_actions',args)
+    # Text-only MCP clients receive the same receipt on an identical UUID retry.
+    assert first.json()['result']==retry.json()['result']
+    one=structured(first);two=structured(retry)
     assert one==two and len(db.items())==1
     rejected=call(c,'apply_actions',{'actions':[{'type':'decide_source','item_id':1,'field':'date','value':'2026-10-20','document_id':1,'reason':'untrusted'}],'request_id':str(uuid4()),'confirmed':True})
     assert rejected.json()['result']['isError'] and db.item(1)['version']==1

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 import pytest
 
@@ -133,3 +133,39 @@ def test_mixed_opening_closing_proof_does_not_guess_single_date_role(tmp_path):
     doc = db.save_document({'url':'https://example.org/registration'},pages=[{'page':1,'text':quote}])
     db.ingest(doc,{'kind':'registration','title':'Ambiguous window','date':'2026-10-14','time':'10:00','date_meaning':'window','page':1,'anchor':'window','quote':quote})
     assert reminders.due(datetime(2026,10,14,7,50,tzinfo=timezone.utc)) == []
+
+
+def test_offset_zero_http_action_preserves_milliseconds_and_emits_only_at_due(tmp_path):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from studycenter_public.web.api import router
+    db = Database(tmp_path / 'db.sqlite3')
+    reminders = ReminderService(db)
+    app = FastAPI()
+    app.include_router(router)
+    app.state.db = db
+    app.state.actions = ActionService(db)
+    app.state.reminders = reminders
+    client = TestClient(app)
+    settings = {'enabled':True,'timezone':'UTC','quiet_start':'00:00','quiet_end':'00:00','offsets':{'task':[0]}}
+    response = client.post('/api/reminders/settings',json=settings)
+    assert response.status_code == 200 and response.json()['offsets']['task'] == [0]
+    due = '2026-10-14T08:00:12.345Z'
+    response = client.post('/api/actions',json={'actions':[{'type':'create_task','title':'Synthetic exact reminder','due_at':due}],'request_id':str(uuid4())})
+    assert response.status_code == 200
+    item_id = response.json()['item_ids'][0]
+    assert client.get(f'/api/items/{item_id}').json()['data']['due_at'] == due
+    instant = datetime(2026,10,14,8,0,12,345000,tzinfo=timezone.utc)
+    assert reminders.run_due(instant - timedelta(microseconds=1)) == []
+    assert client.get('/api/notifications').json() == []
+    emitted = reminders.run_due(instant)
+    assert len(emitted) == 1 and emitted[0]['item_id'] == item_id
+    assert emitted[0]['due_at'] == '2026-10-14T08:00:12.345000+00:00'
+    assert reminders.run_due(instant + timedelta(seconds=31)) == []
+    notifications = client.get('/api/notifications').json()
+    assert len(notifications) == 1 and notifications[0]['offset_minutes'] == 0
+    assert notifications[0]['read'] is False
+    response = client.post('/api/notifications/read',json={'job_key':emitted[0]['job_key']})
+    assert response.status_code == 200
+    assert client.get('/api/notifications').json()[0]['read'] is True
+    assert client.get(f'/api/items/{item_id}').json()['status'] == 'open'

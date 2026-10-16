@@ -106,7 +106,39 @@ class SystemRuntimePackageTest(unittest.TestCase):
     def test_installer_checks_system_requirement_before_target_creation(self):
         script=(Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
         prepare=script.split('function PrepareToInstall',1)[1].split('function InitializeUninstall',1)[0]
-        self.assertLess(prepare.index('SystemRuntimeProblem'),prepare.index('DataDirectoryProblem'))
+        self.assertIn('EnsureSystemRuntime',prepare)
+        self.assertLess(prepare.index('ProgramDirectoryProblem'),prepare.index('EnsureSystemRuntime'))
+        self.assertLess(prepare.index('DataDirectoryProblem(DataDirectory, ExpandConstant(\'{app}\'), False)'),prepare.index('EnsureSystemRuntime'))
+        self.assertLess(prepare.index('EnsureSystemRuntime'),prepare.index('DataDirectoryProblem(DataDirectory, ExpandConstant(\'{app}\'), True)'))
+
+    def test_installer_runtime_download_is_pinned_opt_in_and_never_unattended(self):
+        # Contract inspection only: Setup execution belongs to a disposable guest.
+        script=(Path(__file__).parents[1]/'packaging/windows/system_runtime.iss').read_text()
+        self.assertIn('function EnsureSystemRuntime',script)
+        acquire=script.split('function EnsureSystemRuntime',1)[1]
+        self.assertIn('https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/',script)
+        self.assertIn("VCRuntimeSHA256 = '843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c'",script)
+        self.assertIn('DownloadTemporaryFile(VCRuntimeURL, VCRuntimeFile, VCRuntimeSHA256, nil)',acquire)
+        self.assertIn("if WizardSilent and not CmdLineParamExists('/INSTALLPREREQUISITES') then",acquire)
+        self.assertLess(acquire.index('if WizardSilent'),acquire.index('DownloadTemporaryFile'))
+        self.assertIn("ShellExec('runas', ExpandConstant('{tmp}\\') + VCRuntimeFile, '/install /norestart'",acquire)
+        self.assertIn('SW_SHOWNORMAL, ewWaitUntilTerminated',acquire)
+        self.assertIn('ResultCode = 3010',acquire)
+        self.assertIn('Result := SystemRuntimeProblem;',acquire)
+        for forbidden in ('/quiet','/passive','/repair','/uninstall','powershell','LoadLibrary'):
+            self.assertNotIn(forbidden,script)
+
+    def test_installer_checks_windows_first_and_skips_compatible_crt(self):
+        script=(Path(__file__).parents[1]/'packaging/windows/system_runtime.iss').read_text()
+        self.assertIn('function EnsureSystemRuntime',script)
+        acquire=script.split('function EnsureSystemRuntime',1)[1]
+        self.assertLess(acquire.index('SystemRuntimeGroupProblem(False)'),acquire.index('SystemRuntimeGroupProblem(True)'))
+        self.assertLess(acquire.index('SystemRuntimeGroupProblem(True)'),acquire.index('if WizardSilent'))
+        self.assertIn("if Result = '' then exit;",acquire)
+        classify=script.split('function IsVCRuntimeLibrary',1)[1].split('function SystemRuntimeGroupProblem',1)[0]
+        for name in ('msvcp140.dll','msvcp140_1.dll','vcruntime140.dll','vcruntime140_1.dll','concrt140.dll'):
+            self.assertIn("Name = '"+name+"'",classify)
+        self.assertIn('if IsVCRuntimeLibrary(Name) = VCGroup then begin',script)
 
 
 if __name__=='__main__':unittest.main()

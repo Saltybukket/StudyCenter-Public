@@ -1,53 +1,82 @@
 # Development
 
-Python 3.12, one FastAPI process, SQLite and a common local browser interface.
-Install the pinned dependency set into a new environment for this repository:
+Clone this public repository, enter its folder, and run one command:
 
-```sh
-python -m venv .venv
-python -m pip install -e '.[dev,speech]'
-python -m studycenter_public --data-dir ./isolated-test-data --port 0 --no-browser
-python -m pytest
+```powershell
+.\start.cmd
 ```
 
-Use the environment's Python executable when invoking commands. Runtime data
-must be outside the package directory. `--port 0` reserves a free loopback port;
-the actual endpoint is recorded only in that instance's runtime descriptor.
-`--quit --data-dir <same path>` requests cooperative shutdown.
+On Ubuntu 24.04 x64:
 
-Module contracts are in [CONTRACTS.md](CONTRACTS.md). Provider/OAuth details are in
-[PROVIDERS.md](PROVIDERS.md); optional speech and local MCP in [OPTIONAL.md](OPTIONAL.md).
-No application key is needed to run synthetic protocol tests. Tests never access
-real source accounts or existing profiles.
+```sh
+sh start.sh
+```
 
-Source synchronisation is explicit. Document originals and prior readings are
-retained; only a trusted selected-course binding may merge course-level identities.
-Personal overrides and source decisions are projected consistently into views,
-search and reminders. Model output must pass complete local validation and retained
-page-quote admission before the atomic ingestion transaction.
+The first run needs internet and disk space for Python, dependencies, Chromium
+and portable OCR. It downloads the pinned official Astral uv archive, verifies
+its SHA256, and uses uv's checksummed Python distribution. Python 3.12.11
+(Astral build 20250918), tool caches and downloads stay under this clone's
+ignored `.local/`; application packages go into its own `.venv`. No Python
+installation, environment activation, global pip, PATH changes, administrator
+rights or Tesseract installer are needed. Windows uses its existing curl.exe and
+tar.exe, plus ordinary PowerShell directory/checksum commands; script execution
+policies are left unchanged. On Windows the starter supports x64. The
+Linux source starter requires existing curl, tar, sha256sum and Ubuntu's
+apt-get, apt-cache and dpkg-deb. APT only downloads/extracts portable components
+using the existing isolated builder; it does not install host packages.
 
-Actions use body-bound UUID receipts. Preview does not mutate records. Updates
-can require the version displayed during preview; conflict-safe undo is atomic.
-Backups exclude credentials and profiles and validate archive paths, content hashes,
-SQLite structure and relational integrity before an explicit replacement.
+Setup uses `requirements-windows.lock` or `requirements-linux.lock` as version
+constraints. Runtime packages and pytest are installed automatically; optional
+speech/model packages are not downloaded. Browser and OCR preparation reuses
+the portable build scripts. The starter then opens the application. On Linux,
+the local interface opens in the normal desktop browser independently of the
+Playwright browser used for explicit source synchronisation.
 
-The local HTTP boundary checks the actual Host and Origin, with a per-process
-session cookie and CSRF token for UI writes. MCP has its own namespace and token,
-is initially disabled, and has separate read/write grants. Logs must not include
-remote bodies or credentials. Secrets have no stored-value HTTP read route.
+Run the same command again to start. The complete environment and components
+are reused. If a copied or incompatible `.venv` cannot run here, the starter
+keeps it under `.local/previous-venv-*` before creating a new environment.
+Dependency setup runs again when this clone's path, setup script, platform
+lock or project metadata changes, so editable imports follow the current clone.
+Linked setup directories are refused. A failed download or setup stops with an
+error; retry the same starter after fixing the connection. Incomplete component
+directories are preserved and the error identifies which one to move aside.
 
-Portable components belong to this installation. Do not run dependency setup
-programs to populate a build directory. Never change global PATH, another
-installation, profiles or registry entries. Windows install/update/uninstall
-acceptance belongs in a clean VM; frozen executables may be exercised against an
-explicit isolated test directory. Linux OCR dependencies are archive-extracted
-using isolated APT configuration; no host installation is required.
+Useful commands (use `sh start.sh` instead on Linux):
 
-Before every commit, stage named files, inspect the diff, run the public-content
-gate and an offline secret scan. Before pushing scan all outgoing commit versions.
-Before releasing scan the actual frozen contents, nested archives and source
-archive, verify checksums and collect upstream license texts and source references.
-Do not publish binaries in Git or any local transfer/incident reports.
+```powershell
+.\start.cmd --setup-only
+.\start.cmd --no-browser --port 0
+.\start.cmd --stop
+.\.venv\Scripts\python.exe -m pytest
+```
 
-See [PLAN.md](PLAN.md) for actual platform and account acceptance. A passing mock
-protocol check is not a live account, visible desktop, microphone or OS acceptance.
+Linux tests use `.venv/bin/python -m pytest`. No application key is needed for
+synthetic protocol tests. Tests use isolated directories and never access real
+accounts or existing profiles. Default developer data, profiles and credentials
+belong to the dedicated `.local/data` Public instance. `--data-dir <new-folder>`
+selects a different explicit Public instance; use that same argument when
+stopping it. Never point it at another application's data. `--port 0` chooses a
+free loopback port; the endpoint appears in the console and instance descriptor.
+
+For ordinary Linux use, download the complete Linux release, extract it, and
+run `sh start.sh` in the extracted folder. That package already contains Python,
+dependencies and portable components; it does not run developer setup. Its
+starter opens the normal desktop browser; `sh start.sh --stop` stops its own
+instance. Optional desktop integration remains separate. Distribution sandbox
+restrictions on institutional synchronisation do not prevent the local UI from
+starting; no sandbox or AppArmor settings are changed.
+
+The bootstrap tool is pinned to [uv 0.8.22](https://github.com/astral-sh/uv/releases/tag/0.8.22).
+Its [Python distribution](https://docs.astral.sh/uv/guides/install-python/) comes
+from Astral's python-build-standalone project. Tool acquisition runs no remote
+installer script. Source edits are reflected by the editable package.
+
+Module contracts are in [CONTRACTS.md](CONTRACTS.md), provider/OAuth details in
+[PROVIDERS.md](PROVIDERS.md), and optional speech/MCP in [OPTIONAL.md](OPTIONAL.md).
+Keep the existing source evidence, transaction, preview, receipts, undo, backup,
+local HTTP/CSRF and credential boundaries. Before commits inspect staged named
+files and run the public-content gate plus offline secret scan; before pushes
+scan outgoing commit versions. Release artifacts need their existing content,
+checksum, source and license checks. See [PLAN.md](PLAN.md) for actual platform
+and account acceptance: synthetic tests do not establish live-account or OS
+acceptance. Windows install/update/uninstall checks belong in a clean VM.

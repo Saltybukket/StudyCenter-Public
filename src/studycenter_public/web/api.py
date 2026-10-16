@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter,Request,UploadFile,File,HTTPException
 from fastapi.responses import FileResponse,Response
+from .. import __version__
 from ..platform.secrets import SecretStore
 from ..providers.contracts import ProviderProfile
 from ..providers.settings import ProviderSettings
@@ -20,7 +21,7 @@ def session(r:Request):
     return response
 
 @router.get('/health')
-def health(r:Request):return {'application':'StudyCenter.Public','instance_id':r.app.state.paths.instance_id,'version':'0.1.0b1'}
+def health(r:Request):return {'application':'StudyCenter.Public','instance_id':r.app.state.paths.instance_id,'version':__version__}
 
 @router.get('/items')
 def items(r:Request,q:str='',kind:str='',archive:bool=False):

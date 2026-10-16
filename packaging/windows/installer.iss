@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "0.1.0b1"
+#define AppVersion "0.1.0b2"
 #endif
 #ifndef BundleDir
 #define BundleDir "..\..\dist\windows\StudyCenter-Public"
@@ -334,9 +334,14 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: String;
 begin
-  Result := SystemRuntimeProblem;
-  if Result <> '' then exit;
   DataDirectory := GetDataDirectory('');
+  Result := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, True);
+  if Result <> '' then exit;
+  Result := DataDirectoryProblem(DataDirectory, ExpandConstant('{app}'), False);
+  if Result <> '' then exit;
+  Result := EnsureSystemRuntime;
+  if Result <> '' then exit;
+  { Revalidate identities after the external Microsoft UI before any writes. }
   Result := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, True);
   if Result <> '' then exit;
   Result := DataDirectoryProblem(DataDirectory, ExpandConstant('{app}'), True);

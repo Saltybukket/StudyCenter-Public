@@ -3,19 +3,29 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      beta2_release:
+        description: 'One-off checked packages for the existing beta.2 draft'
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
   verify:
-    strategy:
+    if: github.event_name != 'workflow_dispatch' || !inputs.beta2_release
+    permissions:
+      contents: read
+    strategy: &native_platforms
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, windows-2022]
     runs-on: ${{ matrix.os }}
-    env:
+    env: &native_environment
       PIP_NO_CACHE_DIR: '1'
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/build/browser-runtime
-    steps:
+      RELEASE_TAG: ${{ inputs.beta2_release && 'v0.1.0-beta.2' || '' }}
+    steps: &native_steps
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -43,6 +53,41 @@ jobs:
       - name: Unit and local protocol tests
         shell: bash
         run: '"$TASK_PYTHON" -m pytest -q'
+      - name: Reuse verified notices for the one-off beta.2 draft
+        if: inputs.beta2_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          "$TASK_PYTHON" - <<'PY'
+          import hashlib, json, os, pathlib, shutil, subprocess, tomllib, urllib.request, zipfile
+          root=pathlib.Path.cwd()
+          if tomllib.loads((root/'pyproject.toml').read_text())['project']['version']!='0.1.0b2':
+              raise ValueError('This one-off path accepts only beta.2')
+          draft=json.loads(subprocess.check_output(['gh','release','view',os.environ['RELEASE_TAG'],'--json','isDraft,targetCommitish']))
+          if not draft['isDraft'] or draft['targetCommitish']!=os.environ['GITHUB_SHA']:
+              raise ValueError('Only the existing unpublished draft for this exact commit may receive files')
+          completion=json.loads((root/'packaging/component-notices.json').read_text())
+          companion=completion['source_companion']
+          archive=root/'build'/companion['filename']; archive.parent.mkdir(exist_ok=True)
+          url='https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.1/'+companion['filename']
+          with urllib.request.urlopen(url,timeout=180) as source, archive.open('wb') as output:
+              shutil.copyfileobj(source,output,1024*1024)
+          with archive.open('rb') as source:
+              if hashlib.file_digest(source,'sha256').hexdigest()!=companion['sha256']:
+                  raise ValueError('Published component source checksum differs')
+          destination=(root/'build/license-materials').resolve()
+          with zipfile.ZipFile(archive) as source:
+              for name,record in completion['files'].items():
+                  output=(destination/name).resolve()
+                  if not output.is_relative_to(destination): raise ValueError('Invalid notice path')
+                  output.parent.mkdir(parents=True,exist_ok=True)
+                  with source.open('license-materials/'+name) as member, output.open('wb') as target:
+                      shutil.copyfileobj(member,target)
+                  with output.open('rb') as target: actual=hashlib.file_digest(target,'sha256').hexdigest()
+                  if actual!=record['sha256'] or output.stat().st_size!=record['size']:
+                      raise ValueError('Notice checksum differs: '+name)
+          PY
       - name: Download own official browser components
         shell: bash
         run: |
@@ -86,11 +131,22 @@ jobs:
       - name: Freeze Windows bundle
         if: runner.os == 'Windows'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            ISCC_PATH=$("$TASK_PYTHON" -c 'from scripts.smoke_installer_vm import compiler; print(compiler())')
+            "$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --iscc "$ISCC_PATH"
+          else
+            "$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices
+          fi
       - name: Freeze Linux bundle
         if: runner.os == 'Linux'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            "$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA"
+          else
+            "$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices
+          fi
       - name: Read-only Linux sandbox prerequisites
         if: runner.os == 'Linux'
         shell: bash
@@ -128,7 +184,12 @@ jobs:
       - name: Installer lifecycle in disposable Windows runner only
         if: runner.os == 'Windows'
         shell: bash
-        run: '"$TASK_PYTHON" scripts/smoke_installer_vm.py'
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            "$TASK_PYTHON" scripts/smoke_installer_vm.py --installer dist/windows/studycenter-public-0.1.0b2-windows-x86_64-setup.exe --expected-source "$GITHUB_SHA"
+          else
+            "$TASK_PYTHON" scripts/smoke_installer_vm.py
+          fi
       - name: Inspect unpacked bundle
         shell: bash
         run: |
@@ -139,4 +200,37 @@ jobs:
             "$TASK_PYTHON" scripts/package_audit.py dist/linux/StudyCenter-Public/StudyCenter-Public
             "$TASK_PYTHON" scripts/check_public.py --artifact dist/linux/StudyCenter-Public --artifact-reviews scripts/artifact_reviews.json
           fi
-      # Deliberately no Actions cache, artifact storage, release or upload steps.
+      - name: Attach checked package to the exact unpublished beta.2 draft
+        if: inputs.beta2_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          "$TASK_PYTHON" - <<'PY'
+          import hashlib, json, os, pathlib, subprocess, sys
+          from scripts.build_release import validate_component_notices
+          root=pathlib.Path.cwd(); platform='windows' if sys.platform=='win32' else 'linux'
+          draft=json.loads(subprocess.check_output(['gh','release','view',os.environ['RELEASE_TAG'],'--json','isDraft,targetCommitish']))
+          if not draft['isDraft'] or draft['targetCommitish']!=os.environ['GITHUB_SHA']:
+              raise ValueError('Draft identity changed; upload cancelled')
+          validate_component_notices(root/'dist'/platform/'StudyCenter-Public')
+          suffix='-setup.exe' if platform=='windows' else '.tar.gz'
+          package=root/'dist'/platform/f'studycenter-public-0.1.0b2-{platform}-x86_64{suffix}'
+          with package.open('rb') as source: digest=hashlib.file_digest(source,'sha256').hexdigest()
+          checksum=package.parent/f'SHA256SUMS-{platform}'
+          checksum.write_text(digest+'  '+package.name+'\n')
+          subprocess.run(['gh','release','upload',os.environ['RELEASE_TAG'],str(package),str(checksum)],check=True)
+          print('Checked draft package:',package.name,digest)
+          PY
+      # No Actions cache/artifact storage. The explicitly approved one-off build
+      # only attaches checked files to a draft; it does not publish the release.
+  beta2-release:
+    # Explicit user approval covers only this manual beta.2 build. Remove this
+    # job after its two platform packages have been obtained.
+    if: github.event_name == 'workflow_dispatch' && inputs.beta2_release
+    permissions:
+      contents: write
+    strategy: *native_platforms
+    runs-on: ${{ matrix.os }}
+    env: *native_environment
+    steps: *native_steps
