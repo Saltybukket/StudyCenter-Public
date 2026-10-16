@@ -6,8 +6,8 @@
   "wheel": {
     "filename": "studycenter_public-0.1.0b3-py3-none-any.whl",
     "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter_public-0.1.0b3-py3-none-any.whl",
-    "sha256": "a2ddcafafbcd11bc1dd97ebe6e4929cb82233e18efb5abc141ba0bc156476a7b",
-    "size": 195714
+    "sha256": "c41eb3394770a030f00450e2b22ed903ca7edcee5b9aa9fda8806622e5607fff",
+    "size": 195726
   },
   "lock": {
     "filename": "requirements-windows.lock",

@@ -408,7 +408,7 @@ def ensure_environment(root, uv, *, source=None, manifest=None, update=False):
     # never renames a venv with embedded absolute paths or alters the old one.
     run([uv, '--no-config', 'venv', '--python', interpreter, '--no-python-downloads', environment], env=env)
     python = environment / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
-    common = [uv, '--no-config', 'pip', 'install', '--python', python, '--only-binary', ':all:', '--constraint', lock]
+    common = [uv, '--no-config', 'pip', 'install', '--python', python, '--only-binary', ':all:', '--constraint', lock.absolute().as_uri()]
     for record in (release or {}).get('extra_wheels', []):
         run([*common, download(root, record)], env=env)
     if source:
@@ -513,7 +513,7 @@ def ensure_component(root, name, *, uv=None, source=None, manifest=None, data_di
             install['uv'] = str(uv)
             lock = source / ('requirements-windows.lock' if os.name == 'nt' else 'requirements-linux.lock') if source else download(root, release['lock'])
             target = str(source) if source else str(download(root, release['wheel']))
-            common = [uv, '--no-config', 'pip', 'install', '--python', install['python'], '--only-binary', ':all:', '--constraint', lock]
+            common = [uv, '--no-config', 'pip', 'install', '--python', install['python'], '--only-binary', ':all:', '--constraint', lock.absolute().as_uri()]
             if (base / (name + '.json')).is_file():
                 for package in (['playwright'] if name == 'browser' else ['faster-whisper', 'av']):
                     common += ['--reinstall-package', package]

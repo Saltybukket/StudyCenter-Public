@@ -255,10 +255,15 @@ def test_missing_uv_is_repaired_only_inside_own_tools(tmp_path, monkeypatch):
 
 def test_verified_system_browser_avoids_archive_and_is_revalidated(tmp_path, monkeypatch):
     setup = engine()
+    source = tmp_path / 'source with spaces'
+    source.mkdir()
+    platform = 'windows' if sys.platform == 'win32' else 'linux'
+    lock = source / f'requirements-{platform}.lock'
+    lock.write_text('playwright==1.63.0')
     environment = tmp_path / '.local/environments/synthetic'
     receipt = {'schema': 1, 'application': 'StudyCenter.Public', 'root': str(tmp_path),
                'environment': str(environment), 'python': str(environment / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')),
-               'source': str(ROOT), 'uv': 'uv', 'extras': []}
+               'source': str(source), 'uv': 'uv', 'extras': []}
     setup.atomic_json(tmp_path / '.local/installation.json', receipt)
     platform = 'windows' if sys.platform == 'win32' else 'linux'
     manifest = tmp_path / 'manifest.json'
@@ -266,10 +271,13 @@ def test_verified_system_browser_avoids_archive_and_is_revalidated(tmp_path, mon
         'components': {'browser': {'extra': 'browser', 'archive': {'url': 'https://example.invalid/unused.zip'}}}}))
     monkeypatch.setattr(setup, 'ensure_uv', lambda *a: Path('uv'))
     monkeypatch.setattr(setup, 'verified_system_browser', lambda *a: '/opt/google/chrome/chrome', raising=False)
-    monkeypatch.setattr(setup, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0))
+    calls = []
+    monkeypatch.setattr(setup, 'run', lambda command, **k: calls.append(command) or subprocess.CompletedProcess(command, 0))
     monkeypatch.setattr(setup.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0))
     monkeypatch.setattr(setup, 'download', lambda *a: pytest.fail('verified system browser should avoid the archive'))
     result = setup.ensure_component(tmp_path, 'browser', manifest=manifest, allow_download=True)
+    install = next(call for call in calls if '--constraint' in call)
+    assert install[install.index('--constraint') + 1] == lock.as_uri()
     assert result['system_browser'] is True
     assert setup.component_valid(tmp_path, 'browser')
     monkeypatch.setattr(setup, 'verified_system_browser', lambda *a: None)
@@ -289,7 +297,7 @@ def test_cold_source_setup_saves_original_local_data_default(tmp_path, monkeypat
 
 def test_prebuilt_release_dependency_installed_before_source_application(tmp_path, monkeypatch):
     setup = engine()
-    source = tmp_path / 'source'
+    source = tmp_path / 'source with spaces'
     (source / 'packaging').mkdir(parents=True)
     (source / 'pyproject.toml').write_text('[project]\nname="synthetic"')
     platform = 'windows' if sys.platform == 'win32' else 'linux'
@@ -312,6 +320,10 @@ def test_prebuilt_release_dependency_installed_before_source_application(tmp_pat
     application = next(index for index, call in enumerate(calls) if '--editable' in call)
     assert dependency < application
     assert '--only-binary' in calls[dependency]
+    lock = source / f'requirements-{platform}.lock'
+    for call in calls:
+        if '--constraint' in call:
+            assert call[call.index('--constraint') + 1] == lock.as_uri()
 
 
 def test_existing_own_managed_python_avoids_install_command(tmp_path, monkeypatch):
