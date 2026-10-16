@@ -74,5 +74,7 @@ def request_stop(paths):
     owned_path(paths.data/'runtime.json',paths.data)
     owned_path(paths.data/'shutdown.request',paths.data)
     if not (paths.data/'runtime.json').exists():return False
-    (paths.data/'shutdown.request').write_text('stop',encoding='ascii')
+    # Publish only a closed file. The watcher may stop immediately when it
+    # appears; Windows cannot delete a file still held by its signal writer.
+    atomic_json(paths.data/'shutdown.request', {'request': 'stop'})
     return True

@@ -24,6 +24,19 @@ def starter(program, *arguments):
     return (['cmd.exe', '/d', '/c', 'call', str(program/'start.cmd')] if os.name == 'nt' else ['sh', str(program/'start.sh')]) + list(arguments)
 
 
+def uninstall(program, env, log):
+    run_command([program/'unins000.exe', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG='+str(log)], env)
+    # Inno's launcher can exit before its copied _unins.tmp worker. Wait for
+    # actual removal; do not terminate or otherwise bypass the uninstaller.
+    deadline = time.monotonic()+120
+    while time.monotonic() < deadline:
+        if not (program/'start.cmd').exists() and not (program/'.local').exists():
+            return
+        time.sleep(.2)
+    print(log.read_text(errors='replace'), flush=True)
+    raise RuntimeError('Own uninstaller did not remove the program and its environment')
+
+
 def wait_http(process, data):
     deadline = time.monotonic()+60
     while time.monotonic() < deadline:
@@ -53,7 +66,7 @@ def probe_app(program, data, env, result):
     finally:
         run_command(starter(program, '--data-dir', str(data), '--stop'), env)
         try:
-            process.wait(timeout=30)
+            assert process.wait(timeout=30) == 0, 'Prepared app did not stop cleanly'
         finally:
             log.close()
             print((program/'.local/app-smoke.log').read_text(errors='replace')[-4000:], flush=True)
@@ -193,7 +206,7 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
     probe_app(program, data, offline, result)
     if os.name == 'nt':
         preserved = (data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()
-        run_command([program/'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LOG='+str(root/'uninstall.log')], env)
+        uninstall(program, env, root/'uninstall.log')
         assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == preserved
         assert not (program/'start.cmd').exists() and not (program/'.local').exists()
         result['uninstall_retains_data_removes_own_environment'] = True
@@ -213,7 +226,7 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
             retained = Path(json.loads((fresh/'.local/installation.json').read_text())['manifest'])
             assert retained.is_relative_to(fresh/'.local/manifests') and retained.is_file()
             probe_app(fresh, fresh_data, offline, {})
-            run_command([fresh/'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'], env)
+            uninstall(fresh, env, root/'fresh-uninstall.log')
             assert not (fresh/'.local').exists()
             result['interrupted_first_install_repairs_on_retry'] = True
     print(json.dumps(result, indent=2), flush=True)
