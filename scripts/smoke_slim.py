@@ -34,6 +34,20 @@ def uninstall(program, env, log):
             return
         time.sleep(.2)
     print(log.read_text(errors='replace'), flush=True)
+    from studycenter_public.platform.paths import reject_links
+    for directory in (program, program/'.local', program/'.local/environments', program/'.local/uv-cache'):
+        try:
+            directory = reject_links(directory)
+        except ValueError:
+            continue
+        if directory.is_dir():
+            entries = []
+            for path in directory.iterdir():
+                info = path.lstat()
+                entries.append({'path': str(path.relative_to(program)), 'attributes': getattr(info, 'st_file_attributes', 0), 'path_length': len(str(path))})
+                if len(entries) >= 12:
+                    break
+            print(json.dumps({'remaining_own_entries': entries}), flush=True)
     raise RuntimeError('Own uninstaller did not remove the program and its environment')
 
 

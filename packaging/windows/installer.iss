@@ -533,10 +533,17 @@ begin
 end;
 #ifdef SlimSetup
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var LocalDirectory: String; Safe, Removed: Boolean;
 begin
+  Log('Public Slim uninstall step: ' + IntToStr(Ord(CurUninstallStep)));
   if CurUninstallStep = usPostUninstall then begin
-    if SafeLocalTree(ExpandConstant('{app}\.local')) then
-      DelTree(ExpandConstant('{app}\.local'), True, True, True);
+    LocalDirectory := ExpandConstant('{app}\.local');
+    Safe := SafeLocalTree(LocalDirectory);
+    Log('Public own environment safety: ' + IntToStr(Ord(Safe)) + '; path: ' + LocalDirectory);
+    if Safe then begin
+      Removed := DelTree(LocalDirectory, True, True, True);
+      Log('Public own environment removal: ' + IntToStr(Ord(Removed)) + '; Windows error: ' + IntToStr(DLLGetLastError));
+    end;
   end;
 end;
 #endif
