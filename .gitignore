@@ -18,3 +18,4 @@ reports-local/
 browser-profiles/
 node_modules/
 .coverage
+.test-tmp*/

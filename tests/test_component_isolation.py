@@ -14,7 +14,7 @@ def test_public_ocr_and_browser_never_reuse_generic_system_paths(tmp_path,monkey
 def test_missing_portable_component_is_explicit_and_no_install_fallback(tmp_path):
     import pytest
     paths=SimpleNamespace(cache=tmp_path/'public-cache')
-    with pytest.raises(ValueError,match='Release'):ComponentService(paths).verify()
+    with pytest.raises(ValueError,match='Release'):ComponentService(paths).verify("ocr")
     assert not paths.cache.exists()
 
 

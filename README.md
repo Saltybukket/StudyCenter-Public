@@ -1,54 +1,35 @@
 # StudyCenter Public
 
-**Dein Studium im Blick:** Aufgaben, Notizen, Termine und Originalquellen in einer lokalen Anwendung. Entwickelt für Studierende der TU Graz, auch ohne TU-Konto oder KI nutzbar.
+StudyCenter bündelt Aufgaben, Notizen, Termine und Originalquellen in einer lokalen Anwendung. Für Studierende der TU Graz entwickelt, funktioniert es auch ohne TU-Konto und ohne KI.
 
-## ⬇️ Jetzt herunterladen – beta.2
+**Windows 10/11 x64:** [Veröffentlichten beta.2-Installer herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-windows-x86_64-setup.exe).
 
-**🪟 Windows 10/11 (x64): [StudyCenter-Installer herunterladen (.exe)](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-windows-x86_64-setup.exe)**
+**Linux x64:** [Veröffentlichtes beta.2-Komplettpaket herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-linux-x86_64.tar.gz), entpacken und `sh start.sh` ausführen.
 
-**🐧 Linux (x64): [Fertiges Linux-Paket herunterladen (.tar.gz)](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/studycenter-public-0.1.0b2-linux-x86_64.tar.gz)**
+[Release-Dateien und SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2)
 
-[Alle Downloads, Versionshinweise und SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2)
+> **beta.3 Slim wird vorbereitet.** Dafür gibt es hier noch keinen veröffentlichten Download. Das bestehende beta.2-Komplettpaket bleibt verfügbar; es enthält Python, Browser und OCR bereits. Die folgenden Hinweise zur bedarfsgesteuerten Einrichtung gelten für beta.3 und den entsprechend aktualisierten Quellcode.
 
-> **Wo liegt der Installer?** Auf GitHub rechts unter **Releases → v0.1.0-beta.2 → Assets**. Dort die Datei mit `windows_x86_64-setup.exe` wählen. Der grüne Button **Code → Download ZIP** lädt nur den Quellcode, **nicht** den fertigen Installer.
+## Benutzen
 
-### In wenigen Schritten starten
+1. Windows-Setup öffnen oder das Linux-Archiv entpacken und starten.
+2. Programm- und eigenen Datenordner bestätigen. Eine fehlende Microsoft-Laufzeit wird über den offiziellen Download mit sichtbarer Bestätigung eingerichtet.
+3. Den ersten Download abschließen; danach dieselbe Verknüpfung beziehungsweise denselben Starter verwenden.
+4. Eine Aufgabe oder Notiz anlegen oder ein PDF importieren. PDF-Anzeige und Text-PDF-Verarbeitung gehören zur Basis.
+5. Bei Bedarf TU-Quellenbrowser, OCR oder Sprache ausdrücklich einrichten. Sprachmodellgewichte werden nach Größenanzeige separat bestätigt.
 
-- **Windows:** Die heruntergeladene `.exe` öffnen, Installations- und Datenordner wählen, StudyCenter starten. Wenn Microsoft Visual C++ fehlt, bietet das Setup den offiziellen Microsoft-Installer an; Lizenz-/Windows-Bestätigung bleibt sichtbar. **Python, Git und Tesseract musst du nicht installieren.**
-- **Linux:** Archiv entpacken, Terminal im entpackten Ordner öffnen und `sh start.sh` ausführen. StudyCenter öffnet sich im Standardbrowser. Python und portable OCR sind enthalten.
-- **Quellcode/Entwicklung:** Repository klonen und im Ordner `start.cmd` (Windows) oder `sh start.sh` (Ubuntu 24.04 x64) ausführen. Der erste Start richtet die Entwicklungsumgebung im Projektordner selbst ein. [Details für Entwickler](docs/DEVELOPMENT.md).
+Die Slim-Basis nutzt eine eigene Python-Umgebung: geeignetes CPython 3.12 x64 wird wiederverwendet, andernfalls eine eigene Laufzeit geladen. Git und vorinstalliertes Python sind für den Release-Download nicht nötig. Der erste Aufbau braucht Internet; vorbereitete lokale Funktionen laufen anschließend offline.
 
-[**Schritt-für-Schritt-Anleitung für Windows, Linux und den ersten Start →**](docs/QUICKSTART.md)
+## Aus Git starten
 
-## Was kann StudyCenter?
+Repository klonen und im Checkout `start.cmd` unter Windows beziehungsweise `sh start.sh` unter Linux ausführen. [Befehle und Voraussetzungen](docs/DEVELOPMENT.md).
 
-- **Planen:** Aufgaben, Notizen, Post-its, Pins, Kalender mit Wochenansicht, Timeline und Gantt.
-- **Nachvollziehen:** Kursquellen, PDF-Dokumente, OCR, Originalbelege und Quellenvergleich.
-- **Entscheiden:** KI-Vorschläge prüfen, übernehmen oder konfliktgeschützt rückgängig machen.
-- **Erinnern:** Fristen, eigene Termine, Benachrichtigungsglocke und Verlauf.
-- **Optional verbinden:** TU-Quellen manuell synchronisieren, ChatGPT oder andere KI-Anbieter, lokale Modelle, Sprache und lokales MCP.
+## Entwickeln
 
-Neue Installationen beginnen **mit einem leeren, eigenen Datenbestand**. Für Aufgaben, Notizen und Dateiimport ist keine Anmeldung nötig. Die Verbindung zu TU-Quellen oder KI ist freiwillig.
+[Entwicklung](docs/DEVELOPMENT.md) · [Quickstart](docs/QUICKSTART.md) · [Optionale Funktionen](docs/OPTIONAL.md) · [Drittanbieter-Lizenzen](docs/THIRD_PARTY.md)
 
-## Dein erster Start
+Plane Fristen im Kalender, vergleiche Originalbelege und prüfe KI-Vorschläge vor dem Übernehmen. Daten bleiben im eigenen lokalen Bestand. TU-Abgleich erfolgt auf deinen Klick; Cloud-KI ist freiwillig und kann Kosten verursachen. Es gibt keinen automatischen Modell- oder Anbieterwechsel.
 
-1. **Einrichtung → Speicher:** eigenen Datenordner prüfen.
-2. **Aufgaben & Notizen** oder **Dokumente:** eine Aufgabe anlegen oder ein PDF importieren – ganz ohne Anmeldung.
-3. Optional unter **Kurse & Quellen** selbst anmelden, Kurse auswählen und bewusst **Jetzt synchronisieren** klicken.
-4. Optional unter **KI-Verbindung** einen Anbieter oder lokalen Modellserver einrichten; Vorschläge vor **Übernehmen** prüfen.
+Unter Linux öffnet sich die Oberfläche im Systembrowser. Der getrennte TU-Quellenbrowser kann durch AppArmor eingeschränkt sein; lokale Funktionen bleiben nutzbar. [Prüfstand und Grenzen](docs/RELEASE-VERIFICATION.md).
 
-StudyCenter führt **keinen automatischen TU-Quellenabgleich** aus. Eigene Planungen ersetzen keine offiziellen Anmeldungen. Daten liegen lokal; nur bei einer ausdrücklich ausgelösten Cloud-KI-Aktion gehen die dafür ausgewählten Inhalte an den gewählten Anbieter. Cloud-KI kann Kosten verursachen. Es gibt keine automatische Telemetrie. Sicherungen können sensible Studieninhalte enthalten und gehören nicht in ein öffentliches Repository.
-
-## Beta-Hinweise
-
-- **Windows:** Das Setup kann bei fehlenden Microsoft-Laufzeitkomponenten deren offiziellen Installer anbieten. Die Laufzeit- und gegebenenfalls Sicherheitsdialoge müssen bestätigt werden; der Beta-Installer ist nicht signiert.
-- **Linux:** Die lokale Oberfläche funktioniert im normalen Browser. Der automatisierte TU-Quellenbrowser kann auf Ubuntu durch AppArmor beziehungsweise die Browser-Eigentumsprüfung blockiert sein. Die lokalen Funktionen bleiben nutzbar.
-- **Noch nicht vollständig im Alltag abgenommen:** persönliche TU-/KI-Konten, Mikrofon/TTS sowie native Fenster-/Tray-Bedienung auf einem gewöhnlichen Windows-11-Rechner.
-
-Aktueller Prüfstand und bekannte Grenzen: [Release-Verifikation](docs/RELEASE-VERIFICATION.md).
-
-## Dokumentation und Mitmachen
-
-[**Quickstart**](docs/QUICKSTART.md) · [**Entwicklung und Git-Installation**](docs/DEVELOPMENT.md) · [KI-Anbieter](docs/PROVIDERS.md) · [Optionale Funktionen](docs/OPTIONAL.md) · [Drittanbieter-Lizenzen](docs/THIRD_PARTY.md)
-
-StudyCenter Public steht unter **AGPL-3.0-only** ([LICENSE](LICENSE)). Für mitgelieferte Fremdkomponenten gelten zusätzlich deren jeweilige Lizenzbedingungen.
+Lizenz: [AGPL-3.0-only](LICENSE).

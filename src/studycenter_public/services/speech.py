@@ -1,7 +1,6 @@
 """Optional CPU speech, explicit downloads and installation-owned temporary audio."""
 import asyncio
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,6 +13,7 @@ from uuid import uuid4
 
 import httpx
 from ..platform.paths import owned_path
+from ..platform.components import module_available
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 _COMMON = {
@@ -69,7 +69,7 @@ class SpeechService:
         except (OSError,ValueError):return False
 
     def status(self):
-        installed=importlib.util.find_spec('faster_whisper') is not None
+        installed=module_available('faster_whisper') and module_available('av')
         enabled=self.settings.get('speech_enabled',False) is True
         return {'enabled':enabled,'model':self.settings.get('speech_model','base'), 'model_ready':self._ready(),
                 'runtime_installed':installed,'native_runtime_checked':self._model is not None,

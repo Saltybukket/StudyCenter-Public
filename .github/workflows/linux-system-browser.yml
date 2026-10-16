@@ -2,6 +2,11 @@ name: Existing Linux system browser in disposable VM
 on:
   workflow_dispatch:
     inputs:
+      slim_beta3:
+        description: Check the own beta.3 slim draft instead of the legacy full candidate
+        required: false
+        default: false
+        type: boolean
       package_sha256:
         description: Optional exact own draft Linux archive SHA256; supply all three bindings together
         required: false
@@ -41,7 +46,7 @@ jobs:
           "$controller" -m pip install --no-deps --no-build-isolation -e .
           printf 'SYSTEM_BROWSER_PYTHON=%s\n' "$controller" >> "$GITHUB_ENV"
       - name: Optional exact own draft Linux package
-        if: inputs.package_sha256 != '' || inputs.executable_sha256 != '' || inputs.source_git_sha != ''
+        if: inputs.slim_beta3 != true && (inputs.package_sha256 != '' || inputs.executable_sha256 != '' || inputs.source_git_sha != '')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -76,6 +81,28 @@ jobs:
           with pathlib.Path(os.environ['GITHUB_ENV']).open('a') as output:
               output.write('EXACT_LINUX_EXECUTABLE='+str(executable)+'\n')
           print('Own draft archive checksum verified; executable/source verification follows in guarded probe')
+          PY
+      - name: Exact slim draft base, offline restart and explicit components
+        if: inputs.slim_beta3 == true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_PACKAGE_SHA256: ${{ inputs.package_sha256 }}
+          EXPECTED_SOURCE_GIT_SHA: ${{ inputs.source_git_sha }}
+        run: |
+          "$SYSTEM_BROWSER_PYTHON" - <<'PY'
+          import hashlib,json,os,pathlib,re,subprocess
+          expected=os.environ['EXPECTED_PACKAGE_SHA256']; source=os.environ['EXPECTED_SOURCE_GIT_SHA']
+          if not re.fullmatch('[a-f0-9]{64}',expected) or not re.fullmatch('[a-f0-9]{40}',source): raise ValueError('Invalid candidate binding')
+          repo=os.environ['GITHUB_REPOSITORY']
+          release=json.loads(subprocess.check_output(['gh','release','view','v0.1.0-beta.3','--repo',repo,'--json','isDraft,targetCommitish']))
+          if not release['isDraft'] or release['targetCommitish']!=source: raise ValueError('Exact own draft required')
+          assets=pathlib.Path(os.environ['RUNNER_TEMP'])/'StudyCenter-Public-beta3-assets'; assets.mkdir()
+          subprocess.run(['gh','release','download','v0.1.0-beta.3','--repo',repo,'--dir',str(assets),'--pattern','*linux-x86_64*','--pattern','studycenter_public-*.whl','--pattern','requirements-linux.lock','--pattern','SHA256SUMS'],check=True)
+          package=assets/'studycenter-public-0.1.0b3-linux-x86_64-slim.tar.gz'
+          if hashlib.sha256(package.read_bytes()).hexdigest()!=expected: raise ValueError('Archive checksum mismatch')
+          child=dict(os.environ); child.pop('GH_TOKEN',None)
+          subprocess.run([os.environ['SYSTEM_BROWSER_PYTHON'],'scripts/smoke_slim.py','--assets',str(assets),'--archive',str(package),'--expected-source',source],env=child,check=True)
           PY
       - name: Existing browser and own XDG UI probe
         shell: bash

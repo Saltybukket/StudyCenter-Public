@@ -1,64 +1,88 @@
-# Entwicklung – aus Git klonen und starten
+# Aus Git starten und entwickeln
 
-**Du willst StudyCenter nur benutzen?** Nimm lieber den [fertigen Windows-Installer oder das Linux-Paket](../README.md). Dieser Abschnitt ist für Entwickler und alle, die Änderungen am Quellcode ausprobieren möchten.
-
-## Windows (PowerShell oder Eingabeaufforderung)
-
-Git muss für das Klonen vorhanden sein. Python, pip und Tesseract musst du nicht vorinstallieren.
-
-```powershell
+```sh
 git clone https://github.com/Saltybukket/StudyCenter-Public.git
 cd StudyCenter-Public
+```
+
+Windows (PowerShell):
+
+```powershell
 .\start.cmd
 ```
 
-## Linux (Ubuntu 24.04 x64)
+Linux (Ubuntu 24.04 x64):
 
 ```sh
-git clone https://github.com/Saltybukket/StudyCenter-Public.git
-cd StudyCenter-Public
 sh start.sh
 ```
 
-Der erste Start benötigt Internetzugang und freien Speicher. Das Skript richtet die Entwicklungsumgebung ein und startet die lokale Anwendung. Spätere Starts verwenden die bereits vorbereiteten Komponenten.
+Git ist nur zum Klonen nötig. Der erste Aufbau benötigt Internet und freien Speicher. Die gemeinsame Setup-Logik verwendet zuerst eine funktionierende eigene Umgebung, dann geeignetes vorhandenes **CPython 3.12 x64**, andernfalls eine eigene verwaltete Laufzeit. Andere Python-Versionen oder Architekturen sind für diesen Setupweg nicht freigegeben.
 
-**Was passiert beim ersten Start?** Der Starter lädt das festgelegte `uv`-Werkzeug (0.8.22), prüft dessen SHA-256, verwendet die projektlokale Python-Version 3.12.11 und richtet die Abhängigkeiten sowie portable Browser-/OCR-Komponenten ein. Python-/Tool-Downloads und Caches liegen unter der ignorierten `.local/`, die Python-Umgebung unter `.venv/`. Es werden keine fremden StudyCenter-Daten oder Browserprofile verwendet, keine globalen Python-Pakete installiert und keine System-Tesseract-Installer gestartet.
+`uv` richtet eine eigene Umgebung unter `.local/environments/` ein. `.local/python-path.txt` nennt deren Interpreter; eine gültige bestehende eigene `.venv/` kann weiterverwendet werden. Werkzeuge, verwaltetes Python und Downloadcache liegen ebenfalls unter `.local/`. Ein vorhandenes System-Python dient ausschließlich als Interpreter: kein globales pip, keine fremden Pakete oder Profile.
 
-Der Windows-Starter benötigt die bereits vorhandenen Windows-Werkzeuge `curl.exe` und `tar.exe`. Der Linux-Starter benötigt `curl`, `tar`, `sha256sum` und für die portable Komponentenextraktion die vorhandenen Ubuntu-Werkzeuge `apt-get`, `apt-cache` und `dpkg-deb`. Er installiert **keine Host-Pakete**. Wenn diese Voraussetzungen fehlen, nutze das fertige Release oder kläre sie separat.
+Die Basis startet ohne Chromium, OCR und Sprache. Gewünschte Komponenten werden über die Anwendung ausdrücklich eingerichtet. Sprachmodellgewichte brauchen eine eigene Downloadbestätigung. Das veröffentlichte beta.2-Komplettpaket enthält seine Komponenten bereits; die Slim-Änderungen gelten für beta.3 beziehungsweise den aktualisierten Checkout.
 
-## Quellcode aktualisieren
+Für den Bootstrap braucht Windows die vorhandenen Werkzeuge `curl.exe` und `tar.exe`, Linux `curl`, `tar` und `sha256sum`. Es werden keine Host-Pakete installiert. Linux verwendet für die Oberfläche den Systembrowser; Einschränkungen des TU-Quellenbrowsers durch AppArmor sind davon getrennt.
 
-Anwendung vollständig beenden, dann im Projektordner `git pull` ausführen und denselben Starter erneut starten. Der Starter prüft, ob die Entwicklungsumgebung nach einer Änderung erneut vorbereitet werden muss. **Ein Git-Update ist kein Update des bereits installierten Windows-Releasepakets.** Beide Varianten getrennt behandeln.
+Den Checkout über seinen physischen Ordner öffnen. Umgeleitete Pfade (Symlinks oder Windows-Junctions) werden zum Schutz fremder Installationen abgewiesen; dieselben Dateien im tatsächlichen Zielordner starten.
 
-## Nützliche Befehle
+## Aktualisieren und stoppen
 
-Windows im geklonten Projekt:
+Anwendung vollständig beenden, im Checkout `git pull` ausführen und denselben Starter verwenden. Ein Git-Update aktualisiert diesen Checkout; es ersetzt kein installiertes Releasepaket. Normale Starts verwenden die vorbereitete Umgebung. Der erste Aufbau und bewusst angeforderte Downloads benötigen Internet.
+
+Windows:
 
 ```powershell
+.\start.cmd --stop
+.\start.cmd --help
 .\start.cmd --setup-only
 .\start.cmd --no-browser --port 0
-.\start.cmd --stop
-.\.venv\Scripts\python.exe -m pytest
 ```
 
-Ubuntu im geklonten Projekt:
+Linux:
 
 ```sh
+sh start.sh --stop
+sh start.sh --help
 sh start.sh --setup-only
 sh start.sh --no-browser --port 0
-sh start.sh --stop
-.venv/bin/python -m pytest
 ```
 
-`--setup-only` richtet Komponenten ein, ohne die Anwendung zu öffnen; `--no-browser` startet ohne grafische Browseröffnung, `--port 0` wählt einen freien lokalen Port, `--stop` beendet die eigene gestartete Instanz. Die lokalen Daten, Browserprofile und Credentials gehören zur Public-Instanz unter `.local/data`. Mit `--data-dir <neuer-ordner>` kann ein anderer **eigener** Datenbestand verwendet werden; denselben Pfad für `--stop` angeben. **Nie auf Datenverzeichnisse anderer Apps zeigen.**
+`--stop` beendet die eigene Instanz. `--setup-only` bereitet die Basis ohne App-Start vor. `--no-browser` unterdrückt die Browseröffnung; `--port 0` wählt einen freien lokalen Port. Hilfe und Stop sollen keine Komponenten nachladen.
 
-Falls ein Download fehlschlägt, Verbindung prüfen und denselben Starter erneut ausführen. Abgebrochene Komponenten werden nicht stillschweigend als vollständig akzeptiert. Bei einem nicht kompatiblen geklonten `.venv` sichert der Starter die vorherige Umgebung im eigenen `.local/` und erstellt eine neue.
+Standardmäßig gehören Daten zum eigenen Public-Bestand unter `.local/data`. Mit `--data-dir <eigener-ordner>` einen anderen eigenen Speicher wählen und beim Stoppen dieselbe Angabe verwenden. Bei einem Übergang von beta.2 den bisherigen Datenort bewusst beibehalten. Keine Datenordner anderer Anwendungen verwenden.
 
-## Tests, Beiträge und technische Referenz
+Bei abgebrochenem Download die Einrichtung wiederholen. Ist ein zuvor genutztes System-Python entfernt worden, die angebotene Reparatur mit eigener Laufzeit nutzen. Keine fremden Caches oder Umgebungen bereinigen.
 
-- Tests nutzen synthetische Inhalte und isolierte Verzeichnisse, keine echten TU- oder KI-Konten. Erfolgreiche Tests ersetzen keine reale Konto- oder Desktopabnahme.
-- Vor einem öffentlichen Commit ausgewählte Dateien prüfen, `scripts/check_public.py --staged` ausführen und keine Credentials, privaten Daten oder lokalen Reports hochladen.
-- Technische Schnittstellen: [CONTRACTS.md](CONTRACTS.md), [PROVIDERS.md](PROVIDERS.md), [OPTIONAL.md](OPTIONAL.md). Build/Installer: [PACKAGING.md](PACKAGING.md). Nachweise und bekannte Einschränkungen: [RELEASE-VERIFICATION.md](RELEASE-VERIFICATION.md).
-- Das private persönliche StudyCenter und dieses Public-Projekt sind vollständig getrennt.
+## Testen
 
-[**← Zur Startseite**](../README.md) · [Schnellstart ohne Git](QUICKSTART.md)
+Entwicklungswerkzeuge sind kein Bestandteil der normalen Nutzerinstallation. Nach `start.cmd --setup-only` unter PowerShell:
+
+```powershell
+$python = Get-Content .local/python-path.txt
+& .local/tools/uv-0.8.22/uv.exe --no-config pip install --python $python --constraint requirements-windows.lock pytest==9.1.1 pytest-asyncio==1.4.0
+& $python -m pytest
+```
+
+Unter Linux:
+
+```sh
+python=$(cat .local/python-path.txt)
+.local/tools/uv-0.8.22/uv --no-config pip install --python "$python" --constraint requirements-linux.lock pytest==9.1.1 pytest-asyncio==1.4.0
+"$python" -m pytest
+```
+
+Tests verwenden synthetische Inhalte und isolierte Datenverzeichnisse. Ausgeführte Protokoll-, Paket-, Browser- und Betriebssystemprüfungen getrennt berichten; simulierte Anbieter ersetzen keine persönliche Kontoabnahme.
+
+## Verzeichnisse und Beiträge
+
+- `src/`: Anwendung und eingebettete Ressourcen.
+- `tests/`: isolierte Regressionstests.
+- `scripts/`: Setup, Build und vorhandene Prüfwerkzeuge.
+- `packaging/`: Plattformstarter und Installer.
+- `docs/`: kurze Anleitungen und technische Referenz.
+
+Vor jedem Commit nur benannte Dateien stagen, den Inhalt prüfen und `scripts/check_public.py --staged` ausführen. Vor dem Push ausgehende Commits prüfen. Keine Daten, Profile, Binärpakete, lokalen Reports oder Zugangsdaten committen.
+
+[Schnittstellen](CONTRACTS.md) · [Provider](PROVIDERS.md) · [Optionale Funktionen](OPTIONAL.md) · [Build und Installer](PACKAGING.md) · [Drittanbieter](THIRD_PARTY.md) · [Prüfstand](RELEASE-VERIFICATION.md) · [Quickstart](QUICKSTART.md)

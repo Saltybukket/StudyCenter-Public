@@ -47,25 +47,34 @@ jobs:
         run: |
           if ($env:EXPECTED_INSTALLER_SHA256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Invalid expected installer checksum' }
           if ($env:EXPECTED_SOURCE_GIT_SHA -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid expected build source' }
-          $release = gh release view v0.1.0-beta.1 --repo $env:GITHUB_REPOSITORY --json isDraft,assets | ConvertFrom-Json
+          $release = gh release view v0.1.0-beta.3 --repo $env:GITHUB_REPOSITORY --json isDraft,assets,targetCommitish | ConvertFrom-Json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           if (-not $release.isDraft) { throw 'This probe accepts only the own unpublished draft candidate' }
-          $expectedName = 'studycenter-public-0.1.0b1-windows-x86_64-setup.exe'
+          if ($release.targetCommitish -cne $env:EXPECTED_SOURCE_GIT_SHA) { throw 'Draft source differs' }
+          $expectedName = 'studycenter-public-0.1.0b3-windows-x86_64-setup.exe'
           $assets = @($release.assets | Where-Object { $_.name -eq $expectedName })
           if ($assets.Count -ne 1) { throw 'Own candidate asset is missing or ambiguous' }
           $candidate = Join-Path $env:RUNNER_TEMP 'StudyCenter-Public-candidate'
           New-Item -ItemType Directory -Path $candidate | Out-Null
-          gh release download v0.1.0-beta.1 --repo $env:GITHUB_REPOSITORY --pattern $expectedName --dir $candidate
+          gh release download v0.1.0-beta.3 --repo $env:GITHUB_REPOSITORY --pattern '*windows-x86_64*' --pattern '*.whl' --pattern 'requirements-windows.lock' --pattern 'SHA256SUMS' --dir $candidate
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $installer = Join-Path $candidate $expectedName
           $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($actual -cne $env:EXPECTED_INSTALLER_SHA256) { throw 'Candidate installer checksum differs' }
           "CANDIDATE_INSTALLER=$installer" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "EXPECTED_BUILD_SOURCE=$env:EXPECTED_SOURCE_GIT_SHA" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "SLIM_ASSETS=$candidate" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $previous = Join-Path $candidate 'previous'
+          New-Item -ItemType Directory -Path $previous | Out-Null
+          gh release download v0.1.0-beta.2 --repo $env:GITHUB_REPOSITORY --pattern 'studycenter-public-0.1.0b2-windows-x86_64-setup.exe' --dir $previous
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $old = Join-Path $previous 'studycenter-public-0.1.0b2-windows-x86_64-setup.exe'
+          if ((Get-FileHash -LiteralPath $old -Algorithm SHA256).Hash.ToLowerInvariant() -cne '00a4f6c8452af411179f4664400324e5d2c4a1c183b4e93aee11ca3695d1990a') { throw 'Previous public installer differs' }
+          "PREVIOUS_INSTALLER=$old" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Output "Own candidate SHA256 verified: $actual"
       - name: Exact installer lifecycle and installed package smoke
         shell: pwsh
         run: |
-          & .venv/Scripts/python.exe scripts/smoke_installer_vm.py --installer $env:CANDIDATE_INSTALLER --expected-source $env:EXPECTED_BUILD_SOURCE
+          & .venv/Scripts/python.exe scripts/smoke_slim.py --assets $env:SLIM_ASSETS --installer $env:CANDIDATE_INSTALLER --previous-installer $env:PREVIOUS_INSTALLER --expected-source $env:EXPECTED_BUILD_SOURCE
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       # No cache, artifact storage or publication. The VM is discarded after the job.

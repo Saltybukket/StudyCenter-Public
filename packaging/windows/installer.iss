@@ -1,6 +1,11 @@
 #ifndef AppVersion
 #define AppVersion "0.1.0b2"
 #endif
+#ifdef SlimSetup
+#define EntryFile "start.cmd"
+#else
+#define EntryFile "StudyCenter-Public.exe"
+#endif
 #ifndef BundleDir
 #define BundleDir "..\..\dist\windows\StudyCenter-Public"
 #endif
@@ -28,7 +33,11 @@ Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern
 MinVersion=10.0
+#ifdef SlimSetup
+UninstallDisplayIcon={uninstallexe}
+#else
 UninstallDisplayIcon={app}\StudyCenter-Public.exe
+#endif
 CloseApplications=no
 RestartApplications=no
 AppMutex=StudyCenterPublicInstallerOperation
@@ -41,12 +50,23 @@ Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Type: files; Name: "{app}\installation-files.txt"
 Type: files; Name: "{app}\installation-marker.ini"
 [Icons]
+#ifdef SlimSetup
+Name: "{group}\StudyCenter-Public"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"" --data-dir ""{code:GetDataDirectory}"""
+Name: "{group}\Uninstall StudyCenter-Public"; Filename: "{uninstallexe}"
+Name: "{userdesktop}\StudyCenter-Public"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"" --data-dir ""{code:GetDataDirectory}"""; Tasks: desktopicon
+Name: "{userstartup}\StudyCenter-Public"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"" --background --data-dir ""{code:GetDataDirectory}"""; Tasks: startup
+#else
 Name: "{group}\StudyCenter-Public"; Filename: "{app}\StudyCenter-Public.exe"; Parameters: "--data-dir ""{code:GetDataDirectory}"""
 Name: "{group}\Uninstall StudyCenter-Public"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\StudyCenter-Public"; Filename: "{app}\StudyCenter-Public.exe"; Parameters: "--data-dir ""{code:GetDataDirectory}"""; Tasks: desktopicon
 Name: "{userstartup}\StudyCenter-Public"; Filename: "{app}\StudyCenter-Public.exe"; Parameters: "--background --data-dir ""{code:GetDataDirectory}"""; Tasks: startup
+#endif
 [Run]
+#ifdef SlimSetup
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"" --data-dir ""{code:GetDataDirectory}"""; Description: "Start StudyCenter-Public"; Flags: nowait postinstall skipifsilent
+#else
 Filename: "{app}\StudyCenter-Public.exe"; Parameters: "--data-dir ""{code:GetDataDirectory}"""; Description: "Start StudyCenter-Public"; Flags: nowait postinstall skipifsilent
+#endif
 [Code]
 #include BundleDir + "\SYSTEM-RUNTIME-REQUIREMENTS.iss"
 #include "system_runtime.iss"
@@ -67,6 +87,9 @@ const OwnApplication = 'StudyCenter.Public';
   OwnUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B60E9F91-11F3-4EA8-B973-5C6D65C7A59A}_is1';
 var DataDirectoryPage: TInputDirWizardPage;
   DataDirectoryPageReady: Boolean;
+#ifdef SlimSetup
+  OldInstallationFiles: TArrayOfString;
+#endif
 function GetFileAttributesW(Name: String): LongWord;
   external 'GetFileAttributesW@kernel32.dll stdcall';
 function NativeFindFirst(Name: String; var Data: TNativeFindData): THandle;
@@ -135,6 +158,27 @@ begin
     finally SafeFindClose(Search); end;
   end else if (Search.Error <> 2) and (Search.Error <> 18) then Result := True;
 end;
+#ifdef SlimSetup
+function SafeLocalTree(Directory: String): Boolean;
+var Search: TSafeFindRec; Path: String;
+begin
+  Result := False;
+  if not NoReparseAncestors(Directory) then exit;
+  if not DirExists(Directory) then begin Result := True; exit; end;
+  if SafeFindFirst(AddBackslash(Directory) + '*', Search) then begin
+    try repeat
+      if (Search.Name <> '.') and (Search.Name <> '..') then begin
+        Path := AddBackslash(Directory) + Search.Name;
+        if not NoReparseAncestors(Path) then exit;
+        if (Search.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and not SafeLocalTree(Path) then exit;
+      end;
+    until not SafeFindNext(Search);
+    if Search.Error <> 18 then exit;
+    finally SafeFindClose(Search); end;
+  end else if (Search.Error <> 2) and (Search.Error <> 18) then exit;
+  Result := True;
+end;
+#endif
 procedure SkipWhitespace(S: String; var Offset: Integer);
 begin
   while Offset <= Length(S) do begin
@@ -229,6 +273,9 @@ begin
         Path := AddBackslash(Directory) + Search.Name;
         if not NoReparseAncestors(Path) then exit;
         if Search.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then begin
+#ifdef SlimSetup
+          if (CompareText(Directory, Base) = 0) and (CompareText(Search.Name, '.local') = 0) then continue;
+#endif
           if not OwnInventoryTree(Path, Base, Lines, Verify, Output) then exit;
         end else begin
           Relative := Copy(Path, Length(AddBackslash(Base)) + 1, MaxInt);
@@ -280,7 +327,11 @@ begin
   end;
   Output := '';
   if not OwnInventoryTree(Directory, Directory, Lines, True, Output) then exit;
+#ifdef SlimSetup
+  if not FileExists(AddBackslash(Directory) + 'start.cmd') and not FileExists(AddBackslash(Directory) + 'StudyCenter-Public.exe') then exit;
+#else
   if not FileExists(AddBackslash(Directory) + 'StudyCenter-Public.exe') then exit;
+#endif
   Result := '';
 end;
 procedure InitializeWizard;
@@ -360,11 +411,48 @@ begin
         Result := 'A backup of the existing database could not be created. Update cancelled; keep the current installation.';
     end;
   end;
+#ifdef SlimSetup
+  if Result = '' then begin
+    if FileExists(ExpandConstant('{app}\start.cmd')) then begin
+      if not Exec(ExpandConstant('{cmd}'), '/d /c ""' + ExpandConstant('{app}\start.cmd') + '" --stop --data-dir "' + DataDirectory + '""', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then begin Result := 'Close the selected Public instance before updating.'; exit; end;
+      for Attempt := 1 to 100 do begin
+        if not FileExists(AddBackslash(DataDirectory) + 'runtime.json') then break;
+        Sleep(100);
+      end;
+      if FileExists(AddBackslash(DataDirectory) + 'runtime.json') then begin Result := 'The selected Public instance is still running.'; exit; end;
+      DatabaseFile := AddBackslash(DataDirectory) + 'studycenter-public.sqlite3';
+      if FileExists(DatabaseFile) then begin
+        BackupDirectory := AddBackslash(DataDirectory) + 'backups\before-update-' + GetDateTimeString('yyyymmddhhnnsszzz', #0, #0);
+        if not NoReparseAncestors(BackupDirectory) or not ForceDirectories(BackupDirectory) or not FileCopy(DatabaseFile, AddBackslash(BackupDirectory) + 'studycenter-public.sqlite3', True) then begin Result := 'Public database backup failed. Update cancelled.'; exit; end;
+      end;
+    end;
+    if FileExists(ExpandConstant('{app}\installation-files.txt')) then
+      if not LoadStringsFromFile(ExpandConstant('{app}\installation-files.txt'), OldInstallationFiles) then Result := 'Previous installation inventory cannot be read.';
+  end;
+#endif
 end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var Lines: TArrayOfString; Output, Marker, Inventory: String;
+#ifdef SlimSetup
+  ResultCode, I, Separator: Integer; Relative, Path: String;
+#endif
 begin
   if CurStep <> ssPostInstall then exit;
+#ifdef SlimSetup
+  if not Exec(ExpandConstant('{cmd}'), '/d /c ""' + ExpandConstant('{app}\start.cmd') + '" --setup-only --update --data-dir "' + GetDataDirectory('') + '""', ExpandConstant('{app}'), SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+    RaiseException('Public base setup did not finish. Run start.cmd again to retry; previous environment and personal data are retained.');
+  { Only delete the already verified old inventory after the new base is ready. }
+  for I := 0 to GetArrayLength(OldInstallationFiles) - 1 do begin
+    Separator := Pos('|', OldInstallationFiles[I]);
+    Relative := Copy(OldInstallationFiles[I], Separator + 1, MaxInt);
+    if (Separator = 65) and (Pos('..', Relative) = 0) and (Pos(':', Relative) = 0) and (Copy(Relative, 1, 1) <> '\') then begin
+      if (CompareText(Relative, 'LICENSE') <> 0) and (CompareText(Relative, 'README.md') <> 0) and (CompareText(Relative, 'start.cmd') <> 0) and (CompareText(Relative, 'setup.py') <> 0) and (CompareText(Relative, 'slim-manifest.json') <> 0) and (CompareText(Relative, 'launch.vbs') <> 0) and (Pos('unins', Lowercase(Relative)) <> 1) then begin
+        Path := AddBackslash(ExpandConstant('{app}')) + Relative;
+        if NoReparseAncestors(Path) then DeleteFile(Path);
+      end;
+    end;
+  end;
+#endif
   Output := '';
   if not OwnInventoryTree(ExpandConstant('{app}'), ExpandConstant('{app}'), Lines, False, Output) then RaiseException('Installed file inventory could not be verified.');
   Inventory := ExpandConstant('{app}\installation-files.txt'); Marker := ExpandConstant('{app}\installation-marker.ini');
@@ -380,11 +468,27 @@ begin
   Problem := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, False);
   if Problem = '' then Problem := DataDirectoryProblem(DataDirectory, ExpandConstant('{app}'), False);
   if Problem <> '' then begin SuppressibleMsgBox(Problem, mbError, MB_OK, IDOK); exit; end;
+#ifdef SlimSetup
+  if not Exec(ExpandConstant('{cmd}'), '/d /c ""' + ExpandConstant('{app}\start.cmd') + '" --stop --data-dir "' + DataDirectory + '""', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then begin SuppressibleMsgBox('Close StudyCenter-Public before uninstalling.', mbError, MB_OK, IDOK); exit; end;
+#else
   if not Exec(ExpandConstant('{app}\StudyCenter-Public.exe'), '--quit --data-dir "' + DataDirectory + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin SuppressibleMsgBox('Close StudyCenter-Public before uninstalling.', mbError, MB_OK, IDOK); exit; end;
+#endif
   for Attempt := 1 to 100 do begin
     if not FileExists(AddBackslash(DataDirectory) + 'runtime.json') then break;
     Sleep(100);
   end;
   if FileExists(AddBackslash(DataDirectory) + 'runtime.json') then begin SuppressibleMsgBox('The selected Public instance is still running. Close it before uninstalling.', mbError, MB_OK, IDOK); exit; end;
+#ifdef SlimSetup
+  if not SafeLocalTree(ExpandConstant('{app}\.local')) then begin SuppressibleMsgBox('The own setup directory contains a redirected or inaccessible path. Uninstall stopped without deleting files.', mbError, MB_OK, IDOK); exit; end;
+#endif
   Result := True;
 end;
+#ifdef SlimSetup
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then begin
+    if SafeLocalTree(ExpandConstant('{app}\.local')) then
+      DelTree(ExpandConstant('{app}\.local'), True, True, True);
+  end;
+end;
+#endif

@@ -105,6 +105,11 @@ class BrowserManager:
             environment = external_browser_environment()
         else:
             environment = os.environ.copy()
+            if sys.platform == 'linux':
+                from ..platform.components import browser_directory
+                libraries = reject_links(browser_directory(self.paths) / 'host-libraries')
+                if libraries.is_dir():
+                    environment['LD_LIBRARY_PATH'] = str(libraries)
         environment.pop('CHROME_DEVEL_SANDBOX', None)
         environment.pop('LD_PRELOAD', None)
         for variable, directory in (
@@ -156,7 +161,7 @@ class BrowserManager:
                 raise
             if sys.platform == 'linux':
                 raise BrowserUnavailable('TU-Quellenbrowser unter Linux derzeit nicht verfügbar. Die lokale Oberfläche, Dokumente und manuelle Importe bleiben nutzbar. Die Browsersandbox wird nicht abgeschaltet.') from None
-            raise BrowserUnavailable('Eigener Chromium-Browser nicht verfügbar; vollständiges Release-Paket prüfen oder reparieren. Kein anderer Browser wird verwendet.') from None
+            raise BrowserUnavailable('TU-Quellenbrowser nicht verfügbar. Unter Einstellungen gezielt einrichten oder erneut versuchen; Full-Pakete über den Release-Download reparieren.') from None
 
     async def _readonly_route(self, route):
         request = route.request

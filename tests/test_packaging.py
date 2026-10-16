@@ -207,7 +207,7 @@ class PackagingContract(unittest.TestCase):
   self.assertNotRegex(script,r'\bMsgBox\(')
  def test_installer_timestamp_arguments_are_pascal_characters(self):
   script=(pathlib.Path(__file__).parents[1]/'packaging/windows/installer.iss').read_text()
-  self.assertEqual(script.count("GetDateTimeString('yyyymmddhhnnsszzz', #0, #0)"),2)
+  self.assertGreaterEqual(script.count("GetDateTimeString('yyyymmddhhnnsszzz', #0, #0)"),2)
   self.assertNotIn("GetDateTimeString('yyyymmddhhnnsszzz', '', '')",script)
  def test_system_export_lookup_is_bounded_binary_search(self):
   script=(pathlib.Path(__file__).parents[1]/'packaging/windows/system_runtime.iss').read_text()

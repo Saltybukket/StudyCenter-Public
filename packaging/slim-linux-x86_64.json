@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "version": "0.1.0b3",
+  "platform": "linux-x86_64",
+  "python": "3.12",
+  "wheel": {
+    "filename": "studycenter_public-0.1.0b3-py3-none-any.whl",
+    "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter_public-0.1.0b3-py3-none-any.whl",
+    "sha256": "e4657a7a06f7ec209c18a4df826950c057f2cba044f932bc12dc77d33b15668e",
+    "size": 195356
+  },
+  "lock": {
+    "filename": "requirements-linux.lock",
+    "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/requirements-linux.lock",
+    "sha256": "6dd873001b9f2d662788eabddb0cd28bbb06b79713d681c02bece8fdab60c09e",
+    "size": 1557
+  },
+  "components": {
+    "browser": {
+      "archive": {
+        "filename": "studycenter-public-0.1.0b3-linux-x86_64-browser.tar.gz",
+        "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-linux-x86_64-browser.tar.gz",
+        "sha256": "ad29088be7c8029ffc467b5f50b484e1de27fafd4416b4274338e0ebf8c84d47",
+        "size": 496064608
+      },
+      "installed_bytes": 1462994883,
+      "extra": "browser",
+      "python_download_bytes": 48854222
+    },
+    "ocr": {
+      "archive": {
+        "filename": "studycenter-public-0.1.0b3-linux-x86_64-ocr.tar.gz",
+        "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-linux-x86_64-ocr.tar.gz",
+        "sha256": "f648d985f6b7d819bf4a90a810dce55f5460d6bd663fc677e8eec952ef70831b",
+        "size": 165094435
+      },
+      "installed_bytes": 486916340,
+      "python_download_bytes": 0
+    },
+    "speech": {
+      "extra": "speech",
+      "models_separate": true,
+      "archive": {
+        "filename": "studycenter-public-0.1.0b3-linux-x86_64-speech-notices.tar.gz",
+        "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-linux-x86_64-speech-notices.tar.gz",
+        "sha256": "effdb5bbb482176bf6676692a591bb5a03925a8b5049be799111b3d8aa84a886",
+        "size": 1891357
+      },
+      "python_download_bytes": 127236312
+    }
+  },
+  "corresponding_sources": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/StudyCenter-Public-corresponding-sources-0.1.0b1-all-platform-notices.zip",
+  "base_python_download_bytes": 43111725
+}

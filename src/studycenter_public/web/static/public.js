@@ -14,6 +14,47 @@
  }
  const bind=(selector,event,fn)=>document.querySelectorAll(selector).forEach(el=>el.addEventListener(event,async e=>{try{await fn(e,el);}catch(error){report(error.message,true);}}));
  const fields=form=>Object.fromEntries(new FormData(form));
+ const mib=bytes=>(bytes/1048576).toFixed(1)+' MiB';
+ function componentSize(info){
+  const known=(info.download_bytes||0)+(info.python_download_bytes||0);
+  return known?mib(known)+(info.size_complete?'':' plus Python-Bibliotheken (Größe noch nicht bestimmt)'):'Downloadgröße der Bibliotheken noch nicht bestimmt';
+ }
+ async function setupConsent(info){
+  const dialog=document.createElement('dialog'),title=document.createElement('h2'),text=document.createElement('p');
+  title.textContent=info.label+' einrichten';
+  text.textContent=(info.error?info.error+' ':'')+'Es fehlt diese optionale Komponente. Download: '+componentSize(info)+'.'+(info.model_separate?' Modellgewichte werden danach separat bestätigt.':'');
+  const yes=document.createElement('button'),later=document.createElement('button');yes.textContent='Einrichten';later.textContent='Später';later.className='secondary';
+  dialog.append(title,text,yes,later);document.body.append(dialog);
+  return new Promise(resolve=>{let settled=false;const finish=choice=>{if(settled)return;settled=true;dialog.close();dialog.remove();resolve(choice);};yes.onclick=()=>finish(true);later.onclick=()=>finish(false);dialog.addEventListener('cancel',event=>{event.preventDefault();finish(false);});dialog.showModal();});
+ }
+ async function ensureComponent(name){
+  const status=await api('/api/components',undefined,'GET');let info=status.components[name];
+  if(info.installed&&info.state==='ready'){
+   try{await api('/api/components/install',{component:name});return true;}
+   catch(error){info=(await api('/api/components',undefined,'GET')).components[name];if(!info.can_install)throw error;}
+  }
+  if(!info.can_install)throw Error(info.label+' fehlt. Mit dem Public-Starter einrichten; Full-Pakete über den Release-Download reparieren.');
+  if(!await setupConsent(info))return false;
+  report(info.label+' wird eingerichtet. Bitte warten.');
+  try{await api('/api/components/install',{component:name,allow_download:true});await showComponents();report(info.label+' ist eingerichtet.');return true;}
+  catch(error){await showComponents();throw error;}
+ }
+ async function ensureSourceBrowser(button){
+  const kind=button.closest('[data-source]')?.dataset.kind;
+  return !['teachcenter','tugrazonline','webmail'].includes(kind)||await ensureComponent('browser');
+ }
+ async function showComponents(){
+  const root=document.getElementById('component-list');if(!root)return;
+  const status=await api('/api/components',undefined,'GET');root.replaceChildren();
+  for(const [name,info]of Object.entries(status.components)){
+   const row=document.createElement('p'),label=document.createElement('span');label.textContent=info.label+' · '+({ready:'vorhanden',missing:'fehlt',error:'fehlerhaft'}[info.state])+(info.installed?'':' · '+componentSize(info))+' ';row.append(label);
+   if(info.error){const error=document.createElement('small');error.textContent=info.error+' ';row.append(error);}
+   if(!info.installed||info.state==='error'){const button=document.createElement('button');button.className='secondary small';button.textContent=info.state==='error'?'Erneut versuchen':'Einrichten';button.onclick=async()=>{button.disabled=true;try{await ensureComponent(name);}catch(error){report(error.message,true);}finally{button.disabled=false;}};row.append(button);}
+   root.append(row);
+  }
+ }
+ showComponents().catch(error=>report(error.message,true));
+
  let pending=null,lastReceipt=null;
  const actionText=actions=>actions.map(a=>{
   const names={create_note:'Neue persönliche Notiz',create_task:'Neue persönliche Aufgabe',create_event:'Neuer persönlicher Termin',update:'Persönliche Angabe ändern',set_override:'Persönliche Angabe ändern',set_status:'Persönlicher Status',set_reminder:'Persönliche Erinnerung',decide_source:'Persönliche Quellenentscheidung',delete:'Persönlichen Eintrag entfernen'};
@@ -49,13 +90,13 @@
  bind('.decision-form','submit',async(e,form)=>{e.preventDefault();const data=fields(form);await preview([{type:'decide_source',item_id:+form.dataset.id,document_id:+form.dataset.document,...data}],{[form.dataset.id]:+form.dataset.version});});
  bind('#import-form','submit',async(e,form)=>{e.preventDefault();const doc=await api('/api/documents/import',new FormData(form));location.href='/documents/'+doc.id;});
  bind('#extract','click',async(e,b)=>{await api('/api/documents/'+b.dataset.id+'/extract',{});report('KI-Auswertung gestartet. Alle Seiten werden verarbeitet; Fehler bleiben sichtbar.');});
- bind('#reread','click',async(e,b)=>{const doc=await api(`/api/documents/${b.dataset.id}/reread/${b.dataset.page}`,{ignore_grid:document.getElementById('ignore-grid').checked});location.href=`/documents/${doc.id}?page=${b.dataset.page}`;});
+ bind('#reread','click',async(e,b)=>{if(document.getElementById('ocr-request')?.checked&&!await ensureComponent('ocr'))return;const doc=await api(`/api/documents/${b.dataset.id}/reread/${b.dataset.page}`,{ignore_grid:document.getElementById('ignore-grid').checked});location.href=`/documents/${doc.id}?page=${b.dataset.page}`;});
  bind('#source-form','submit',async(e,form)=>{e.preventDefault();await api('/api/sources',fields(form));location.reload();});
  bind('.saved-course-selection','submit',async(e,form)=>{e.preventDefault();await api(`/api/sources/${form.dataset.id}/select`,{courses:[...form.querySelectorAll('input:checked')].map(input=>input.value)});report('Kursauswahl gespeichert.');});
- bind('.source-login','click',async(e,b)=>{report('Eigenes TU-Anmeldefenster wird geöffnet.');await api(`/api/sources/${b.dataset.id}/login`,{});});
- bind('.source-discover','click',async(e,b)=>{await api(`/api/sources/${b.dataset.id}/discover`,{});report('Eigene Kurse werden gelesen.');});
- bind('.source-sync','click',async(e,b)=>{await api(`/api/sources/${b.dataset.id}/sync`,{});report('Manueller Quellenabgleich gestartet.');});
- bind('.source-resume','click',async(e,b)=>{await api(`/api/sources/${b.dataset.id}/sync`,{resume:true});report('Quellenabgleich fortgesetzt.');});
+ bind('.source-login','click',async(e,b)=>{if(!await ensureSourceBrowser(b))return;report('Eigenes TU-Anmeldefenster wird geöffnet.');await api(`/api/sources/${b.dataset.id}/login`,{});});
+ bind('.source-discover','click',async(e,b)=>{if(!await ensureSourceBrowser(b))return;await api(`/api/sources/${b.dataset.id}/discover`,{});report('Eigene Kurse werden gelesen.');});
+ bind('.source-sync','click',async(e,b)=>{if(!await ensureSourceBrowser(b))return;await api(`/api/sources/${b.dataset.id}/sync`,{});report('Manueller Quellenabgleich gestartet.');});
+ bind('.source-resume','click',async(e,b)=>{if(!await ensureSourceBrowser(b))return;await api(`/api/sources/${b.dataset.id}/sync`,{resume:true});report('Quellenabgleich fortgesetzt.');});
  bind('.source-cancel','click',async(e,b)=>{await api(`/api/sources/${b.dataset.id}/cancel`,{});report('Abbruch angefordert; abgeschlossene Originale bleiben erhalten.');});
  bind('#browser-close','click',async()=>{await api('/api/browser/close',{});report('Eigener TU-Browser geschlossen.');});
  bind('.exclusion-form','submit',async(e,form)=>{e.preventDefault();const current=await api('/api/sources',undefined,'GET');const source=current.find(s=>s.id===+form.dataset.id);const options={...(source.options||{}),excluded_urls:fields(form).excluded_urls.split('\n').map(s=>s.trim()).filter(Boolean)};await api('/api/sources',{source_id:source.id,name:source.name,url:source.url,kind:source.kind,options});report('Ausschlüsse gelten für Abruf und KI-Analyse.');});
@@ -93,11 +134,10 @@
  bind('#mcp-enable','change',()=>saveMcp());bind('#mcp-write','change',()=>saveMcp());bind('#mcp-token','click',()=>saveMcp(true));
  bind('#backup','click',async()=>{const blob=await api('/api/backup',{});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='studycenter-public-backup.zip';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);report('Private Sicherung erstellt. Nicht öffentlich teilen.');});
  bind('#restore-form','submit',async(e,form)=>{e.preventDefault();const data=await api('/api/backup/preview',new FormData(form));const root=document.getElementById('restore-preview');root.replaceChildren();const p=document.createElement('p');p.textContent='Sicherung geprüft. Die Wiederherstellung ersetzt deinen Public-Bestand; vorher wird eine Rückfallsicherung erstellt.';root.append(p);const pre=document.createElement('pre');pre.textContent=JSON.stringify(data.preview.counts||data.preview,null,2);root.append(pre);const b=document.createElement('button');b.textContent='Bewusst wiederherstellen';b.addEventListener('click',async()=>{try{await api('/api/backup/restore',{restore_id:data.restore_id,confirmed:true});location.reload();}catch(error){report(error.message,true);}});root.append(b);});
- bind('#speech-settings','submit',async(e,form)=>{e.preventDefault();const enabled=form.elements.enabled.checked;await api('/api/speech/configure',{enabled,model:form.elements.model.value});if(enabled&&form.elements.allow_download.checked){report('Das gewählte lokale Sprachmodell wird geprüft heruntergeladen.');await api('/api/speech/download',{allow_download:true});}report('Spracheinstellung gespeichert.');});
+ bind('#speech-settings','submit',async(e,form)=>{e.preventDefault();const enabled=form.elements.enabled.checked;if(enabled&&!await ensureComponent('speech'))return;const status=await api('/api/speech/configure',{enabled,model:form.elements.model.value});if(enabled&&form.elements.allow_download.checked){report('Modell: '+mib(status.models[status.model].download_bytes)+' wird geprüft heruntergeladen.');await api('/api/speech/download',{allow_download:true});}document.getElementById('speech-model-status').textContent='Modellgewichte: '+mib(status.models[status.model].download_bytes)+'. Bibliotheken und Modell sind getrennte Downloads.';report('Spracheinstellung gespeichert.');});
  bind('#speak','click',()=>{if(!('speechSynthesis'in window))throw Error('Dieser Browser bietet kein Vorlesen an.');speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(lastAnswer||'Noch keine Antwort zum Vorlesen.');utterance.lang='de-DE';speechSynthesis.speak(utterance);});
  bind('#speech-stop','click',()=>{if('speechSynthesis'in window)speechSynthesis.cancel();});
  bind('#record','click',async(e,b)=>{if(recorder&&recorder.state==='recording'){recorder.stop();b.textContent='Sprache aufnehmen';return;}if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw Error('Mikrofonaufnahme ist in diesem Browser nicht verfügbar.');const status=await api('/api/speech/status',undefined,'GET');if(!status.enabled||!status.model_ready||!status.runtime_installed)throw Error('Sprache zuerst unter Einstellungen einrichten und Modell herunterladen.');const stream=await navigator.mediaDevices.getUserMedia({audio:true});recordChunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=event=>recordChunks.push(event.data);recorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());try{const form=new FormData();form.append('file',new Blob(recordChunks,{type:recorder.mimeType}),'aufnahme.webm');const result=await api('/api/speech/transcribe',form);document.querySelector('#assistant-form [name=text]').value=result.text;report('Erkannte Sprache eingefügt. Vor dem Senden prüfen.');}catch(error){report(error.message,true);}};recorder.start();b.textContent='Aufnahme beenden';setTimeout(()=>{if(recorder.state==='recording'){recorder.stop();b.textContent='Sprache aufnehmen';}},60000);});
- bind('#components-install','click',async()=>{const result=await api('/api/components/install',{});document.getElementById('component-status').textContent=result.status||'Komponentenprüfung gestartet.';});
  bind('#remove-data','submit',async(e,form)=>{e.preventDefault();await api('/api/data/remove',{confirmed:true,confirmation:form.elements.confirmation.value});report('Diese Public-Instanz beendet sich und entfernt ihren eigenen Bestand.');});
  bind('#shutdown','click',async()=>{await api('/api/shutdown',{});report('Diese Public-Instanz beendet sich.');});
  const seen=new Set();

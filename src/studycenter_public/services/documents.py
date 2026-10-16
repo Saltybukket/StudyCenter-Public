@@ -255,14 +255,21 @@ class DocumentService:
 
     def __init__(self, db, paths, *, ocr=None, max_bytes=64 * 1024 * 1024):
         self.db, self.paths, self.max_bytes = db, paths, max_bytes
-        self.ocr = ocr or default_ocr(paths)
+        self._ocr_override = ocr
         ocr_cache = owned_path(Path(paths.cache) / 'ocr', paths.cache)
         ocr_cache.mkdir(parents=True, exist_ok=True)
-        self.ocr.temp_directory = str(ocr_cache)
+        self._ocr_cache = str(ocr_cache)
         self._images = None
         with db.connection() as connection:
             connection.execute('CREATE VIRTUAL TABLE IF NOT EXISTS document_text_index USING fts5(document_id UNINDEXED, page UNINDEXED, text)')
             connection.execute('INSERT INTO document_text_index(document_id,page,text) SELECT document_id,page,text FROM pages p WHERE NOT EXISTS(SELECT 1 FROM document_text_index f WHERE CAST(f.document_id AS INTEGER)=p.document_id AND CAST(f.page AS INTEGER)=p.page)')
+
+    @property
+    def ocr(self):
+        # A component can be installed after this long-lived service was created.
+        settings = self._ocr_override or default_ocr(self.paths)
+        settings.temp_directory = self._ocr_cache
+        return settings
 
     def import_file(self, path, **kwargs):
         path = Path(path)

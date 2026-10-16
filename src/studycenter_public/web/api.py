@@ -321,6 +321,8 @@ def components(r:Request):return r.app.state.components.status()
 
 @router.post('/components/install')
 async def components_check(r:Request):
-    # The installer already supplies the complete portable runtime. This operation
-    # verifies it and never executes or downloads a global installer.
-    return await asyncio.to_thread(r.app.state.components.verify)
+    data=await r.json()
+    component=data.get('component')
+    if component is None:
+        return await asyncio.to_thread(r.app.state.components.verify)
+    return await asyncio.to_thread(r.app.state.components.install,component,allow_download=data.get('allow_download',False))
