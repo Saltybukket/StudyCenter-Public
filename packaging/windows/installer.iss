@@ -163,19 +163,19 @@ function SafeLocalTree(Directory: String): Boolean;
 var Search: TSafeFindRec; Path: String;
 begin
   Result := False;
-  if not NoReparseAncestors(Directory) then exit;
+  if not NoReparseAncestors(Directory) then begin Log('Public own safety refused directory: ' + Directory); exit; end;
   if not DirExists(Directory) then begin Result := True; exit; end;
   if SafeFindFirst(AddBackslash(Directory) + '*', Search) then begin
     try repeat
       if (Search.Name <> '.') and (Search.Name <> '..') then begin
         Path := AddBackslash(Directory) + Search.Name;
-        if not NoReparseAncestors(Path) then exit;
+        if not NoReparseAncestors(Path) then begin Log('Public own safety refused member: ' + Path); exit; end;
         if (Search.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and not SafeLocalTree(Path) then exit;
       end;
     until not SafeFindNext(Search);
-    if Search.Error <> 18 then exit;
+    if Search.Error <> 18 then begin Log('Public own safety enumeration error ' + IntToStr(Search.Error) + ': ' + Directory); exit; end;
     finally SafeFindClose(Search); end;
-  end else if (Search.Error <> 2) and (Search.Error <> 18) then exit;
+  end else if (Search.Error <> 2) and (Search.Error <> 18) then begin Log('Public own safety open error ' + IntToStr(Search.Error) + ': ' + Directory); exit; end;
   Result := True;
 end;
 #endif
