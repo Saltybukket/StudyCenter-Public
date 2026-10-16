@@ -22,6 +22,49 @@ def engine():
     return module
 
 
+def test_temporary_release_manifest_survives_environment_promotion(tmp_path, monkeypatch):
+    setup = engine()
+    root = tmp_path / 'installation'
+    root.mkdir()
+    manifest = tmp_path / 'temporary-installer-manifest.json'
+    platform = 'windows' if sys.platform == 'win32' else 'linux'
+    release = {'schema': 1, 'python': '3.12', 'platform': platform + '-x86_64',
+               'version': 'synthetic', 'lock': {'filename': 'lock'}, 'wheel': {'filename': 'wheel'},
+               'components': {'ocr': {'archive': {'filename': 'synthetic-ocr.zip'}}}}
+    manifest.write_text(json.dumps(release))
+    lock = tmp_path / 'lock'
+    lock.write_bytes(b'synthetic lock')
+    monkeypatch.setattr(setup, 'ensure_uv', lambda root, uv: uv)
+    monkeypatch.setattr(setup, 'select_python', lambda *a: (Path(sys.executable), 'system'))
+    monkeypatch.setattr(setup, 'environment_usable', lambda *a: True)
+    monkeypatch.setattr(setup, 'download', lambda *a: lock)
+    monkeypatch.setattr(setup, 'run', lambda *a, **k: None)
+    receipt = setup.ensure_environment(root, 'uv', manifest=manifest, update=True)
+    manifest.unlink()  # Inno's temporary directory is gone after installation.
+    retained = Path(receipt['manifest'])
+    assert retained.is_relative_to(root / '.local/manifests')
+    assert setup.load_manifest(retained) == release
+    assert setup.read_receipt(root)['manifest'] == str(retained)
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows starter contract')
+def test_installer_bootstrap_uses_temporary_engine_and_target_cache(tmp_path):
+    temporary, target = tmp_path / 'temporary bootstrap', tmp_path / 'own target'
+    temporary.mkdir()
+    (target / '.local').mkdir(parents=True)
+    (target / '.local/python-path.txt').write_text(sys.executable + '\n')
+    (temporary / 'start.cmd').write_bytes((ROOT / 'start.cmd').read_bytes())
+    (temporary / 'setup.py').write_text('import json,sys; from pathlib import Path; Path("args.json").write_text(json.dumps(sys.argv)); sys.exit(13)')
+    (target / 'setup.py').write_text('raise RuntimeError("old engine must not run")')
+    result = subprocess.run(['cmd.exe', '/d', '/c', 'call', str(temporary / 'start.cmd'), '--prepare-target', str(target), '--setup-only'],
+                            capture_output=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
+    assert result.returncode == 13, result.stdout + result.stderr
+    args = json.loads((target / 'args.json').read_text())
+    assert args[0] == str(temporary / 'setup.py')
+    assert args[args.index('--manifest') + 1] == str(temporary / 'slim-manifest.json')
+    assert Path(args[args.index('--uv') + 1]).is_relative_to(target / '.local/tools')
+
+
 def test_help_and_stop_without_environment_never_invoke_uv(tmp_path, monkeypatch):
     setup = engine()
     monkeypatch.setattr(setup.subprocess, 'run', lambda *a, **k: pytest.fail('uv invoked'))

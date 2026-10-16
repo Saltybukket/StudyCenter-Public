@@ -21,7 +21,7 @@ def run_command(command, env, timeout=300):
 
 
 def starter(program, *arguments):
-    return (['cmd.exe', '/d', '/c', str(program/'start.cmd')] if os.name == 'nt' else ['sh', str(program/'start.sh')]) + list(arguments)
+    return (['cmd.exe', '/d', '/c', 'call', str(program/'start.cmd')] if os.name == 'nt' else ['sh', str(program/'start.sh')]) + list(arguments)
 
 
 def wait_http(process, data):
@@ -102,6 +102,7 @@ def main():
             failed = subprocess.run(list(map(str, install+['/LOG='+str(root/'failed-update.log')])),
                                     env=dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(broken)), timeout=300,
                                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            print((root/'failed-update.log').read_text(errors='replace'), flush=True)
             assert failed.returncode != 0, 'Corrupt release wheel was accepted'
             assert hashlib.sha256((program/'StudyCenter-Public.exe').read_bytes()).hexdigest() == old_hash
             assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == before
@@ -164,7 +165,7 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
                 raise RuntimeError('Existing bootstrap tool missing: '+name)
             (tools/name).symlink_to(original)
         private_env['PATH'] = str(tools)
-    private_command = (['cmd.exe','/d','/c',str(private_program/'start.cmd')] if os.name == 'nt' else ['/bin/sh',str(private_program/'start.sh')])
+    private_command = (['cmd.exe','/d','/c','call',str(private_program/'start.cmd')] if os.name == 'nt' else ['/bin/sh',str(private_program/'start.sh')])
     run_command(private_command+['--setup-only','--data-dir',str(root/'private-runtime-data')], private_env)
     private_receipt = json.loads((private_program/'.local/installation.json').read_text())
     result['restricted_child_path_python_origin'] = private_receipt['python_origin']
@@ -196,6 +197,25 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
         assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == preserved
         assert not (program/'start.cmd').exists() and not (program/'.local').exists()
         result['uninstall_retains_data_removes_own_environment'] = True
+        if before:
+            # The failed first setup leaves only its narrowly marked own staging
+            # directory. The same installer must repair it without manual cleanup.
+            fresh, fresh_data = root/'fresh retry program', root/'fresh retry data'
+            fresh_install = [args.installer, '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR='+str(fresh), '/DATADIR='+str(fresh_data)]
+            failed = subprocess.run(list(map(str, fresh_install+['/LOG='+str(root/'fresh-failure.log')])),
+                env=dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(broken)), timeout=300,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            print((root/'fresh-failure.log').read_text(errors='replace'), flush=True)
+            assert failed.returncode != 0
+            assert (fresh/'.setup-pending.ini').is_file() and not (fresh/'start.cmd').exists()
+            run_command(fresh_install+['/LOG='+str(root/'fresh-retry.log')], env)
+            assert not (fresh/'.setup-pending.ini').exists()
+            retained = Path(json.loads((fresh/'.local/installation.json').read_text())['manifest'])
+            assert retained.is_relative_to(fresh/'.local/manifests') and retained.is_file()
+            probe_app(fresh, fresh_data, offline, {})
+            run_command([fresh/'unins000.exe','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART'], env)
+            assert not (fresh/'.local').exists()
+            result['interrupted_first_install_repairs_on_retry'] = True
     print(json.dumps(result, indent=2), flush=True)
     (root/'slim-result.json').write_text(json.dumps(result, indent=2))
 

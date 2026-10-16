@@ -2,6 +2,12 @@
 setlocal
 chcp 65001 >nul
 set "project_root=%~dp0"
+set "bootstrap_root=%~dp0"
+set "setup_prepare="
+if "%~1"=="--prepare-target" (
+    set "project_root=%~f2\"
+    set "setup_prepare=1"
+)
 set "setup_stopping="
 set "setup_help="
 for %%A in (%*) do (
@@ -90,11 +96,15 @@ set "PYTHONHOME="
 set "PYTHONPATH="
 set "VIRTUAL_ENV="
 cd /d "%project_root%"
+if defined setup_prepare goto prepare_target
 if exist "%project_root%src\studycenter_public\platform\setup.py" (
     "%project_python%" -I "%project_root%src\studycenter_public\platform\setup.py" --root "%project_root%." --source "%project_root%." --uv "%uv%" %*
 ) else (
     "%project_python%" -I "%project_root%setup.py" --root "%project_root%." --manifest "%project_root%slim-manifest.json" --uv "%uv%" %*
 )
+exit /b %errorlevel%
+:prepare_target
+"%project_python%" -I "%bootstrap_root%setup.py" --root "%project_root%." --manifest "%bootstrap_root%slim-manifest.json" --uv "%uv%" %*
 exit /b %errorlevel%
 :damaged_archive
 del "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%" >nul 2>nul

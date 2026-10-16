@@ -179,6 +179,32 @@ begin
   Result := True;
 end;
 #endif
+function PendingSetupDirectory(Directory, DataDirectory: String): Boolean;
+#ifdef SlimSetup
+var Marker: String; Search: TSafeFindRec;
+#endif
+begin
+  Result := False;
+#ifdef SlimSetup
+  Marker := AddBackslash(Directory) + '.setup-pending.ini';
+  if FileExists(AddBackslash(Directory) + 'installation-marker.ini') or
+     FileExists(AddBackslash(Directory) + 'installation-files.txt') then exit;
+  if not NoReparseAncestors(Marker) or not FileExists(Marker) then exit;
+  if GetIniString('identity', 'application', '', Marker) <> OwnApplication then exit;
+  if CompareText(GetIniString('identity', 'data_directory', '', Marker), ExpandFileName(DataDirectory)) <> 0 then exit;
+  if not SafeFindFirst(AddBackslash(Directory) + '*', Search) then exit;
+  try repeat
+    if (Search.Name <> '.') and (Search.Name <> '..') then begin
+      if CompareText(Search.Name, '.local') = 0 then begin
+        if (Search.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0) or not SafeLocalTree(AddBackslash(Directory) + '.local') then exit;
+      end else if CompareText(Search.Name, '.setup-pending.ini') <> 0 then exit;
+    end;
+  until not SafeFindNext(Search);
+  if Search.Error <> 18 then exit;
+  finally SafeFindClose(Search); end;
+  Result := True;
+#endif
+end;
 procedure SkipWhitespace(S: String; var Offset: Integer);
 begin
   while Offset <= Length(S) do begin
@@ -310,6 +336,7 @@ begin
   end;
   Marker := AddBackslash(Directory) + 'installation-marker.ini';
   Inventory := AddBackslash(Directory) + 'installation-files.txt';
+  if AllowEmpty and PendingSetupDirectory(Directory, DataDirectory) then begin Result := ''; exit; end;
   if not NoReparseAncestors(Marker) or not NoReparseAncestors(Inventory) then exit;
   if not RegQueryStringValue(HKCU, OwnUninstallKey, 'InstallLocation', Registered) then exit;
   if CompareText(RemoveBackslashUnlessRoot(ExpandFileName(Registered)), RemoveBackslashUnlessRoot(ExpandFileName(Directory))) <> 0 then exit;
@@ -384,6 +411,9 @@ begin
 end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: String;
+#ifdef SlimSetup
+  OldSetupLog: TArrayOfString;
+#endif
 begin
   DataDirectory := GetDataDirectory('');
   Result := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, True);
@@ -427,20 +457,38 @@ begin
       end;
     end;
     if FileExists(ExpandConstant('{app}\installation-files.txt')) then
-      if not LoadStringsFromFile(ExpandConstant('{app}\installation-files.txt'), OldInstallationFiles) then Result := 'Previous installation inventory cannot be read.';
+      if not LoadStringsFromFile(ExpandConstant('{app}\installation-files.txt'), OldInstallationFiles) then begin Result := 'Previous installation inventory cannot be read.'; exit; end;
+    { Prepare before [Files] and uninstall registration replace the working app.
+      An interrupted first setup owns only its marked .local staging directory. }
+    if not FileExists(ExpandConstant('{app}\installation-marker.ini')) then begin
+      if not ForceDirectories(ExpandConstant('{app}')) or
+         not SetIniString('identity', 'application', OwnApplication, ExpandConstant('{app}\.setup-pending.ini')) or
+         not SetIniString('identity', 'data_directory', ExpandFileName(DataDirectory), ExpandConstant('{app}\.setup-pending.ini')) then begin Result := 'Cannot mark this new Public setup for retry.'; exit; end;
+    end;
+    ExtractTemporaryFile('start.cmd');
+    ExtractTemporaryFile('setup.py');
+    ExtractTemporaryFile('slim-manifest.json');
+    WizardForm.PreparingLabel.Caption := 'Preparing the Public base environment. The first setup needs internet; downloads are reused on retry.';
+    WizardForm.Refresh;
+    if not Exec(ExpandConstant('{cmd}'), '/d /c ""' + ExpandConstant('{tmp}\start.cmd') + '" --prepare-target "' + ExpandConstant('{app}') + '" --setup-only --update --data-dir "' + DataDirectory + '" > "' + ExpandConstant('{tmp}\public-base-setup.log') + '" 2>&1"', ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then begin
+      Log('Public base setup failed. The previous program files were not replaced.');
+      if LoadStringsFromFile(ExpandConstant('{tmp}\public-base-setup.log'), OldSetupLog) then
+        for Attempt := 0 to GetArrayLength(OldSetupLog) - 1 do Log(OldSetupLog[Attempt]);
+      Result := 'Public base setup did not finish. Retry this installer; existing program files and personal data are retained.';
+      exit;
+    end;
   end;
 #endif
 end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var Lines: TArrayOfString; Output, Marker, Inventory: String;
 #ifdef SlimSetup
-  ResultCode, I, Separator: Integer; Relative, Path: String;
+  I, Separator: Integer; Relative, Path: String;
 #endif
 begin
   if CurStep <> ssPostInstall then exit;
 #ifdef SlimSetup
-  if not Exec(ExpandConstant('{cmd}'), '/d /c ""' + ExpandConstant('{app}\start.cmd') + '" --setup-only --update --data-dir "' + GetDataDirectory('') + '""', ExpandConstant('{app}'), SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
-    RaiseException('Public base setup did not finish. Run start.cmd again to retry; previous environment and personal data are retained.');
+  DeleteFile(ExpandConstant('{app}\.setup-pending.ini'));
   { Only delete the already verified old inventory after the new base is ready. }
   for I := 0 to GetArrayLength(OldInstallationFiles) - 1 do begin
     Separator := Pos('|', OldInstallationFiles[I]);

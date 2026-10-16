@@ -284,6 +284,22 @@ def load_manifest(path):
     return data
 
 
+def retain_manifest(root, manifest):
+    """Keep a release's exact metadata after its temporary installer exits."""
+    load_manifest(manifest)
+    payload = checked_file(manifest).read_bytes()
+    directory = regular_directory(Path(root) / '.local/manifests')
+    directory.mkdir(parents=True, exist_ok=True)
+    destination = checked_file(directory / (hashlib.sha256(payload).hexdigest() + '.json'))
+    if not destination.exists():
+        temporary = checked_file(directory / (uuid4().hex + '.tmp'))
+        temporary.write_bytes(payload)
+        temporary.replace(destination)
+    elif destination.read_bytes() != payload:
+        raise ValueError('Saved release manifest is damaged; setup did not promote the environment.')
+    return destination
+
+
 def ensure_uv(root, requested=None):
     """Repair the small pinned tool only when a setup operation needs it."""
     if requested and checked_file(requested).is_file():
@@ -365,11 +381,15 @@ def ensure_environment(root, uv, *, source=None, manifest=None, update=False):
                    'python_origin': 'existing-own', 'base_python_origin': base_origin, 'base_python': base_python}
         save_installation(root, adopted)
         return adopted
-    manifest = Path(manifest or receipt.get('manifest', '')).absolute() if manifest or receipt.get('manifest') else None
+    # A source checkout always follows its current component metadata. Release
+    # receipts instead retain the exact manifest from their own setup.
+    manifest = Path(manifest).absolute() if manifest else None
     if not manifest and source:
         candidate = source / 'packaging' / ('slim-windows-x86_64.json' if os.name == 'nt' else 'slim-linux-x86_64.json')
         if checked_file(candidate).is_file():
             manifest = candidate
+    if not manifest and receipt.get('manifest'):
+        manifest = Path(receipt['manifest']).absolute()
     release = load_manifest(manifest) if manifest else None
     if not source and not release:
         raise ValueError('Setup needs its source checkout or release manifest.')
@@ -407,6 +427,8 @@ def ensure_environment(root, uv, *, source=None, manifest=None, update=False):
     run([python, '-I', '-c', 'import studycenter_public; from studycenter_public.web import create_app'], env=env)
     if not environment_usable(root, python):
         raise RuntimeError('The prepared private environment is invalid; the previous installation is retained.')
+    if manifest and not source:
+        manifest = retain_manifest(root, manifest)
     new = {'schema': 1, 'application': APPLICATION, 'root': str(root), 'environment': str(environment),
            'python': str(python), 'uv': str(Path(uv).absolute()), 'source': str(source) if source else None,
            'manifest': str(manifest) if manifest else None, 'python_origin': origin, 'base_python': str(interpreter),
@@ -556,6 +578,7 @@ def main(argv=None):
     parser.add_argument('--data-dir')
     parser.add_argument('--stop', action='store_true')
     parser.add_argument('--lock-check', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--prepare-target', type=Path, help=argparse.SUPPRESS)
     args, application_args = parser.parse_known_args(argv)
     root = regular_directory(args.root)
     stopping = args.stop or '--quit' in application_args
