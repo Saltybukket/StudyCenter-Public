@@ -220,7 +220,26 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
     probe_app(program, data, offline, result)
     if os.name == 'nt':
         preserved = (data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()
+        notices = list((program/'.local/components').rglob('*COPYING.LGPL-2.1-or-later'))
+        assert notices and max(len(str(p)) for p in notices) > 260
+        result['long_component_notice_path_chars'] = max(len(str(p)) for p in notices)
+        foreign = root/'foreign-junction-fixture'
+        foreign.mkdir()
+        marker = foreign/'keep.txt'
+        marker.write_bytes(b'Synthetic foreign junction target')
+        link = program/'.local/refused-junction'
+        run_command(['cmd.exe', '/d', '/c', 'mklink', '/J', str(link), str(foreign)], env)
+        assert link.is_junction()
+        refused_log = root/'junction-refusal.log'
+        refused = subprocess.run([str(program/'unins000.exe'), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG='+str(refused_log)],
+            env=env, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
+        assert refused.returncode != 0
+        assert 'Public own safety refused member' in refused_log.read_text(errors='replace')
+        assert (program/'start.cmd').exists() and marker.read_bytes() == b'Synthetic foreign junction target'
+        os.rmdir(link)  # Remove only this own junction, never recurse into its target.
+        result['junction_refused_without_foreign_deletion'] = True
         uninstall(program, env, root/'uninstall.log')
+        assert marker.read_bytes() == b'Synthetic foreign junction target'
         assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == preserved
         assert not (program/'start.cmd').exists() and not (program/'.local').exists()
         result['uninstall_retains_data_removes_own_environment'] = True

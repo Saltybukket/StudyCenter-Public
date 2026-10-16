@@ -541,8 +541,12 @@ begin
     Safe := SafeLocalTree(LocalDirectory);
     Log('Public own environment safety: ' + IntToStr(Ord(Safe)) + '; path: ' + LocalDirectory);
     if Safe then begin
-      Removed := DelTree(LocalDirectory, True, True, True);
+      { The same verified local directory, with the Win32 long-path spelling.
+        Component license filenames exceed MAX_PATH; no path/owner guard is skipped. }
+      Removed := not DirExists(LocalDirectory);
+      if not Removed then Removed := DelTree('\\?\' + LocalDirectory, True, True, True);
       Log('Public own environment removal: ' + IntToStr(Ord(Removed)) + '; Windows error: ' + IntToStr(DLLGetLastError));
+      if not Removed then RaiseException('The own Public environment could not be completely removed. See the uninstall log; personal data was retained.');
     end;
   end;
 end;
