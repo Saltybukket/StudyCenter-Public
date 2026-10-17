@@ -15,6 +15,43 @@
  const bind=(selector,event,fn)=>document.querySelectorAll(selector).forEach(el=>el.addEventListener(event,async e=>{try{await fn(e,el);}catch(error){report(error.message,true);}}));
  const fields=form=>Object.fromEntries(new FormData(form));
  const mib=bytes=>(bytes/1048576).toFixed(1)+' MiB';
+ const settingsNav=document.querySelector('[data-settings-nav]');
+ if(settingsNav){
+  const panes=[...document.querySelectorAll('[data-settings-pane]')];
+  const tabs=[...settingsNav.querySelectorAll('a[href^="#"]')];
+  settingsNav.setAttribute('role','tablist');
+  settingsNav.setAttribute('aria-orientation','horizontal');
+  tabs.forEach(tab=>tab.setAttribute('role','tab'));
+  panes.forEach(pane=>{pane.setAttribute('role','tabpanel');pane.tabIndex=0;});
+  function selectSettings(){
+   let fragment='';try{fragment=decodeURIComponent(location.hash.slice(1));}catch{/* Invalid fragments use the first tab. */}
+   const target=document.getElementById(fragment);
+   let selected=target?.closest('[data-settings-pane]')?.dataset.settingsPane||new URL(location.href).searchParams.get('section');
+   if(!panes.some(pane=>pane.dataset.settingsPane===selected))selected='notifications';
+   panes.forEach(pane=>{pane.hidden=pane.dataset.settingsPane!==selected;});
+   tabs.forEach(tab=>{const active=tab.hash==='#'+selected;tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;if(active)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');});
+   if(target&&!tabs.some(tab=>tab.hash==='#'+fragment)){
+    for(let parent=target;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+    requestAnimationFrame(()=>target.scrollIntoView({block:'start'}));
+   }
+  }
+  function activateSettings(tab){
+   if(location.hash!==tab.hash){const url=new URL(location.href);url.hash=tab.hash;url.searchParams.delete('section');history.pushState(null,'',url);}
+   selectSettings();
+  }
+  tabs.forEach((tab,index)=>{
+   tab.addEventListener('click',event=>{if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();activateSettings(tab);});
+   tab.addEventListener('keydown',event=>{
+    let next;
+    if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;
+    else if(['ArrowRight','ArrowDown'].includes(event.key))next=(index+1)%tabs.length;
+    else if(['ArrowLeft','ArrowUp'].includes(event.key))next=(index+tabs.length-1)%tabs.length;
+    else if(event.key===' '){event.preventDefault();activateSettings(tab);return;}else return;
+    event.preventDefault();tabs[next].focus();activateSettings(tabs[next]);
+   });
+  });
+  selectSettings();addEventListener('hashchange',selectSettings);addEventListener('popstate',selectSettings);
+ }
  function componentSize(info){
   const known=(info.download_bytes||0)+(info.python_download_bytes||0);
   return known?mib(known)+(info.size_complete?'':' plus Python-Bibliotheken (Größe noch nicht bestimmt)'):'Downloadgröße der Bibliotheken noch nicht bestimmt';
@@ -82,8 +119,9 @@
  bind('#preview-cancel','click',()=>{pending=null;previewDialog.close();});
  bind('#receipt-undo','click',async()=>{if(!lastReceipt)return;const result=await api('/api/actions/undo',{request_id:lastReceipt.request_id,undo_id:crypto.randomUUID()});if(result.state==='blocked'||result.blocked){report('Rücknahme blockiert: Der Eintrag wurde danach geändert. Es wurde nichts überschrieben.',true);receiptDialog.close();return;}location.reload();});
  bind('#receipt-close','click',()=>location.reload());
- bind('#create-form','submit',async(e,form)=>{e.preventDefault();const data=fields(form);const kind=data.kind;delete data.kind;for(const key of ['date','time'])if(!data[key])delete data[key];if(data.time&&!data.date)throw Error('Eine Uhrzeit braucht ein Datum.');await preview([{type:'create_'+kind,...data}]);});
- bind('#edit-form','submit',async(e,form)=>{e.preventDefault();const data=fields(form);data.date=data.date||null;data.time=data.time||null;await preview([{type:'update',item_id:+form.dataset.id,fields:data}],{[form.dataset.id]:+form.dataset.version});});
+ bind('#create-form','submit',async(e,form)=>{e.preventDefault();const data=fields(form);const kind=data.kind;delete data.kind;for(const key of ['date','time','end_date','end_time'])if(!data[key])delete data[key];if(data.time&&!data.date)throw Error('Eine Uhrzeit braucht ein Datum.');if(data.end_time&&!data.end_date)throw Error('Eine Schlusszeit braucht ein Schlussdatum.');await preview([{type:'create_'+kind,...data}]);});
+ const editForm=document.getElementById('edit-form'),editDefaults=editForm?fields(editForm):{};
+ bind('#edit-form','submit',async(e,form)=>{e.preventDefault();const values=fields(form);if(values.time&&!values.date)throw Error('Eine Uhrzeit braucht ein Datum.');if(values.end_time&&!values.end_date)throw Error('Eine Schlusszeit braucht ein Schlussdatum.');if(values.date&&values.end_date&&(values.end_date<values.date||(values.end_date===values.date&&values.time&&values.end_time&&values.end_time<values.time)))throw Error('Der Schluss darf nicht vor dem Beginn liegen.');const data=Object.fromEntries(Object.entries(values).filter(([key,value])=>value!==editDefaults[key]));if(!Object.keys(data).length){report('Keine Änderung zum Prüfen.');return;}for(const key of ['date','time','end_date','end_time'])if(key in data)data[key]=data[key]||null;await preview([{type:'update',item_id:+form.dataset.id,fields:data}],{[form.dataset.id]:+form.dataset.version});});
  bind('.item-status','click',async(e,b)=>preview([{type:'set_status',item_id:+b.dataset.id,status:b.dataset.status}],{[b.dataset.id]:+b.dataset.version}));
  bind('#detail-status','change',async(e,b)=>preview([{type:'set_status',item_id:+b.dataset.id,status:b.value}],{[b.dataset.id]:+b.dataset.version}));
  bind('.item-pin','click',async(e,b)=>preview([{type:'update',item_id:+b.dataset.id,fields:{pinned:b.dataset.pinned==='true'}}],{[b.dataset.id]:+b.dataset.version}));
@@ -121,7 +159,13 @@
  bind('.provider-disconnect','click',async(e,b)=>{await api('/api/providers/disconnect',{profile_id:b.dataset.id});location.reload();});
  bind('#oauth-start','click',async()=>{const result=await api('/api/oauth/start',{session_only:document.querySelector('#provider-form [name=session_only]').checked});report(result.status);});
  bind('#mail-form','submit',async(e,form)=>{e.preventDefault();try{await api('/api/mail/configure',fields(form));report('Eigener Mailzugang gespeichert. Unter Kurse & Quellen eine IMAP-Quelle hinzufügen und manuell synchronisieren.');}finally{form.elements.password.value='';}});
- bind('#theme','change',(e,select)=>{window.scTheme(select.value);return api('/api/settings',{theme:select.value});});
+ bind('#theme, [data-theme-choice]','change',(e,input)=>{window.scTheme(input.value);return api('/api/settings',{theme:input.value});});
+ const themeSelect=document.getElementById('theme');
+ if(themeSelect){
+  if(window.scThemeMode)themeSelect.value=window.scThemeMode();
+  const choices=document.querySelector('[data-theme-choices]'),fallback=document.querySelector('[data-theme-fallback]');
+  if(choices&&fallback){choices.hidden=false;fallback.hidden=true;}
+ }
  bind('#compact','change',(e,input)=>{document.body.classList.toggle('compact',input.checked);return api('/api/settings',{compact:input.checked});});
  document.body.classList.toggle('compact',document.getElementById('compact').checked);
  for(const [selector,key] of [['#direct-mode','direct_mode'],['#background','background']])bind(selector,'change',(e,input)=>api('/api/settings',{[key]:input.checked}));
@@ -139,7 +183,7 @@
  bind('#speech-stop','click',()=>{if('speechSynthesis'in window)speechSynthesis.cancel();});
  bind('#record','click',async(e,b)=>{if(recorder&&recorder.state==='recording'){recorder.stop();b.textContent='Sprache aufnehmen';return;}if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw Error('Mikrofonaufnahme ist in diesem Browser nicht verfügbar.');const status=await api('/api/speech/status',undefined,'GET');if(!status.enabled||!status.model_ready||!status.runtime_installed)throw Error('Sprache zuerst unter Einstellungen einrichten und Modell herunterladen.');const stream=await navigator.mediaDevices.getUserMedia({audio:true});recordChunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=event=>recordChunks.push(event.data);recorder.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());try{const form=new FormData();form.append('file',new Blob(recordChunks,{type:recorder.mimeType}),'aufnahme.webm');const result=await api('/api/speech/transcribe',form);document.querySelector('#assistant-form [name=text]').value=result.text;report('Erkannte Sprache eingefügt. Vor dem Senden prüfen.');}catch(error){report(error.message,true);}};recorder.start();b.textContent='Aufnahme beenden';setTimeout(()=>{if(recorder.state==='recording'){recorder.stop();b.textContent='Sprache aufnehmen';}},60000);});
  bind('#remove-data','submit',async(e,form)=>{e.preventDefault();await api('/api/data/remove',{confirmed:true,confirmation:form.elements.confirmation.value});report('Diese Public-Instanz beendet sich und entfernt ihren eigenen Bestand.');});
- bind('#shutdown','click',async()=>{await api('/api/shutdown',{});report('Diese Public-Instanz beendet sich.');});
+ bind('#shutdown, .app-shutdown','click',async()=>{await api('/api/shutdown',{});report('Diese Public-Instanz beendet sich.');});
  const seen=new Set();
  async function poll(){
   try{const jobs=await api('/api/jobs',undefined,'GET');const root=document.getElementById('jobs');for(const [name,job]of Object.entries(jobs)){

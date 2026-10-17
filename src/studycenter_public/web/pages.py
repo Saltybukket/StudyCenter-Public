@@ -2,16 +2,26 @@
 from collections import defaultdict
 from datetime import date,timedelta
 import calendar
+import sys
+import hashlib
 from pathlib import Path
 from fastapi import APIRouter,Query,Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import PlainTextResponse
 router=APIRouter()
 templates=Jinja2Templates(directory=Path(__file__).parent/'templates')
+
+def static_url(name):
+    # A browser must not combine newly rendered forms with a cached older script.
+    digest=hashlib.sha256((Path(__file__).parent/'static'/name).read_bytes()).hexdigest()[:12]
+    return '/static/'+name+'?v='+digest
+
+templates.env.globals['static_url']=static_url
 NAV=[('/overview','Übersicht','◉'),('/board','Aufgaben & Notizen','✓'),('/pins','Pins','◇'),('/timeline','Timeline','↗'),('/calendar','Kalender','▦'),('/archive','Archiv','□'),('/sources','Kurse & Quellen','⊞'),('/documents','Dokumente','≡'),('/assistant','Assistent','◎'),('/mail','TU-Mail','✉'),('/model','KI-Verbindung','⌘'),('/settings','Einstellungen','⚙')]
 
 def render(r,page,title,**extra):
     s=r.app.state
+    extra['is_windows']=sys.platform=='win32'
     response=templates.TemplateResponse(request=r,name='page.html',context={'request':r,'page':page,'title':title,'nav':NAV,'csrf':s.csrf,'settings':s.settings.values,'data_dir':str(s.paths.data),'secret_storage':s.secrets.status,'items':s.db.items(),'sources':s.db.sources(),'documents':s.db.documents(),'model_status':s.profiles.status(),'today':date.today().isoformat(),**extra})
     response.set_cookie('scpublic_session',s.session,httponly=True,samesite='strict')
     return response
@@ -19,7 +29,16 @@ def render(r,page,title,**extra):
 @router.get('/')
 @router.get('/overview')
 def overview(r:Request):
-    return render(r,'overview','Übersicht',active=[i for i in r.app.state.db.items() if i['status'] not in ('done','ignored')])
+    from datetime import datetime
+    from ..config import VIENNA
+    today=datetime.now(VIENNA).date()
+    active=[i for i in r.app.state.db.items() if i['status'] not in ('done','ignored')]
+    def effective(item):
+        return (item.get('end_date') if item.get('date_meaning') in ('deadline','window') else None) or item.get('date') or ''
+    dated=sorted((i for i in active if effective(i)),key=lambda i:(effective(i),i['id']))
+    focus=[i for i in dated if effective(i)<=(today+timedelta(days=13)).isoformat()]
+    week=[i for i in dated if today.isoformat()<=effective(i)<=(today+timedelta(days=6)).isoformat()]
+    return render(r,'overview','Übersicht',active=active,focus_actions=focus,week_active=week,checks_active=[i for i in active if i.get('conflict')])
 
 @router.get('/board')
 def board(r:Request):return render(r,'board','Aufgaben & Notizen',active=[i for i in r.app.state.db.items() if i['status'] not in ('done','ignored')])
@@ -71,7 +90,12 @@ def cal(r:Request,month:str='',view:str='month',anchor:str=Query('',alias='date'
 def item(r:Request,item_id:int):
     entry=r.app.state.db.item(item_id)
     if not entry:raise KeyError(item_id)
-    return render(r,'item',entry['title'],entry=entry)
+    rules=r.app.state.reminders.settings()
+    category=entry['kind']
+    if category=='event':
+        category='lecture' if any(word in entry['title'].casefold() for word in ('lecture','vorlesung')) else 'exercise'
+    reminder={'enabled':True,'offsets':rules['offsets'].get(category,[])} | rules['exceptions'].get(str(item_id),{})
+    return render(r,'item',entry['title'],entry=entry,item_reminder=reminder)
 
 @router.get('/items/{item_id}/compare')
 def compare(r:Request,item_id:int):

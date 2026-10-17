@@ -1,7 +1,39 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf }}"><title>{{ title }} · StudyCenter Public</title>
-<link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/theme.css"><link rel="stylesheet" href="/static/postits.css"><link rel="stylesheet" href="/static/calendar.css"><link rel="stylesheet" href="/static/details.css"><link rel="stylesheet" href="/static/public.css"><script src="/static/theme.js"></script><script src="/static/public.js" defer></script></head>
-<body data-page="{{ page }}"><a class="skip-link" href="#main">Zum Inhalt</a><header class="masthead"><a class="brand" href="/overview"><span class="brand-mark">sc</span>StudyCenter <span class="local">PUBLIC · LOKAL</span></a><form class="header-search" action="/search"><input name="q" aria-label="Studieninformationen durchsuchen" placeholder="Suchen" maxlength="240"><button class="secondary">⌕</button></form><div class="actions"><a href="/settings#bell" aria-label="Benachrichtigungen" id="bell-link">♧ Glocke</a><a href="/assistant">Assistent</a><a href="/setup">Einrichtung</a></div></header>
-<div class="layout"><aside><p class="eyebrow">DEIN STUDIUM</p><nav aria-label="Hauptnavigation">{% for url,label,icon in nav %}<a href="{{ url }}" {% if request.url.path==url %}aria-current="page"{% endif %}><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav><p class="sidebar-note">Deine Daten auf diesem Rechner.<br>Europe/Vienna · Sync nur manuell<br><a href="/help">Kurzanleitung</a></p></aside><main id="main"><div class="page-toolbar"><h1>{{ title }}</h1><label class="check"><input id="compact" type="checkbox" {% if settings.compact %}checked{% endif %}>Kompakt</label></div><div id="notice" role="status" hidden></div>{% if not settings.onboarding_complete and page!='setup' %}<p class="setup-note">Du startest mit einem leeren persönlichen Bestand. <a href="/setup">Einrichtung fortsetzen →</a> Eigene Einträge und Import sind sofort nutzbar.</p>{% endif %}{% block content %}{% endblock %}<div id="jobs" aria-live="polite"></div></main></div>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}"><title>{{ title }} · StudyCenter Public</title>
+  <script src="{{ static_url('theme.js') }}"></script>
+  <link rel="stylesheet" href="{{ static_url('app.css') }}">
+  <link rel="stylesheet" href="{{ static_url('postits.css') }}"><link rel="stylesheet" href="{{ static_url('calendar.css') }}"><link rel="stylesheet" href="{{ static_url('details.css') }}">
+  {% if page in ['overview','documents'] %}<link rel="stylesheet" href="{{ static_url('dashboard.css') }}">{% endif %}
+  <link rel="stylesheet" href="{{ static_url('public.css') }}"><link rel="stylesheet" href="{{ static_url('parity.css') }}">
+  {% if page=='settings' %}<link rel="stylesheet" href="{{ static_url('settings.css') }}">{% endif %}
+  <link rel="stylesheet" href="{{ static_url('theme.css') }}">
+  <script src="{{ static_url('public.js') }}" defer></script>
+</head>
+<body data-page="{{ page }}" data-preferred-theme="{{ settings.get('theme','system') }}">
+<a class="skip-link" href="#main">Zum Inhalt</a>
+<header class="masthead">
+  <a class="brand" href="/overview"><span class="brand-mark">sc</span>StudyCenter <span class="local">PUBLIC · LOKAL</span></a>
+  <form class="header-search" action="/search" role="search"><label class="visually-hidden" for="global-search">Studieninformationen durchsuchen</label><input id="global-search" type="search" name="q" placeholder="StudyCenter durchsuchen" maxlength="240" required><button class="secondary" aria-label="Suchen">⌕</button></form>
+  <div class="actions header-actions"><a class="header-action" href="/settings#bell" aria-label="Benachrichtigungen" id="bell-link"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>Glocke</span></a><a class="header-action" href="/assistant">Assistent</a><a class="header-action" href="/sources">Kurse & Quellen</a></div>
+</header>
+<div class="layout">
+  <aside>
+    <p class="eyebrow">DEIN STUDIUM</p>
+    <nav aria-label="Hauptnavigation">{% for url,label,icon in nav if url in ['/overview','/timeline','/board','/pins','/calendar'] %}<a href="{{ url }}" {% if request.url.path==url or (url=='/board' and page=='item') %}aria-current="page"{% endif %}><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}<a href="/search" {% if page=='search' %}aria-current="page"{% endif %}><span aria-hidden="true">⌕</span>Suche</a></nav>
+    <p class="eyebrow nav-heading">QUELLEN & EINSTELLUNGEN</p>
+    <nav aria-label="Verwaltung">{% for url,label,icon in nav if url not in ['/overview','/timeline','/board','/pins','/calendar'] %}<a href="{{ url }}" {% if request.url.path==url or (url=='/documents' and page=='reader') %}aria-current="page"{% endif %}><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Ein Rechner. Dein Überblick.<br><small>Europe/Vienna · Sync nur manuell</small><br><a href="/setup">Einrichtung</a> · <a href="/help">Kurzanleitung</a></div>
+  </aside>
+  <main id="main"><div class="page-toolbar"><h1>{{ title }}</h1><div class="toolbar-tools"><label class="check"><input id="compact" type="checkbox" {% if settings.compact %}checked{% endif %}>Kompakt</label></div></div>
+    <div id="notice" role="status" hidden></div>
+    {% if not settings.onboarding_complete and page!='setup' %}<p class="setup-note">Dein persönlicher Bestand ist bereit für eigene Einträge und Importe. <a href="/setup">Einrichtung fortsetzen →</a></p>{% endif %}
+    {% block content %}{% endblock %}<div id="jobs" aria-live="polite"></div>
+  </main>
+</div>
 <footer><a href="/help">StudyCenter Public · Kurzanleitung</a><span><a href="/license">AGPLv3</a> · <a href="https://github.com/Saltybukket/StudyCenter-Public">Quellcode</a> · <button class="secondary small" id="shutdown">Vollständig beenden</button></span></footer>
-<dialog id="preview-dialog"><h2>Aktion prüfen</h2><pre id="preview-content"></pre><p>Persönliche Änderung; keine offizielle Anmeldung oder Abgabe.</p><button id="preview-apply">Übernehmen</button><button class="secondary" id="preview-cancel">Abbrechen</button></dialog>
-<dialog id="receipt-dialog"><h2>Änderung übernommen</h2><p id="receipt-content"></p><button id="receipt-undo">Rückgängig</button><button class="secondary" id="receipt-close">Schließen</button></dialog></body></html>
+<dialog id="preview-dialog" aria-labelledby="preview-title"><h2 id="preview-title">Aktion prüfen</h2><pre id="preview-content"></pre><p>Persönliche Änderung; keine offizielle Anmeldung oder Abgabe.</p><button id="preview-apply">Übernehmen</button><button class="secondary" id="preview-cancel">Abbrechen</button></dialog>
+<dialog id="receipt-dialog" aria-labelledby="receipt-title"><h2 id="receipt-title">Änderung übernommen</h2><p id="receipt-content"></p><button id="receipt-undo">Rückgängig</button><button class="secondary" id="receipt-close">Schließen</button></dialog>
+</body></html>

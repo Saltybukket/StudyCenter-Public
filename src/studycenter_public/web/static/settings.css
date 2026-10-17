@@ -1,0 +1,59 @@
+/* Familiar compact settings: one chosen area, status first, details on demand. */
+.settings-page{--settings-surface:var(--surface,#fff);max-width:1240px}
+.settings-page .connection-intro{font-size:.84rem;line-height:1.65;max-width:80ch;margin:.15rem 0 1.2rem}
+.settings-page .settings-nav{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:.55rem;padding:.35rem 0 .85rem;margin:0 0 1rem;position:static;background:transparent;border-bottom:1px solid var(--line)}
+.settings-nav [role=tab]{display:flex;align-items:center;gap:.55rem;padding:.6rem .85rem;border:1px solid var(--line);border-radius:18px;color:var(--ink);background:var(--settings-surface);font-size:.78rem;line-height:1.4;white-space:nowrap}
+.settings-nav [role=tab]:hover{text-decoration:none;background:var(--soft);border-color:var(--green)}
+.settings-nav [role=tab][aria-selected=true]{background:var(--green);border-color:var(--green);color:var(--on-accent,#fff);font-weight:600}
+.settings-page .settings-icon{width:21px;height:21px;flex:0 0 auto;display:block}
+.settings-page .settings-nav span{display:inline;font-size:inherit;min-width:0}
+.settings-page [hidden]{display:none!important}
+.settings-page .settings-card{background:var(--settings-surface);padding:1.2rem 1.4rem;margin:0 0 .9rem;border:1px solid var(--line);border-radius:10px}
+.settings-page .settings-card-heading{display:flex;align-items:flex-start;gap:1.25rem;margin:0 0 .85rem}
+.settings-page .settings-card-heading>div{min-width:0}
+.settings-page .settings-card-heading h2{font-size:1.12rem;letter-spacing:-.015em;line-height:1.4;margin:0;color:var(--ink)}
+.settings-page .settings-card-heading p{font-size:.81rem;line-height:1.55;color:var(--muted);margin:.25rem 0 0}
+.settings-page .settings-card-icon{display:flex;align-items:center;justify-content:center;flex:0 0 44px;color:var(--green);padding:.1rem 0}
+.settings-page .settings-card-icon .settings-icon{width:36px;height:36px}
+.settings-page .settings-card>p,.settings-page .settings-card>form,.settings-page .settings-card>details,.settings-page .settings-card>.settings-group,.settings-page .settings-card>.actions,.settings-page .settings-card>div:not(.settings-card-heading){margin-left:calc(44px + 1.25rem)}
+.settings-page p{font-size:.82rem;line-height:1.6}
+.settings-page .settings-caption{color:var(--muted);font-size:.78rem;margin-top:.3rem}
+.settings-page .settings-status{display:table;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:.35rem .8rem;font-size:.81rem;font-weight:600;margin:.4rem 0 .7rem;overflow-wrap:anywhere}
+.settings-page [role=status]:empty{display:none}
+.settings-page .stack{gap:.8rem;margin-top:.8rem;margin-bottom:.7rem}
+.settings-page .settings-group{border:0;border-top:1px solid var(--line);padding:.9rem 0 .1rem;margin:0;min-width:0}
+.settings-page .settings-group legend{font-size:.83rem;font-weight:650;padding:0 .6rem 0 0}
+.settings-page .settings-group h3{font-size:.86rem;margin:.1rem 0 .75rem}
+.settings-page .settings-caption,.settings-page .settings-group p{font-size:.77rem;color:var(--muted)}
+.settings-page .form-row{display:flex;gap:.75rem;align-items:end;flex-wrap:wrap}
+.settings-page .form-row>label{flex:1 1 170px;min-width:0}
+.settings-page .check{font-size:.82rem;gap:.55rem;align-items:flex-start;line-height:1.55;padding:.35rem 0;white-space:normal}
+.settings-page .check input{flex:0 0 auto;margin-top:.25rem;accent-color:var(--green)}
+.settings-page label{font-size:.8rem}
+.settings-page input:not([type=checkbox]):not([type=radio]),.settings-page select{font-size:.82rem;padding:.55rem .65rem;width:100%;min-width:0}
+.settings-page input[type=time]{max-width:190px}
+.settings-page button{font-size:.8rem;padding:.55rem .85rem}
+.settings-page .actions{flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+.settings-page .settings-disclosure{border:1px solid var(--line);border-radius:7px;padding:.65rem .8rem;margin-block:.7rem;font-size:.79rem;color:var(--ink)}
+.settings-page details>summary{font-size:.82rem;font-weight:600;line-height:1.5;color:var(--ink);cursor:pointer}
+.settings-page details>summary>span{display:block;font-size:.73rem;font-weight:400;color:var(--muted);margin:.15rem 0 0;padding-left:1rem}
+.settings-page #reminder-settings>.settings-group:first-of-type>label{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,1fr);gap:.75rem;align-items:center;margin:.5rem 0}
+.settings-page details[open]>summary{border-bottom:1px solid var(--line);padding-bottom:.65rem;margin-bottom:.7rem}
+.settings-page .theme-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin:.7rem 0}
+.settings-page .theme-choices label{display:flex;flex-direction:row;align-items:start;gap:.7rem;border:1px solid var(--line);border-radius:8px;padding:.9rem;cursor:pointer;background:var(--settings-surface)}
+.settings-page .theme-choices label:has(input:checked){border-color:var(--green);background:var(--soft)}
+.settings-page .theme-choices label>span{display:grid;gap:.2rem;min-width:0}
+.settings-page .theme-choices small{font-size:.75rem;color:var(--muted)}
+.settings-page .theme-choices input{width:16px;height:16px;min-width:16px;max-width:16px;flex:0 0 16px;margin:.2rem 0 0;accent-color:var(--green)}
+.settings-page .settings-footer{font-size:.76rem;color:var(--muted);padding:.75rem 0 .2rem}
+.settings-page code{overflow-wrap:anywhere;white-space:normal}
+.settings-page #component-list>p{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;border-bottom:1px solid var(--line);padding:.6rem 0}
+.settings-page #component-list>p>button{margin-left:auto}
+@media(max-width:1000px){.settings-page .settings-nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;max-width:100%}}
+@media(max-width:700px){
+  .settings-page #reminder-settings>.settings-group:first-of-type>label{grid-template-columns:minmax(0,1fr);gap:.2rem}
+  .settings-page .settings-card{padding:1rem}.settings-page .settings-card-heading{gap:.7rem}
+  .settings-page .settings-card-icon{flex-basis:28px}.settings-page .settings-card-icon .settings-icon{width:26px;height:26px}
+  .settings-page .settings-card>p,.settings-page .settings-card>form,.settings-page .settings-card>details,.settings-page .settings-card>.settings-group,.settings-page .settings-card>.actions,.settings-page .settings-card>div:not(.settings-card-heading){margin-left:0}
+  .settings-page .theme-choices{grid-template-columns:minmax(0,1fr)}
+}
