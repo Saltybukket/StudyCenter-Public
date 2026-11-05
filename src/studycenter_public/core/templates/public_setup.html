@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Dein StudyCenter einrichten{% endblock %}
+{% block head %}<script src="{{ static_url('public_setup.js') }}" defer></script>{% endblock %}
+{% block content %}
+<section class="panel">
+  <p>Starte mit dem, was du brauchst. Aufgaben, Kalender und Text-PDFs funktionieren bereits. Weitere Funktionen kannst du jederzeit ergänzen.</p>
+  <div class="actions"><a class="button" href="/introduction">Einführung ansehen →</a><a href="/sources">Eigene Kurse verbinden</a><a href="/model">Luna verbinden</a></div>
+</section>
+<div class="settings-help-grid">
+{% for key,title,description in [('browser','TU-Browser','Melde dich mit deinem eigenen TU-Konto an und rufe deine Kurse ab.'),('ocr','Gescannte Unterlagen lesen','Erkennt Text auf eingescannten PDF-Seiten und in Bildern.'),('speech','Mit Luna sprechen','Wandelt deine Aufnahme auf diesem Rechner in Text um.')] %}
+{% set component=components.components[key] %}
+<section class="panel" data-component-card="{{ key }}">
+  <h2>{{ title }}</h2><p>{{ description }}</p>
+  <p role="status" data-component-status>{{ 'Bereit' if component.installed else 'Noch nicht eingerichtet' }}</p>
+  {% if component.error %}<p class="error">{{ component.error }}</p>{% endif %}
+  {% if not component.installed %}
+  {% if component.can_install %}
+  <form data-component-install="{{ key }}" class="stack">
+    <label class="check"><input name="consent" type="checkbox" required>Ich möchte diese optionale Funktion herunterladen und einrichten.</label>
+    <p class="muted">{% if component.download_bytes is not none %}Download: etwa {{ ((component.download_bytes + (component.python_download_bytes or 0))/1048576)|round(0)|int }} MB{% if not component.size_complete %} plus benötigte Bibliotheken{% endif %}.{% else %}Die Downloadgröße hängt von der Plattform ab.{% endif %}{% if key=='speech' %} Das Sprachmodell wird separat vor seiner Nutzung benötigt.{% endif %}</p>
+    <button type="submit">{{ title }} einrichten</button>
+  </form>
+  {% else %}<p>Diese Funktion lässt sich über die installierte Public-Version einrichten.</p>{% endif %}
+  {% endif %}
+</section>
+{% endfor %}
+</div>
+<section class="panel"><details><summary>Eigenes KI-Modell verbinden</summary>
+<p>Für dein ChatGPT-Konto nutze <a href="/model">Luna verbinden</a>. Hier kannst du alternativ eine eigene Chat-Completions-Verbindung einrichten.</p>
+<form action="/settings/model-api" method="post" data-model-api class="stack">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label>API-Adresse<input type="url" name="base_url" value="{{ settings.llm_base_url }}" placeholder="https://api.example.org/v1" required autocomplete="url"></label>
+<label>Modellname<input name="model" value="{{ settings.llm_model }}" required maxlength="200" placeholder="Modell bei deinem Anbieter"></label>
+<label>API-Schlüssel<input type="password" name="api_key" autocomplete="new-password" placeholder="Leer lassen, um den gespeicherten Schlüssel derselben Adresse zu behalten"></label>
+<label class="check"><input name="cloud_consent" value="yes" type="checkbox">Ich erlaube bei KI-Anfragen die Übermittlung ausgewählter Inhalte an diesen externen Anbieter. Dabei können Kosten entstehen. Für ein rein lokales Modell ist diese Freigabe nicht nötig.</label>
+<button>Verbindung speichern</button><p role="status"></p>
+</form></details></section>
+<section class="panel"><h2>Deine Daten gehören dir</h2><p>Verbinde deine eigenen Konten. Die Einführung erstellt keine Beispielaufgaben in deinem Bestand und startet keinen Quellenabruf. KI nutzt du nur mit einem von dir verbundenen Modell.</p><a href="/settings">Einstellungen und Sicherungen →</a>{% if request.app.state.migration_notice %}<p>{{ request.app.state.migration_notice }}</p><a href="/legacy">Übernommene Daten und früheren Verlauf ansehen →</a>{% endif %}</section>
+{% endblock %}

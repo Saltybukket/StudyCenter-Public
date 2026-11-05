@@ -128,7 +128,7 @@ class ComponentService:
         shell = bool(list(browser.glob('chromium_headless_shell-*')))
         present = {'browser': (full and (sys.platform == 'win32' or shell) and module_available('playwright')) or system_browser_available(),
                    'ocr': tesseract.is_file() and all((languages/(lang+'.traineddata')).is_file() for lang in ('eng', 'deu')),
-                   'speech': module_available('faster_whisper') and module_available('av')}
+                   'speech': all(module_available(name) for name in ('faster_whisper', 'av', 'sherpa_onnx'))}
         manifest = self._manifest()
         details = {}
         for name, label in COMPONENTS.items():

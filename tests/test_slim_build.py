@@ -48,3 +48,27 @@ def test_cached_archives_require_pinned_origin_hash_and_size(tmp_path, monkeypat
     (tmp_path/records['ocr']['archive']['filename']).write_bytes(b'bad')
     with pytest.raises(ValueError, match='archive changed'):
         build_slim.verify_cached_components(records, platform, tmp_path)
+
+
+def test_source_wheel_requires_exact_committed_package_bytes(tmp_path, monkeypatch):
+    import tarfile
+    import zipfile
+    import pytest
+    from scripts import build_slim
+    source = io.BytesIO()
+    with tarfile.open(fileobj=source, mode='w') as tree:
+        payload = b'synthetic committed source'
+        entry = tarfile.TarInfo('src/studycenter_public/__init__.py')
+        entry.size = len(payload)
+        tree.addfile(entry, io.BytesIO(payload))
+    monkeypatch.setattr(build_slim.subprocess, 'check_output', lambda *a, **k: source.getvalue())
+    wheel = tmp_path/'fixture.whl'
+    def write(content, extra=False):
+        with zipfile.ZipFile(wheel, 'w') as archive:
+            archive.writestr('studycenter_public/__init__.py', content)
+            if extra: archive.writestr('studycenter_public/foreign.py', b'untracked')
+    write(payload); build_slim.verify_source_wheel(wheel, 'synthetic-commit')
+    write(b'changed')
+    with pytest.raises(ValueError, match='changed='): build_slim.verify_source_wheel(wheel, 'synthetic-commit')
+    write(payload, True)
+    with pytest.raises(ValueError, match='extra='): build_slim.verify_source_wheel(wheel, 'synthetic-commit')

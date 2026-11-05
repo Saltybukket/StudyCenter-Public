@@ -1,0 +1,12 @@
+<link rel="stylesheet" href="{{ static_url('onboarding.css') }}">
+<script src="{{ static_url('onboarding.js') }}" defer></script>
+<div id="introduction" class="intro" hidden>
+  <div class="intro-backdrop"></div>
+  <section class="intro-card" role="dialog" aria-modal="true" aria-labelledby="intro-title" aria-describedby="intro-description" tabindex="-1">
+    <div class="intro-top"><span class="intro-brand">sc</span><span id="intro-progress" class="intro-progress"></span><button type="button" class="intro-close" aria-label="Einführung schließen">×</button></div>
+    <div class="intro-content"><p class="intro-kicker" id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-description"></p><p class="intro-detail" id="intro-detail"></p></div>
+    <button type="button" class="intro-try" hidden></button>
+    <div class="intro-actions"><button type="button" class="intro-skip">Überspringen</button><div><button type="button" class="intro-back">Zurück</button><button type="button" class="intro-next">Weiter <span aria-hidden="true">→</span></button></div></div>
+    <p class="intro-error" role="alert" hidden></p>
+  </section>
+</div>

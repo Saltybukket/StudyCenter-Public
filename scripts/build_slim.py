@@ -5,6 +5,7 @@ notices and corresponding-source offers are retained byte for byte.
 """
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -43,6 +44,28 @@ def release_version(tag):
     if not match:
         raise ValueError('Release tag must be vMAJOR.MINOR.PATCH-beta.N')
     return '.'.join(match.groups()[:3]) + 'b' + match.group(4)
+
+
+def verify_source_wheel(wheel, source_commit):
+    """Bind every shipped application byte to the requested Git tree."""
+    archive = subprocess.check_output(['git', 'archive', '--format=tar', source_commit,
+                                       'src/studycenter_public'], cwd=ROOT)
+    expected = {}
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tree:
+        for member in tree:
+            if member.isfile():
+                name = member.name.removeprefix('src/')
+                expected[name] = tree.extractfile(member).read()
+            elif not member.isdir():
+                raise ValueError('Source tree contains an unsupported package entry')
+    with zipfile.ZipFile(wheel) as package:
+        actual = {entry.filename: package.read(entry) for entry in package.infolist()
+                  if entry.filename.startswith('studycenter_public/') and not entry.is_dir()}
+    if not expected or expected != actual:
+        missing = sorted(set(expected) - set(actual))
+        extra = sorted(set(actual) - set(expected))
+        changed = sorted(name for name in expected.keys() & actual.keys() if expected[name] != actual[name])
+        raise ValueError(f'Wheel differs from source commit: missing={missing}, extra={extra}, changed={changed}')
 
 
 def verify_cached_components(optional, platform, output):
@@ -249,6 +272,7 @@ def main():
         actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         if args.source_commit != actual:
             raise ValueError('Release source must match the current committed checkpoint')
+        verify_source_wheel(args.wheel, actual)
     BASE = ORIGIN + args.release_tag + '/'
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -277,6 +301,8 @@ def main():
             optional['speech'] = speech_notices(notice_bundle, platform, output, version)
             cached.write_text(json.dumps(optional, indent=2))
         shutil.copy2(ROOT/lock.name, lock)
+        provenance = json.loads((ROOT/'src/studycenter_public/resources/sherpa-provenance.json').read_text(encoding='utf-8'))
+        optional['speech']['verified_wheels'] = provenance['wheels'][platform]
         manifest = {'schema': 1, 'version': version, 'platform': platform+'-x86_64', 'python': '3.12',
                     'wheel': record(wheel), 'lock': record(lock), 'components': optional,
                     'corresponding_sources': OLD_SOURCES}
@@ -287,13 +313,8 @@ def main():
             if proxy.resolve() != output/proxy.name:
                 shutil.copy2(proxy, output/proxy.name)
             manifest['extra_wheels'] = [record(output/proxy.name)]
-        measurements = ROOT/'reports-local/beta3/python-wheel-measurements.json'
-        if measurements.is_file():
-            measured = json.loads(measurements.read_text())['manifest_values'][platform]
-            # Size facts are filled after actual wheel retrieval, never guessed.
-            manifest['base_python_download_bytes'] = measured['base_python_download_bytes']
-            for name, sizes in measured['components'].items():
-                manifest['components'][name].update(sizes)
+        # Beta.3 Python size measurements omit new beta.5 dependencies.
+        # Leave estimates unknown until measured for this exact candidate.
         manifest_path = ROOT/'packaging'/('slim-'+platform+'-x86_64.json')
         manifest_path.write_text(json.dumps(manifest, indent=2)+'\n')
         release_manifest = dict(manifest)

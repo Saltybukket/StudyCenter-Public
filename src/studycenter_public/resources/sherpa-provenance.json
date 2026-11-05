@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "version": "1.13.8",
+  "sherpa_source": "https://github.com/k2-fsa/sherpa-onnx/tree/11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf",
+  "onnxruntime_source": "https://github.com/microsoft/onnxruntime/tree/33ca9628233dc8f002435e868d4c2e9f82766ca1",
+  "onnxruntime_version": "1.28.2",
+  "provenance": "Official PyPI JSON SHA-256 verified against downloaded wheels; wheel metadata and embedded ONNX Runtime version string inspected. Upstream release identifies ONNX Runtime 1.28.2. Exact binary build reproducibility has not been independently established.",
+  "wheels": {
+    "linux": [
+      {
+        "filename": "sherpa_onnx-1.13.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "url": "https://files.pythonhosted.org/packages/13/78/2f712b7408ddbb64614c20388912414705b728516224e737b63f2adec94a/sherpa_onnx-1.13.8-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        "sha256": "6949773017647febc0c3696dffb2c67dd3febd4737b87e3dd135a42773704a06",
+        "size": 4400575
+      },
+      {
+        "filename": "sherpa_onnx_core-1.13.8-py3-none-manylinux2014_x86_64.whl",
+        "url": "https://files.pythonhosted.org/packages/b6/ca/e27c1fb5c54b181d4a5450f3d5c789d9da02eb42dc9b20cfdab5dda4c864/sherpa_onnx_core-1.13.8-py3-none-manylinux2014_x86_64.whl",
+        "sha256": "4da90acf435373d7b2ba9cc0be806e7e274d28f63f5780880b5dea6721626e36",
+        "size": 10642497
+      }
+    ],
+    "windows": [
+      {
+        "filename": "sherpa_onnx-1.13.8-cp312-cp312-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/24/af/33e9dcaa527bbc0c2526959713626607a46da2d7b19871b7773d8607d356/sherpa_onnx-1.13.8-cp312-cp312-win_amd64.whl",
+        "sha256": "566e49ad3fb2aa8ceb723a52f9809aa6c2ee0a5eb3b0946c3fd2374af807a5c6",
+        "size": 2287856
+      },
+      {
+        "filename": "sherpa_onnx_core-1.13.8-py3-none-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/94/38/64356ad97f68fffcf01fe7545407ad18a2ea86c1ffae5b0950f7fac73638/sherpa_onnx_core-1.13.8-py3-none-win_amd64.whl",
+        "sha256": "5579e80196d516e6dae23c8f629292ce3142ab8869925d32b94612fd86f93733",
+        "size": 16903581
+      }
+    ]
+  }
+}

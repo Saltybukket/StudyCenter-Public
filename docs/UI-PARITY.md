@@ -1,5 +1,72 @@
 # Vergleich mit der privaten Referenz
 
+## Verbindliches Ziel
+
+Public soll dieselbe Anwendung wie die private Referenz ausliefern: gleiche
+Oberfläche, Bedienabläufe, Funktionen und Fehlerkorrekturen. Der Nutzer erlaubt
+ausdrücklich die direkte Wiederverwendung des privaten Anwendungscodes, der
+Templates, Assets und synthetischen Tests. Ein unabhängiger Nachbau oder eine
+reduzierte Funktionsauswahl ist nicht das Ziel. Die unten aufgeführten Lücken
+der veröffentlichten beta.4 sind offene Arbeit, keine akzeptierten Unterschiede.
+
+Nicht übernommen werden persönliche Datenbanken, Kursdownloads, Einstellungen
+mit persönlichen Inhalten, Secrets, Tokens, Browserprofile, Anmeldesitzungen oder
+Logs. Jede Installation beginnt mit ihrem eigenen Bestand und eigenen Zugängen.
+Notwendige Anpassungen für saubere Ersteinrichtung, getrennte Datenpfade und
+Windows-/Linux-Pakete sollen an der Distributionsgrenze bleiben. Vorhandene
+Public-Nutzerdaten müssen bei einer Umstellung erhalten bleiben. Gleichheit wird
+mit denselben synthetischen Eingaben und Einstellungen geprüft; unterschiedliche
+Kursgruppen, persönliche Fortschritte oder KI-Ausgaben sind keine UI-Parität.
+
+## Gemeinsamer Produktkern ab beta.5
+
+`src/studycenter_public/core` enthält die direkte Übernahme der aktuellen
+privaten Produktquelle einschließlich ihrer nicht eingecheckten Korrekturen,
+Templates und Assets. `packaging/product-source.json` bindet 90 Quelldateien:
+69 sind bytegleich, 21 enthalten einzeln begründete Distributionsanpassungen.
+Fünf zusätzliche Dateien liefern die neue Tour und Public-Einrichtung. Die
+Anpassungen betreffen insbesondere isolierte Pfade/Zugangsspeicher, optionale
+Komponenten, lokale Adressen und Betriebssystem-Anbindung. Die bisherigen
+separaten Public-Serviceverträge sind nicht mehr der aktive Produktkern.
+
+Die Einführung wurde zuerst neu erstellt und erst anschließend mit ICE verglichen.
+Sie führt zu echten Kurs- und Aufgabenformularen, lässt sich pausieren, fortsetzen,
+überspringen und erneut öffnen. Sie erzeugt keine Beispieldaten im Nutzerbestand
+und startet weder Anmeldung noch Abruf oder KI-Aufruf.
+
+Prüfen ohne privates Checkout:
+
+```powershell
+python scripts/sync_product.py verify
+```
+
+Mit ausdrücklich gewählter Referenz `--source CODE_DIR` werden auch deren aktuelle
+Hashes geprüft. `update --source CODE_DIR` übernimmt nach Inhaltsprüfung nur
+unveränderte Dateien; geänderte Public-Anpassungen oder Dateimengen erfordern
+bewusste Zusammenführung. Das Manifest ersetzt keine Verhaltenstests.
+`tests/product_reference` übernimmt Original-Verhaltenstests mit Anpassungen
+für Paketimporte, isolierte Testeinstellungen, Ressourcenpfade und synthetische
+Adressen; weitere Tests prüfen Public-Einrichtung, Migration und Paketierung.
+
+Jede Person benötigt eigene Konten und Freigaben. Ein gleicher Kurs allein
+bedeutet nicht gleiche Gruppen, Termine, Bearbeitungsstände oder identische
+KI-Ausgaben. Reale Konten und plattformspezifische Integrationen sind getrennt
+von Quell- und synthetischen Verhaltenstests zu bewerten.
+
+Eine Beta4-Umstellung erhält das Original und ein lesbares lokales Archiv. Sie
+übersetzt belegbar kompatible Einträge, persönliche Korrekturen und Quest-Schritte.
+Mehrdeutige Beziehungen, abweichende Originale oder inkompatible aktive Zustände
+werden nicht stillschweigend verworfen: Die Umstellung stoppt vor dem Wechsel.
+Frühere Aktionsbelege bleiben lesbar, ihr altes Undo ist nicht im neuen Kern
+verfügbar. Persönlich geplante Einträge bleiben nach einem späteren Statuswechsel
+weiterhin persönlich ausgewählt; diese Auswahl kann getrennt geändert werden.
+
+ICE wird erst nach nachgewiesenem Ersatz und Sicherung stillgelegt; dieses
+Repository wurde bei dieser Umstellung nicht entfernt.
+
+## Historischer Stand von beta.4
+
+
 Der Vergleich betrachtet Code, Templates, statische Ressourcen und Tests der
 aktuellen privaten Referenz einschließlich nicht eingecheckter Änderungen.
 Er ist eine Arbeitskarte, keine Behauptung vollständiger Gleichheit. Es wurden
@@ -35,8 +102,9 @@ Es vergleicht Änderungen, neue und entfernte Dateien. Der Bericht bleibt lokal.
 | GitLab | Der Import aus eigenen GitLab-Bare-Caches einschließlich Commit- und Pfadbeleg ist in Public nicht implementiert. Der private Git-Aufruf verwendet vorhandene SSH-/Git-Konfiguration; Public benötigt dafür eine eigene sichere Zugangsanbindung und einen mit seinem gepinnten Netzwerkzugang verträglichen Transport. Ein vorhandener CSS-Selektor ist keine GitLab-Funktion. |
 | Weitere Unterschiede | Zusätzliche Verlaufssichten, Quellenverwaltung und neuere Leistungs- und Lifecycle-Korrekturen wurden noch nicht vollständig funktional verglichen oder übertragen. |
 
-Öffentliche Anbieter, eigene Zugangsspeicherung und Datenpfade, expliziter
-manueller Quellenabruf und Public-Aktionsverträge bleiben eigenständig. Ein
+Eigene Zugangsspeicherung und Datenpfade sowie expliziter manueller Quellenabruf
+bleiben erhalten. Bisherige Public-Aktionsverträge sind Implementierungsstand,
+kein Grund für abweichende Bedienung oder einen eigenständigen Nachbau. Ein
 synthetischer Test oder eine gerenderte Ansicht belegt weder ein reales Konto
 noch vollständige Parität. Die beta.4-Installer werden separat gegen diese Änderungen gebaut und geprüft;
 der jeweilige Prüfstand steht in RELEASE-VERIFICATION.md.

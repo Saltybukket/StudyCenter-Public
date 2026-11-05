@@ -17,7 +17,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP='StudyCenter-Public'
 NOTICE_COMPLETION_FILE=ROOT/'packaging'/'component-notices.json'
 PACKAGE_DEFINITIONS=(
-    'packaging/frozen_entry.py','packaging/runtime_hook.py','packaging/component-notices.json',
+    'packaging/frozen_entry.py','packaging/mcp_entry.py','packaging/runtime_hook.py','packaging/component-notices.json',
     'packaging/linux/start.sh','packaging/linux/install-desktop.sh','packaging/linux/desktop-install.c',
     'packaging/windows/installer.iss','packaging/windows/system_runtime.iss',
     'scripts/build_release.py','scripts/package_windows_runtime.py','scripts/package_linux_desktop.py',
@@ -278,7 +278,7 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=Non
     command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--name',APP,'--paths',str(ROOT/'src'),'--distpath',str(destination),'--workpath',str(ROOT/'build'/platform),'--specpath',str(ROOT/'build'/platform), '--collect-all','playwright','--collect-submodules','uvicorn','--collect-all','keyring','--collect-data','studycenter_public','--collect-all','tzdata']
     command += ['--runtime-hook',str(ROOT/'packaging'/'runtime_hook.py')]
     command += ['--optimize','2','--exclude-module','PyInstaller','--exclude-module','pytest','--exclude-module','_pytest','--exclude-module','pip']
-    for component in ('faster_whisper','av','tokenizers'):
+    for component in ('faster_whisper','av','tokenizers','sherpa_onnx'):
         command += ['--collect-all',component]
     command += ['--collect-binaries','ctranslate2','--collect-binaries','onnxruntime','--hidden-import','ctranslate2.models','--hidden-import','onnxruntime.capi.onnxruntime_pybind11_state']
     if sys.platform=='win32':command += ['--windowed','--collect-all','webview','--collect-all','pystray']
@@ -291,7 +291,21 @@ def build(ocr_dir=None,iscc=None,browsers_dir=None,source_commit=None,vc_dir=Non
         if vc_dir:allowed.append(Path(vc_dir))
         verify_native_origins(ROOT/'build'/platform/APP/'COLLECT-00.toc',allowed)
     bundle=destination/APP
-    for relative in ('web/static','web/templates','resources'):
+    # A windowed Windows bootloader has no usable stdio. Ship a distinct
+    # console-mode bridge with its own frozen dependencies and audit its TOC.
+    helper_name=APP+'-MCP'
+    helper_work=ROOT/'build'/platform/'mcp-helper'
+    helper_dist=ROOT/'build'/platform/'mcp-helper-dist'
+    helper_command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--console',
+                    '--name',helper_name,'--paths',str(ROOT/'src'),'--distpath',str(helper_dist),
+                    '--workpath',str(helper_work),'--specpath',str(helper_work),
+                    '--collect-all','keyring','--exclude-module','pytest',
+                    str(ROOT/'packaging'/'mcp_entry.py')]
+    subprocess.run(helper_command,cwd=ROOT,env=environment,check=True)
+    if sys.platform=='win32':
+        verify_native_origins(helper_work/helper_name/'COLLECT-00.toc',allowed)
+    shutil.copytree(helper_dist/helper_name,bundle/helper_name,dirs_exist_ok=True)
+    for relative in ('web/static','web/templates','resources','core/static','core/templates'):
         origin=ROOT/'src'/'studycenter_public'/relative
         if origin.exists():shutil.copytree(origin,bundle/'_internal'/'studycenter_public'/relative,dirs_exist_ok=True)
     if ocr_dir:

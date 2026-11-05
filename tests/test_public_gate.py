@@ -80,7 +80,7 @@ def test_additional_private_key_headers_are_detected_in_native_artifacts():
 @pytest.mark.parametrize('mode',['staged','outgoing'])
 @pytest.mark.parametrize('marker,rule',[
     (('C:'+'/'+'Users'+'/'+'synthetic'+'/file').encode(),'personal path'),
-    (('Campus'+'Board').encode(),'private identity'),
+    (('tunnel_'+'a'*32).encode(),'private identity'),
     (('example'+'@'+'student.'+'tugraz.at').encode(),'personal mail'),
     (('127.0.0.1'+':'+'8000').encode(),'private endpoint'),
 ])
@@ -99,3 +99,9 @@ def test_git_gate_scans_new_content_in_scanner_itself(monkeypatch,capsys,mode,ma
     monkeypatch.setattr(sys,'argv',['check_public.py','--staged'] if mode=='staged' else ['check_public.py','--outgoing','BASE'])
     assert gate.main() is True
     assert rule in capsys.readouterr().out
+
+
+def test_shared_source_names_are_not_personal_identity_but_bound_accounts_are():
+    assert check('product.py', b'CampusBoard campusboard CAMPUSBOARD_DATA_DIR') == []
+    assert ('product.py', 'private identity') in check('product.py', ('tunnel_'+'a'*32).encode())
+    assert ('product.py', 'private identity') in check('product.py', ('OpenAI.'+'Codex_'+'synthetic').encode())

@@ -472,7 +472,7 @@ def component_valid(root, name):
                 return False
         if name in ('browser', 'speech'):
             install = read_receipt(root)
-            modules = ['playwright.async_api'] if name == 'browser' else ['faster_whisper', 'av']
+            modules = ['playwright.async_api'] if name == 'browser' else ['faster_whisper', 'av', 'sherpa_onnx']
             result = subprocess.run([install['python'], '-I', '-c',
                                     'import importlib; ' + '; '.join('importlib.import_module('+repr(module)+')' for module in modules)], capture_output=True)
             if result.returncode:
@@ -518,6 +518,15 @@ def ensure_component(root, name, *, uv=None, source=None, manifest=None, data_di
                 for package in (['playwright'] if name == 'browser' else ['faster-whisper', 'av']):
                     common += ['--reinstall-package', package]
             flags = ['--no-build-isolation', '--editable'] if source else []
+            if name == 'speech':
+                wheels = definition.get('verified_wheels')
+                if not wheels and source:
+                    provenance = checked_file(source / 'src/studycenter_public/resources/sherpa-provenance.json')
+                    wheels = json.loads(provenance.read_text(encoding='utf-8'))['wheels']['windows' if os.name == 'nt' else 'linux']
+                if not isinstance(wheels, list) or len(wheels) != 2:
+                    raise ValueError('Pinned Sherpa wheel provenance is required for speech setup.')
+                wheel_paths = [download(root, record) for record in wheels]
+                run([*common, '--no-deps', '--reinstall-package', 'sherpa-onnx', '--reinstall-package', 'sherpa-onnx-core', *wheel_paths], env=uv_environment(root))
             run([*common, *flags, target + '[' + definition['extra'] + ']'], env=uv_environment(root))
             install['extras'] = sorted(set(install.get('extras', [])) | {definition['extra']})
             atomic_json(root / '.local/installation.json', install)

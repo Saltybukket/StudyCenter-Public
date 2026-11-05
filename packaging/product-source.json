@@ -1,0 +1,477 @@
+{
+  "format": 1,
+  "files": {
+    "__init__.py": {
+      "upstream_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "shipped_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "adaptation": ""
+    },
+    "__main__.py": {
+      "upstream_sha256": "4ad6058508d6f9b7e1a62bf6173abb5e097f2d39b6641cadf93dd852686a26dc",
+      "shipped_sha256": "2734b390ed0afc8b910ab2e06ba4a5296def38e8dbed09825dd2cbf9c889e41e",
+      "adaptation": "Route package entry to the Public-owned launcher."
+    },
+    "app.py": {
+      "upstream_sha256": "1c80dcd4e28cf01a8829018f21764ff482498a6dbd59b7a9609b90e7c5413d4b",
+      "shipped_sha256": "674220ff7efbf6981f3f9e8feafea2bca72bd3fd052b38095b482f20148df785",
+      "adaptation": "Inject isolated Public runtime, credentials, service paths and instance endpoint; support user-owned tunnel configuration."
+    },
+    "assistant.py": {
+      "upstream_sha256": "47232188992df842a6cfe71c9d6bc1ac104dbd240028044fa3f23c7fa08ab7d9",
+      "shipped_sha256": "47232188992df842a6cfe71c9d6bc1ac104dbd240028044fa3f23c7fa08ab7d9",
+      "adaptation": ""
+    },
+    "async_utils.py": {
+      "upstream_sha256": "1377e9951f2e54e5565767e759b96ba2f2b730e85879ffb46c6bdf9c40ffbc2e",
+      "shipped_sha256": "1377e9951f2e54e5565767e759b96ba2f2b730e85879ffb46c6bdf9c40ffbc2e",
+      "adaptation": ""
+    },
+    "backup.py": {
+      "upstream_sha256": "04de23de645ed4aecd0f0c60a84496122bb23a979be966dbb5ca5a49c3a20cc1",
+      "shipped_sha256": "04de23de645ed4aecd0f0c60a84496122bb23a979be966dbb5ca5a49c3a20cc1",
+      "adaptation": ""
+    },
+    "browser.py": {
+      "upstream_sha256": "c804c6345bfb0e5c10d081278bdd46038897529e15ea3a952f791128bb19dff8",
+      "shipped_sha256": "e770b5f8ca0abaa3218ade3139f421a9ce08256534ef88a9febd697ebdf09101",
+      "adaptation": "Use Public profile and credential stores and optional browser installation."
+    },
+    "chatgpt.py": {
+      "upstream_sha256": "1a38bad24d018063831e59b3ceb01452568da4bcff2812dc5e0f735c95d58fb2",
+      "shipped_sha256": "1a38bad24d018063831e59b3ceb01452568da4bcff2812dc5e0f735c95d58fb2",
+      "adaptation": ""
+    },
+    "class_completion.py": {
+      "upstream_sha256": "4b1e96dd7601bd30f24830b544687dea66a096524ff0d36d5d81223e02031456",
+      "shipped_sha256": "4b1e96dd7601bd30f24830b544687dea66a096524ff0d36d5d81223e02031456",
+      "adaptation": ""
+    },
+    "collectors.py": {
+      "upstream_sha256": "36c601b9ce1053a786aca84711138462032228023c57f45dbf4fba381283b88a",
+      "shipped_sha256": "36c601b9ce1053a786aca84711138462032228023c57f45dbf4fba381283b88a",
+      "adaptation": ""
+    },
+    "comparison.py": {
+      "upstream_sha256": "3b9a5476ca122e1e7309d444b327dd81cb67cd12e8941ed8745f07497a506d18",
+      "shipped_sha256": "3b9a5476ca122e1e7309d444b327dd81cb67cd12e8941ed8745f07497a506d18",
+      "adaptation": ""
+    },
+    "config.py": {
+      "upstream_sha256": "b7e24cdb09fa2ddd715e14d950d2cf02022aa6ac05c65e23d8b60c030ae37997",
+      "shipped_sha256": "3165e3c68dc30c832bc4cc799d8d7976003909a8217806afa29b1f2299d17169",
+      "adaptation": "Require explicit instance-bound Public settings instead of private default paths and configuration."
+    },
+    "db.py": {
+      "upstream_sha256": "f83a6fae63f20b8f0cea0ee2a3be53fc1950a78214c06df72f49a88db50432a7",
+      "shipped_sha256": "f83a6fae63f20b8f0cea0ee2a3be53fc1950a78214c06df72f49a88db50432a7",
+      "adaptation": ""
+    },
+    "decision.py": {
+      "upstream_sha256": "a40c61221b7232ad48f7e13a66fb4b3de0bdbb52b4d24194d2c5c3c24539c212",
+      "shipped_sha256": "a40c61221b7232ad48f7e13a66fb4b3de0bdbb52b4d24194d2c5c3c24539c212",
+      "adaptation": ""
+    },
+    "desktop.py": {
+      "upstream_sha256": "7d8b6dbaffe766571504dc113b99c2030e3ee2fabe06842e81acb6d7e16e0d9f",
+      "shipped_sha256": "31f982d6754a6894744b86ebc0d88a227bcbacee039fc5c3d9d400765bdbb934",
+      "adaptation": "Route desktop entry to the Public-owned launcher."
+    },
+    "documents.py": {
+      "upstream_sha256": "88f010077b16c5b01bcd3cf3042e8b1918335ada9bca2d39b5c03018a75e87dc",
+      "shipped_sha256": "7401d60ee1cdeb2c3145827f51ab6be769a5b77b7f1395ff9ae5e64152c71677",
+      "adaptation": "Run OCR with the Public process environment and working directory."
+    },
+    "gitlab.py": {
+      "upstream_sha256": "4e0c43f08545940d1a24c7e68c395996f06a0567949b54574d4aadeb82567695",
+      "shipped_sha256": "4e0c43f08545940d1a24c7e68c395996f06a0567949b54574d4aadeb82567695",
+      "adaptation": ""
+    },
+    "google_calendar.py": {
+      "upstream_sha256": "1b80503123a356bd4681672bca49080297db1fb67b3b2b1289aa25fe2db12acc",
+      "shipped_sha256": "15c21c40dbe10a8f13606b5bbefe2fa51b89d00f023dffe3f4f45675034fc629",
+      "adaptation": "Use the Public instance credential store for Google authentication."
+    },
+    "gotchas.py": {
+      "upstream_sha256": "2e9499fc646c1424f8cb3744981d9aeb25d20a0201e2025d2d21359234eb7150",
+      "shipped_sha256": "2e9499fc646c1424f8cb3744981d9aeb25d20a0201e2025d2d21359234eb7150",
+      "adaptation": ""
+    },
+    "ical.py": {
+      "upstream_sha256": "2a98b76388d903be3180696d48d002d052df68318330497406a57a4cc5e0aaf9",
+      "shipped_sha256": "0f21b714e07cff6cf957d6184e362fc1f59347ca731fb63cce8eee0484f5fa6e",
+      "adaptation": "Generate item links from the active Public instance endpoint."
+    },
+    "llm.py": {
+      "upstream_sha256": "5dbffb3fdbe7aa6959f59544687e142ec5cd5ff1f96598ef7fae0ad691af1346",
+      "shipped_sha256": "54ad5d6bef7d007752fe64191234acb7fd61218103014d2bcd57c37465bc95bd",
+      "adaptation": "Avoid inheriting ambient proxy configuration for the model client."
+    },
+    "mail.py": {
+      "upstream_sha256": "515c08b4d51d6d9aae6265d22ae8643bf08ccede5ef166731eb9e8e609e58d41",
+      "shipped_sha256": "156e5b28bf38522a24c8211746d72b11a6575def91a2c2051b8bba5a107d6f90",
+      "adaptation": "Use injected Public mail credentials and webmail session store."
+    },
+    "mcp.py": {
+      "upstream_sha256": "68a4845688237cc6110e7f060c0ea45e7c00920e0a8b6193b1ee55d7766a3302",
+      "shipped_sha256": "044feb1cf704a9b563077ea387c3f757411e4b72a50e64ca111dc82050c6f7b2",
+      "adaptation": "Use instance-scoped MCP credentials and active endpoint for source links."
+    },
+    "mcp_client.py": {
+      "upstream_sha256": "493c28d3369a118f79e88c4a5885b639856b2e8ead06f447876fdf93f5be8a82",
+      "shipped_sha256": "eddb36c3f54a5538bba8923f539df3b05086d84dae4070a208c07ea139ef06b5",
+      "adaptation": "Resolve the selected Public instance and its credentials for the stdio bridge."
+    },
+    "models.py": {
+      "upstream_sha256": "10a96c7d4db4efbc6717acc4d5c12d259de19c42e1aa83a4563fc80b4b0ba118",
+      "shipped_sha256": "10a96c7d4db4efbc6717acc4d5c12d259de19c42e1aa83a4563fc80b4b0ba118",
+      "adaptation": ""
+    },
+    "page_images.py": {
+      "upstream_sha256": "a275560175edebcce56e709b4210fbd22e99b74909ec19ed091b60748037ce2b",
+      "shipped_sha256": "a275560175edebcce56e709b4210fbd22e99b74909ec19ed091b60748037ce2b",
+      "adaptation": ""
+    },
+    "personal.py": {
+      "upstream_sha256": "cb43d17fbe3bdd5a5030c834887a1535f309c237ba676281d891ee4650582343",
+      "shipped_sha256": "cb43d17fbe3bdd5a5030c834887a1535f309c237ba676281d891ee4650582343",
+      "adaptation": ""
+    },
+    "presentation.py": {
+      "upstream_sha256": "577ef34b4c452a6c4533b2b3947b07e22e292911a021071d02675fc1b3d356e0",
+      "shipped_sha256": "577ef34b4c452a6c4533b2b3947b07e22e292911a021071d02675fc1b3d356e0",
+      "adaptation": ""
+    },
+    "questions.py": {
+      "upstream_sha256": "0e26f662db86f18a086ed6f7269813b9b4fb0491a3d152b05ea4602896ebf33e",
+      "shipped_sha256": "0e26f662db86f18a086ed6f7269813b9b4fb0491a3d152b05ea4602896ebf33e",
+      "adaptation": ""
+    },
+    "quests.py": {
+      "upstream_sha256": "da7498a03f760631fe09eac1863a1301d2c7b46e47adbe13e0e2989df440eff7",
+      "shipped_sha256": "da7498a03f760631fe09eac1863a1301d2c7b46e47adbe13e0e2989df440eff7",
+      "adaptation": ""
+    },
+    "reminders.py": {
+      "upstream_sha256": "bd6406d65518ed453ab8cbc9c758ab1342d5b970a7602b23e1ea9e435fa966a2",
+      "shipped_sha256": "e6e57b73b9e29f5bf2a5de99b48c22226f85f32f72dececed9084c96fec80c6b",
+      "adaptation": "Use the instance notification adapter and endpoint for reminder links."
+    },
+    "runtime.py": {
+      "upstream_sha256": "7f6b0c0a50d3e697c9fcb526973ac9b1e0eddeeadc8e0ad85a271428735d5b5a",
+      "shipped_sha256": "503631e389bad5f4d79292e590e376900cf42c80531dc0163d3e9840ce9f889b",
+      "adaptation": "Keep process waiting in the shared core; route lifecycle management through the Public runtime."
+    },
+    "search.py": {
+      "upstream_sha256": "d6e20ba0e37b6992b67a74d0126f3960b3694ca58be1c9934fd4444a94a48aca",
+      "shipped_sha256": "d6e20ba0e37b6992b67a74d0126f3960b3694ca58be1c9934fd4444a94a48aca",
+      "adaptation": ""
+    },
+    "source_validity.py": {
+      "upstream_sha256": "3a5f8afac357a5219cdab1985ed46e90190bdbf2dd6a497b7c95ac445e3981b7",
+      "shipped_sha256": "3a5f8afac357a5219cdab1985ed46e90190bdbf2dd6a497b7c95ac445e3981b7",
+      "adaptation": ""
+    },
+    "speech.py": {
+      "upstream_sha256": "0df77044bd8d161cd9ee759aabb666727d54b1c66c443cf05a6753185a6a4d9b",
+      "shipped_sha256": "085a99b7ee059332f23a366bd94fab334d50ed92d611e4c69c7bc1e8afdb044b",
+      "adaptation": "Use Public-managed speech model paths and installation callback."
+    },
+    "static/app.css": {
+      "upstream_sha256": "70911ed6b6455aad077ca0d4753a48c5f5a5fbeae43488777c55d5fcf7c3ed6a",
+      "shipped_sha256": "70911ed6b6455aad077ca0d4753a48c5f5a5fbeae43488777c55d5fcf7c3ed6a",
+      "adaptation": ""
+    },
+    "static/app.js": {
+      "upstream_sha256": "cfbd12f327d5fabc453c315e940f5b7e2526e65b3cca5a1e5b720e2f4cf2b627",
+      "shipped_sha256": "cfbd12f327d5fabc453c315e940f5b7e2526e65b3cca5a1e5b720e2f4cf2b627",
+      "adaptation": ""
+    },
+    "static/calendar.css": {
+      "upstream_sha256": "17ebefbd39d136ffe1ffe0a70e2c79c4d8f952ff665b1926ce543d77fb15c8c6",
+      "shipped_sha256": "17ebefbd39d136ffe1ffe0a70e2c79c4d8f952ff665b1926ce543d77fb15c8c6",
+      "adaptation": ""
+    },
+    "static/calendar.js": {
+      "upstream_sha256": "1595989163d87f8eb81c001a707cda8e716b2a61e835a7bba3fcd22c85e15057",
+      "shipped_sha256": "1595989163d87f8eb81c001a707cda8e716b2a61e835a7bba3fcd22c85e15057",
+      "adaptation": ""
+    },
+    "static/comparison.css": {
+      "upstream_sha256": "c45dad42a3c14f5ce06cec3ef2a864dc8e5a22bfe40f818f6d29916605e762d5",
+      "shipped_sha256": "c45dad42a3c14f5ce06cec3ef2a864dc8e5a22bfe40f818f6d29916605e762d5",
+      "adaptation": ""
+    },
+    "static/connections.css": {
+      "upstream_sha256": "31c1d024f373fbfcc94c49f1b7105c055a61a7cd2926377cf656e057d54395e2",
+      "shipped_sha256": "31c1d024f373fbfcc94c49f1b7105c055a61a7cd2926377cf656e057d54395e2",
+      "adaptation": ""
+    },
+    "static/dashboard.css": {
+      "upstream_sha256": "7f9aaaffdd818a0421cd7292bbd52b3008c0ff1cfaf2a9b7d10e1d3d356e9fd3",
+      "shipped_sha256": "7f9aaaffdd818a0421cd7292bbd52b3008c0ff1cfaf2a9b7d10e1d3d356e9fd3",
+      "adaptation": ""
+    },
+    "static/details.css": {
+      "upstream_sha256": "a7a5735e0dad523867a268dd1bc9a7651ee8f5cf8448a5bdeed931c1e6404e64",
+      "shipped_sha256": "a7a5735e0dad523867a268dd1bc9a7651ee8f5cf8448a5bdeed931c1e6404e64",
+      "adaptation": ""
+    },
+    "static/navigation.css": {
+      "upstream_sha256": "a59f95deb0d6a4317f68122edeb7654936ba4566af0b31300168ef940fbb0d2d",
+      "shipped_sha256": "a59f95deb0d6a4317f68122edeb7654936ba4566af0b31300168ef940fbb0d2d",
+      "adaptation": ""
+    },
+    "static/notifications.css": {
+      "upstream_sha256": "0da229cd61bf3799cbf04bb42f36c556d9dd61c93fe15e243a572516693b2c04",
+      "shipped_sha256": "0da229cd61bf3799cbf04bb42f36c556d9dd61c93fe15e243a572516693b2c04",
+      "adaptation": ""
+    },
+    "static/notifications.js": {
+      "upstream_sha256": "8370ced37753d59edb4d2987c54049e039a989fe11836c69731474908d052043",
+      "shipped_sha256": "8370ced37753d59edb4d2987c54049e039a989fe11836c69731474908d052043",
+      "adaptation": ""
+    },
+    "static/postits.css": {
+      "upstream_sha256": "0e830e3ab7887c84b3c3ab4a6e1ddf2d3fe15dd9480d78645ad4b0ed04750934",
+      "shipped_sha256": "0e830e3ab7887c84b3c3ab4a6e1ddf2d3fe15dd9480d78645ad4b0ed04750934",
+      "adaptation": ""
+    },
+    "static/postits.js": {
+      "upstream_sha256": "5aa4449110a5717d9f549598980b05490f43ef935446b8ff954b86912dab0c96",
+      "shipped_sha256": "5aa4449110a5717d9f549598980b05490f43ef935446b8ff954b86912dab0c96",
+      "adaptation": ""
+    },
+    "static/quest-journey.webp": {
+      "upstream_sha256": "f28dcdfca027dd5304a433b0956699e948ed6458bac4e4d0346831775266e6b7",
+      "shipped_sha256": "f28dcdfca027dd5304a433b0956699e948ed6458bac4e4d0346831775266e6b7",
+      "adaptation": ""
+    },
+    "static/quests.css": {
+      "upstream_sha256": "98e546bced4f37bc73562913844b4de482b90fdb4e52e551f64f65353092db96",
+      "shipped_sha256": "98e546bced4f37bc73562913844b4de482b90fdb4e52e551f64f65353092db96",
+      "adaptation": ""
+    },
+    "static/quests.js": {
+      "upstream_sha256": "560a73aa5c3171b7ed23f223ff1d56b054c69bce4bf754b32deae0c08117538e",
+      "shipped_sha256": "560a73aa5c3171b7ed23f223ff1d56b054c69bce4bf754b32deae0c08117538e",
+      "adaptation": ""
+    },
+    "static/settings-helpers.js": {
+      "upstream_sha256": "93e76180357ef2c68c2680fcb6ecdebf5be6cc2c42ba4804e3ff5229faceb9ef",
+      "shipped_sha256": "93e76180357ef2c68c2680fcb6ecdebf5be6cc2c42ba4804e3ff5229faceb9ef",
+      "adaptation": ""
+    },
+    "static/settings.css": {
+      "upstream_sha256": "4ef04e04fa39dc7d5323cd48e7787d3fc2207bcd34de7d7a0a44caa71b64e8f4",
+      "shipped_sha256": "4ef04e04fa39dc7d5323cd48e7787d3fc2207bcd34de7d7a0a44caa71b64e8f4",
+      "adaptation": ""
+    },
+    "static/studycenter.ico": {
+      "upstream_sha256": "53d46f9fbbd030e9518e8bf8a32595dc939cba3d1239e96c4adedea73e0de4ad",
+      "shipped_sha256": "53d46f9fbbd030e9518e8bf8a32595dc939cba3d1239e96c4adedea73e0de4ad",
+      "adaptation": ""
+    },
+    "static/theme.css": {
+      "upstream_sha256": "93b56561f8f44500ecf2388bbdd833704c77649322ed6d735793131a2b548873",
+      "shipped_sha256": "93b56561f8f44500ecf2388bbdd833704c77649322ed6d735793131a2b548873",
+      "adaptation": ""
+    },
+    "static/theme.js": {
+      "upstream_sha256": "3625de5154dea49cb75fb83d7a3befcd5d8a77d40219c622a2039ece8ac40e10",
+      "shipped_sha256": "3625de5154dea49cb75fb83d7a3befcd5d8a77d40219c622a2039ece8ac40e10",
+      "adaptation": ""
+    },
+    "static/vendor/LICENSE.txt": {
+      "upstream_sha256": "000882c713ee4c9729c7eeafbebb04a98a633517c2e95f1258fc488853124df3",
+      "shipped_sha256": "000882c713ee4c9729c7eeafbebb04a98a633517c2e95f1258fc488853124df3",
+      "adaptation": ""
+    },
+    "static/vendor/fullcalendar-de.js": {
+      "upstream_sha256": "c3f812a9e0496862bbbb8c315ec9d81b6b925618220b94a316d370e83257c39a",
+      "shipped_sha256": "c3f812a9e0496862bbbb8c315ec9d81b6b925618220b94a316d370e83257c39a",
+      "adaptation": ""
+    },
+    "static/vendor/fullcalendar-palette.css": {
+      "upstream_sha256": "83d92f7931c6c1b8a4f12385d985c55ddeeb1f992d74feef6b9fe8e85e16a121",
+      "shipped_sha256": "83d92f7931c6c1b8a4f12385d985c55ddeeb1f992d74feef6b9fe8e85e16a121",
+      "adaptation": ""
+    },
+    "static/vendor/fullcalendar-theme.css": {
+      "upstream_sha256": "26069600025671df4fb01049f9bb17728fa0a62567ab88511f93fc4e1a7f3902",
+      "shipped_sha256": "26069600025671df4fb01049f9bb17728fa0a62567ab88511f93fc4e1a7f3902",
+      "adaptation": ""
+    },
+    "static/vendor/fullcalendar-theme.js": {
+      "upstream_sha256": "048c13c11982e5449ccc43468d1b60539c00cac7f3b1b91710dfe7c7c403d666",
+      "shipped_sha256": "048c13c11982e5449ccc43468d1b60539c00cac7f3b1b91710dfe7c7c403d666",
+      "adaptation": ""
+    },
+    "static/vendor/fullcalendar.css": {
+      "upstream_sha256": "adc2981e2bd277e8572bf908bd04bd5e3f95f3ba74219f0242855bfbdda24513",
+      "shipped_sha256": "adc2981e2bd277e8572bf908bd04bd5e3f95f3ba74219f0242855bfbdda24513",
+      "adaptation": ""
+    },
+    "static/vendor/fullcalendar.js": {
+      "upstream_sha256": "cedec2f5522db39157ca1a7c9036b360952d44f135a8b827a4ae67a84ee77acc",
+      "shipped_sha256": "cedec2f5522db39157ca1a7c9036b360952d44f135a8b827a4ae67a84ee77acc",
+      "adaptation": ""
+    },
+    "static/vendor/manifest.json": {
+      "upstream_sha256": "47266b3cd5b03f1e8fc70bbc44d35703a3ead5551b9644e4d0c43a64d00c115d",
+      "shipped_sha256": "47266b3cd5b03f1e8fc70bbc44d35703a3ead5551b9644e4d0c43a64d00c115d",
+      "adaptation": ""
+    },
+    "static/voice.js": {
+      "upstream_sha256": "76048fe522556b31599fffeb1c0f05d94899341ea3f2335a463a348cd5555e8b",
+      "shipped_sha256": "76048fe522556b31599fffeb1c0f05d94899341ea3f2335a463a348cd5555e8b",
+      "adaptation": ""
+    },
+    "sync.py": {
+      "upstream_sha256": "14e366bf776b4504f7a396059d344347748b382c27dd9c8867da2b5f31e9095f",
+      "shipped_sha256": "32392f7b6a686583a6622ba6bdfd4e7f6dc165e3d1b042c433dacddb5f8417a1",
+      "adaptation": "Inject Public authentication and mail credential stores into manual synchronization."
+    },
+    "task_presentation.py": {
+      "upstream_sha256": "8046d3935104806a3725528941b1fd716f8920105aae69a7968d8784274ea632",
+      "shipped_sha256": "8046d3935104806a3725528941b1fd716f8920105aae69a7968d8784274ea632",
+      "adaptation": ""
+    },
+    "templates/base.html": {
+      "upstream_sha256": "db3898da49f38d17e128bae7859432af5354c55361d2b0ce31de43d04645886d",
+      "shipped_sha256": "80401a6bf5a892208393164488cfa715f8e6de86057ee05acbac1f562dcf3b06",
+      "adaptation": "Include the Public onboarding interface."
+    },
+    "templates/board.html": {
+      "upstream_sha256": "e7f738ac66e7cbef61525383c014eccdce648482d8f42d58bd10bd6ea9ddfd3f",
+      "shipped_sha256": "e7f738ac66e7cbef61525383c014eccdce648482d8f42d58bd10bd6ea9ddfd3f",
+      "adaptation": ""
+    },
+    "templates/calendar.html": {
+      "upstream_sha256": "c730a28d324846250b007f590fb8a9e4d964f4b5e112b59b49bcb6a55d6a77a1",
+      "shipped_sha256": "c730a28d324846250b007f590fb8a9e4d964f4b5e112b59b49bcb6a55d6a77a1",
+      "adaptation": ""
+    },
+    "templates/comparison.html": {
+      "upstream_sha256": "6ac2ed51f2fc198100c175271353e8689ec6ffd6ed9a2b239d5e7cf472775c23",
+      "shipped_sha256": "6ac2ed51f2fc198100c175271353e8689ec6ffd6ed9a2b239d5e7cf472775c23",
+      "adaptation": ""
+    },
+    "templates/document.html": {
+      "upstream_sha256": "d92ef29ae2f47d68ef86448976bbf98efa1e3fd61bd10134c6ca7640be3fc31b",
+      "shipped_sha256": "d92ef29ae2f47d68ef86448976bbf98efa1e3fd61bd10134c6ca7640be3fc31b",
+      "adaptation": ""
+    },
+    "templates/documents.html": {
+      "upstream_sha256": "c8d02e82a8bbe57ab1f461b22fac5bab4d4c2d41db081ac254f32a921ffcf2ef",
+      "shipped_sha256": "c8d02e82a8bbe57ab1f461b22fac5bab4d4c2d41db081ac254f32a921ffcf2ef",
+      "adaptation": ""
+    },
+    "templates/entries.html": {
+      "upstream_sha256": "5838bd43575f79edc1a2ea317627a842d0952726d6e55572084fee520af3ff15",
+      "shipped_sha256": "5838bd43575f79edc1a2ea317627a842d0952726d6e55572084fee520af3ff15",
+      "adaptation": ""
+    },
+    "templates/item.html": {
+      "upstream_sha256": "1ab9fbd390d0646fe4aeef7cf8564548e61dcd0dba7f15d8c44801eb1d836a4d",
+      "shipped_sha256": "1ab9fbd390d0646fe4aeef7cf8564548e61dcd0dba7f15d8c44801eb1d836a4d",
+      "adaptation": ""
+    },
+    "templates/macros.html": {
+      "upstream_sha256": "b3629f25862c915eb413cee42efa5716604d3980ea9a0d15fa507c56363555bd",
+      "shipped_sha256": "d9569a944ec693757a94734a19e216f9be2b9e4d5929db3325c75368094b61ca",
+      "adaptation": "Replace personal WSL defaults with user-supplied connection fields."
+    },
+    "templates/mail.html": {
+      "upstream_sha256": "fa0adbfa0eac92c2b0bc159f2eeb5a874270d0f896dfc698ae658f1096abddfc",
+      "shipped_sha256": "fa0adbfa0eac92c2b0bc159f2eeb5a874270d0f896dfc698ae658f1096abddfc",
+      "adaptation": ""
+    },
+    "templates/model.html": {
+      "upstream_sha256": "0486687d69424491ccca4d4f640b7481d695c83e058776c2cfcb3177586f4157",
+      "shipped_sha256": "bb50f0126b5e31fe78877024070925060c50dd4ead9fa24737b6d7c52f24233a",
+      "adaptation": "Describe the user-configured Public model connection."
+    },
+    "templates/note_form.html": {
+      "upstream_sha256": "c49215fa26397d4dd5dfc409a357fc83d9c680347ac98d3e8e6f2813e31f849f",
+      "shipped_sha256": "c49215fa26397d4dd5dfc409a357fc83d9c680347ac98d3e8e6f2813e31f849f",
+      "adaptation": ""
+    },
+    "templates/notifications.html": {
+      "upstream_sha256": "dbc6465c2a34f84ce5d6b2bc8f1eb5c136ab30950687d16e5b8c623b5b435598",
+      "shipped_sha256": "dbc6465c2a34f84ce5d6b2bc8f1eb5c136ab30950687d16e5b8c623b5b435598",
+      "adaptation": ""
+    },
+    "templates/overview.html": {
+      "upstream_sha256": "b6730a1f4973f27c4b6d8f6df242be7cd249deec56d1e693adee8f7261b01949",
+      "shipped_sha256": "b6730a1f4973f27c4b6d8f6df242be7cd249deec56d1e693adee8f7261b01949",
+      "adaptation": ""
+    },
+    "templates/pins.html": {
+      "upstream_sha256": "2836c6ebcfbdf67400a49728053c8382f1fd7d9b0a2601741776e0bdaca7fdc3",
+      "shipped_sha256": "2836c6ebcfbdf67400a49728053c8382f1fd7d9b0a2601741776e0bdaca7fdc3",
+      "adaptation": ""
+    },
+    "templates/quests.html": {
+      "upstream_sha256": "c0cca69e151eee2b8af14ec9b799ce7df7aa670e129d8f0e3f3617f0a562c5ee",
+      "shipped_sha256": "c0cca69e151eee2b8af14ec9b799ce7df7aa670e129d8f0e3f3617f0a562c5ee",
+      "adaptation": ""
+    },
+    "templates/search.html": {
+      "upstream_sha256": "11802d8606cb942a62fe41f48960bc3c8556537c74fc3a3dad398854597ae060",
+      "shipped_sha256": "11802d8606cb942a62fe41f48960bc3c8556537c74fc3a3dad398854597ae060",
+      "adaptation": ""
+    },
+    "templates/settings.html": {
+      "upstream_sha256": "8b4581949b08a328ec983502f81fd05b2819256c0ea3692cacce0a947e7219ed",
+      "shipped_sha256": "bc95dd4f9464e3f9874f82d7c79f56fccc57d63d5d0bc754a3c477aef15f5ece",
+      "adaptation": "Expose Public setup, credential storage status, migration notice and user-owned tunnel configuration."
+    },
+    "templates/sources.html": {
+      "upstream_sha256": "17e305a8d3a51efc8ce900e048da326e8e71b74f9a86ea0dbba30ce79111857f",
+      "shipped_sha256": "17e305a8d3a51efc8ce900e048da326e8e71b74f9a86ea0dbba30ce79111857f",
+      "adaptation": ""
+    },
+    "templates/timeline.html": {
+      "upstream_sha256": "4c8fdc73f1a200d3d3c51aaefe498b1e5d870a43a8e10fb5fb8e4ea6c93d0318",
+      "shipped_sha256": "4c8fdc73f1a200d3d3c51aaefe498b1e5d870a43a8e10fb5fb8e4ea6c93d0318",
+      "adaptation": ""
+    },
+    "templates/voice.html": {
+      "upstream_sha256": "74cdabf3f98791f530f689aa457fa604c0fde30d7ac1182ddd0fb2fa91111d7d",
+      "shipped_sha256": "74cdabf3f98791f530f689aa457fa604c0fde30d7ac1182ddd0fb2fa91111d7d",
+      "adaptation": ""
+    },
+    "tugrazonline.py": {
+      "upstream_sha256": "cfba9d207275fb52e6dbbe9a1c57eeaf8a462bd5138e330b6789c0c39fcd1469",
+      "shipped_sha256": "cfba9d207275fb52e6dbbe9a1c57eeaf8a462bd5138e330b6789c0c39fcd1469",
+      "adaptation": ""
+    },
+    "tunnel.py": {
+      "upstream_sha256": "dab6036a4db852d0d7a003469336cb5a25d9f3774277b59689ff6bd184906340",
+      "shipped_sha256": "99fa4388d4e2397a3397fcba3ba52339e1c49188f6d6e693622798c7ec087fb7",
+      "adaptation": "Use user-configured tunnel identity and isolated stores; avoid inspecting other applications processes."
+    }
+  },
+  "additions": {
+    "static/onboarding.css": {
+      "shipped_sha256": "99b7e293d8ba20106bd87e65875d87af7b7348d05751c21ec56e0e953679338c",
+      "reason": "Style the Public onboarding tour."
+    },
+    "static/onboarding.js": {
+      "shipped_sha256": "28084e597d058cdc3bc8c87c3ada1dcfdee3befa6e7159090a82c952c559d78a",
+      "reason": "Run the Public onboarding tour."
+    },
+    "static/public_setup.js": {
+      "shipped_sha256": "393d848b19ba5376c9e069ad16df90bb4a0e1b46e4e8d380e502693795f48be7",
+      "reason": "Support the Public setup and credential controls."
+    },
+    "templates/onboarding.html": {
+      "shipped_sha256": "673470534f857eea33d56e2293de21e8d32c958dcf3d8bac2271bdc869527637",
+      "reason": "Provide the Public onboarding tour."
+    },
+    "templates/public_setup.html": {
+      "shipped_sha256": "4ed29071a4fe99974bf07382ec45810fa24348e58004b560096cba5eacc4f6eb",
+      "reason": "Provide the Public optional component setup page."
+    }
+  }
+}

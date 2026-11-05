@@ -2,11 +2,11 @@
 
 StudyCenter bündelt Aufgaben, Notizen, Termine und Originalquellen in einer lokalen Anwendung. Für Studierende der TU Graz entwickelt, funktioniert es auch ohne TU-Konto und ohne KI.
 
-**Windows 10/11 x64:** [beta.4-Setup herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/studycenter-public-0.1.0b4-windows-x86_64-setup.exe), öffnen und einrichten.
+**Windows 10/11 x64:** [beta.5-Setup herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/studycenter-public-0.1.0b5-windows-x86_64-setup.exe), öffnen und einrichten.
 
-**Linux x64:** [beta.4-Slim-Archiv herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/studycenter-public-0.1.0b4-linux-x86_64-slim.tar.gz), entpacken und `sh start.sh` ausführen.
+**Linux x64:** [beta.5-Slim-Archiv herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/studycenter-public-0.1.0b5-linux-x86_64-slim.tar.gz), entpacken und `sh start.sh` ausführen.
 
-[SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/SHA256SUMS) · [Release mit Größenangaben](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.4)
+[SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/SHA256SUMS) · [Release mit Größenangaben](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.5)
 
 Bei einem Update den bisherigen Public-Datenordner beibehalten. Die [beta.2-Komplettpakete](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2) bleiben unverändert verfügbar; ein bereits eingerichteter lokaler Datenbestand wird weiterverwendet.
 
@@ -24,14 +24,18 @@ Die Slim-Basis nutzt eine eigene Python-Umgebung: geeignetes CPython 3.12 x64 wi
 
 Repository klonen und im Checkout `start.cmd` unter Windows beziehungsweise `sh start.sh` unter Linux ausführen. [Befehle und Voraussetzungen](docs/DEVELOPMENT.md).
 
-Beta.4 ergänzt einen begrenzten Timeline-Rückblick und einen
-Kalenderexport mit belegten lokalen Uhrzeiten. Eindeutig erkennbare vergangene
-Pflicht-Lehreinheiten können nach Tagesende automatisch erledigt werden; eine
-persönliche Wiederöffnung bleibt erhalten. Quests planen eigene Ziele oder
-ausgewählte gespeicherte Unterlagen als editierbare Lernschritte; die Oberfläche
-benennt die Quellenarten für die KI-Anfrage. Die Ausgabe umfasst diese Erweiterungen; vollständige Gleichheit mit der privaten
-Referenz ist noch nicht erreicht. Insbesondere Google-Kalenderabgleich und GitLab-Import
-sind weiterhin offen. [Funktionsvergleich und offene Unterschiede](docs/UI-PARITY.md).
+Beta.5 verwendet den aktuellen StudyCenter-Produktkern direkt, einschließlich
+seiner Oberfläche, Luna, Quests, Quellenverwaltung, GitLab und Google-Kalender.
+Public ergänzt eine überspringbare Einführung mit echten Formularen und getrennte
+Einrichtung eigener Konten und optionaler Komponenten. Der Quellstand samt
+begründeten Anpassungen ist prüfbar erfasst; zukünftige Übernahmen erkennen
+Abweichungen statt die Funktionen unabhängig nachzubauen.
+
+Bestehende Beta4-Daten werden vor der Umstellung kopiert und geprüft. Originale
+bleiben erhalten; frühere Belege und Aktionsverläufe sind im lokalen Archiv lesbar.
+Nicht eindeutig übertragbare Bestände stoppen die Umstellung mit einer konkreten
+Meldung. In diesem Fall die bisherige Version weiterverwenden; keine Daten löschen.
+[Quellgleichheit, Anpassungen und Prüfgrenzen](docs/UI-PARITY.md).
 
 ## Entwickeln
 

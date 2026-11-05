@@ -78,10 +78,10 @@ jobs:
           "SLIM_ASSETS=$candidate" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $previous = Join-Path $candidate 'previous'
           New-Item -ItemType Directory -Path $previous | Out-Null
-          gh release download v0.1.0-beta.2 --repo $env:GITHUB_REPOSITORY --pattern 'studycenter-public-0.1.0b2-windows-x86_64-setup.exe' --dir $previous
+          gh release download v0.1.0-beta.4 --repo $env:GITHUB_REPOSITORY --pattern 'studycenter-public-0.1.0b4-windows-x86_64-setup.exe' --pattern 'studycenter_public-0.1.0b4-py3-none-any.whl' --pattern 'requirements-windows.lock' --pattern 'proxy_tools-0.1.0-py3-none-any.whl' --dir $previous
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          $old = Join-Path $previous 'studycenter-public-0.1.0b2-windows-x86_64-setup.exe'
-          if ((Get-FileHash -LiteralPath $old -Algorithm SHA256).Hash.ToLowerInvariant() -cne '00a4f6c8452af411179f4664400324e5d2c4a1c183b4e93aee11ca3695d1990a') { throw 'Previous public installer differs' }
+          $old = Join-Path $previous 'studycenter-public-0.1.0b4-windows-x86_64-setup.exe'
+          if ((Get-FileHash -LiteralPath $old -Algorithm SHA256).Hash.ToLowerInvariant() -cne 'dd27b2795a3d672fd5f26a6ef04988350ce9792441662d61ea2b5351f24c4d10') { throw 'Previous public installer differs' }
           "PREVIOUS_INSTALLER=$old" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Output "Own candidate SHA256 verified: $actual"
       - name: Exact installer lifecycle and installed package smoke

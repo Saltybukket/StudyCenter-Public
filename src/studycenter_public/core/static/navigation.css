@@ -1,0 +1,43 @@
+/* Shared navigation: daily work first, supporting tools in their own context. */
+.masthead{height:auto;min-height:86px;padding-block:14px;flex-wrap:wrap;row-gap:12px}
+.masthead .brand{white-space:nowrap}
+.masthead .header-search{flex:1 1 240px;max-width:420px;min-width:180px;order:0}
+.masthead .actions{align-items:center;flex-wrap:wrap}
+.masthead .actions button,.masthead .login-menu>summary{min-height:42px}
+.masthead #sync-button{background:transparent;color:var(--ink);border-color:var(--line);font-weight:550}
+.layout>aside .utility-nav{margin-top:2rem}
+.layout>aside .sidebar-note{padding-top:2rem}
+.context-nav{display:flex;flex-direction:row;gap:.5rem;flex-wrap:wrap;margin:0 0 1.4rem;padding-bottom:.7rem;border-bottom:1px solid var(--line)}
+.context-nav a{padding:.5rem .8rem;font-size:.86rem;min-height:40px}
+.entry-menu>summary{min-width:40px;min-height:40px;display:grid;place-items:center}
+.notification-heading #notifications-close{width:40px;min-width:40px;height:40px;padding:0;flex:none}
+.notification-tabs{display:flex;gap:.5rem}.notification-tabs button{width:auto;min-height:36px;flex:1}
+.notification-footer{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.notification-footer button{width:auto;min-height:36px}
+.settings-section-select{display:none}
+.advanced-settings{padding:1rem;border:1px solid var(--line);border-radius:10px;margin-top:1rem}
+.advanced-settings>summary{cursor:pointer;font-weight:600}
+.advanced-settings[open]>summary{margin-bottom:1rem}
+.entry-description-link{overflow-wrap:anywhere}
+@media(max-width:1100px){.masthead .header-search{order:2;flex-basis:100%;max-width:none}.masthead .actions{margin-left:auto}}
+@media(max-width:700px){
+ .masthead{display:grid;grid-template-columns:1fr auto;padding:12px 16px;gap:10px}
+ .masthead .brand{font-size:1.05rem}.masthead .header-search{grid-column:1/-1;grid-row:2;margin:0;width:100%;min-width:0}
+ .masthead .actions{gap:6px;justify-content:flex-end;flex-wrap:wrap}
+ .masthead .actions button{width:auto;padding:.45rem .6rem;font-size:.78rem}
+ .masthead .login-menu summary{padding:.45rem .6rem;font-size:.78rem;min-height:42px}
+ .masthead .login-actions{left:auto;right:0}
+ .masthead #sync-button{font-size:.75rem}
+ .layout>aside{padding:8px 12px;border-right:0;border-bottom:1px solid var(--line);gap:6px;background:var(--surface,#fff)}
+ .layout>aside>nav[aria-label="Hauptnavigation"]{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;overflow:visible;width:100%}
+ .layout>aside>nav[aria-label]::after{display:none}
+ .layout>aside>nav[aria-label="Hauptnavigation"] a{white-space:normal;text-align:center;justify-content:center;flex-direction:column;gap:3px;min-height:56px;padding:6px 2px;font-size:.73rem;line-height:1.25}
+ .layout>aside>nav[aria-label="Hauptnavigation"] a span{font-size:1rem}
+ .layout>aside .utility-nav{margin:0;display:flex;justify-content:flex-end;overflow:visible}
+ .layout>aside .utility-nav a{font-size:.76rem;padding:5px 8px;min-height:32px}
+ .layout>aside .eyebrow,.layout>aside .sidebar-note{display:none}
+ main{padding:20px 16px 40px}.context-nav{gap:4px;margin-bottom:1rem}.context-nav a{font-size:.8rem;padding:.45rem .6rem}
+ .settings-ready .settings-nav{display:none}.settings-section-select{display:flex;margin-bottom:1rem}.settings-section-select select{width:100%;min-height:44px}
+ .notification-panel{max-width:calc(100vw - 24px);width:360px}.notification-heading{align-items:center;gap:.5rem}.notification-heading h2{font-size:1.05rem;min-width:0}
+ .notification-panel button{width:auto}.notification-tabs button{flex:1}.notification-footer #notifications-read{flex:1;white-space:normal}
+}

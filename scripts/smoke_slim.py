@@ -67,7 +67,7 @@ def wait_http(process, data, expected_version):
     raise RuntimeError('Slim application readiness timed out')
 
 
-def probe_app(program, data, env, result):
+def probe_app(program, data, env, result, expect_legacy_note=False):
     log = (program/'.local/app-smoke.log').open('w', encoding='utf-8')
     process = subprocess.Popen(starter(program, '--no-browser', '--port', '0', '--data-dir', str(data)), env=env, stdout=log, stderr=subprocess.STDOUT,
                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
@@ -77,6 +77,14 @@ def probe_app(program, data, env, result):
         for path in ('/board', '/settings', '/overview'):
             with urllib.request.urlopen(url+path) as response:
                 assert response.status == 200
+        if expect_legacy_note:
+            with urllib.request.urlopen(url+'/entries?view=all') as response:
+                assert b'Synthetic installation check' in response.read(), 'Migrated note is absent from the installed shared UI'
+            with sqlite3.connect(data/'core'/'campusboard.sqlite3') as connection:
+                rows = connection.execute('SELECT identity,payload FROM items').fetchall()
+            assert any(identity.startswith('note:beta4:') and json.loads(payload).get('title') == 'Synthetic installation check'
+                       for identity, payload in rows), 'Migrated note is absent from the shared database'
+            result['legacy_synthetic_note_visible_in_shared_ui_and_database'] = True
         result['real_http_core'] = True
     finally:
         run_command(starter(program, '--data-dir', str(data), '--stop'), env)
@@ -104,14 +112,19 @@ def main():
     env = dict(os.environ, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(assets))
     env.pop('GH_TOKEN', None)
     env.pop('GITHUB_TOKEN', None)
-    result = {'source_git_sha': args.expected_source, 'environment': os.environ.get('RUNNER_OS'),
+    manifest_path = assets / ('slim-windows-x86_64.json' if os.name == 'nt' else 'slim-linux-x86_64.json')
+    source_manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    assert source_manifest.get('source_git_sha') == args.expected_source
+    result = {'source_git_sha': args.expected_source, 'asset_manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(), 'environment': os.environ.get('RUNNER_OS'),
               'real_tu_accounts': False, 'models_downloaded': False, 'windows11_native': False}
     if os.name == 'nt':
         if not args.installer:
             parser.error('--installer is required on Windows')
         if args.previous_installer:
-            run_command([args.previous_installer, '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR='+str(program), '/DATADIR='+str(data)], env)
-            run_command([program/'StudyCenter-Public.exe', '--self-test', '--no-browser', '--data-dir', data], env)
+            result['previous_installer_sha256'] = hashlib.sha256(args.previous_installer.read_bytes()).hexdigest()
+            previous_env = dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(args.previous_installer.parent))
+            run_command([args.previous_installer, '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR='+str(program), '/DATADIR='+str(data)], previous_env)
+            run_command(starter(program, '--self-test', '--no-browser', '--data-dir', str(data)), previous_env)
             before = (data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()
         else:
             before = None
@@ -130,21 +143,21 @@ def main():
             for name in (wheel_name, 'proxy_tools-0.1.0-py3-none-any.whl', 'requirements-windows.lock'):
                 shutil.copy2(assets/name, broken/name)
             (broken/wheel_name).write_bytes(b'Synthetic interrupted release wheel')
-            old_hash = hashlib.sha256((program/'StudyCenter-Public.exe').read_bytes()).hexdigest()
+            old_hash = hashlib.sha256((program/'start.cmd').read_bytes()).hexdigest()
             failed = subprocess.run(list(map(str, install+['/LOG='+str(root/'failed-update.log')])),
                                     env=dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(broken)), timeout=300,
                                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             print((root/'failed-update.log').read_text(errors='replace'), flush=True)
             assert failed.returncode != 0, 'Corrupt release wheel was accepted'
-            assert hashlib.sha256((program/'StudyCenter-Public.exe').read_bytes()).hexdigest() == old_hash
+            assert hashlib.sha256((program/'start.cmd').read_bytes()).hexdigest() == old_hash
             assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == before
-            run_command([program/'StudyCenter-Public.exe', '--self-test', '--no-browser', '--data-dir', root/'old-after-failed-update'], env)
+            run_command(starter(program, '--self-test', '--no-browser', '--data-dir', str(root/'old-after-failed-update')), previous_env)
             result['failed_installer_update_retains_old_functioning_core'] = True
         run_command(install+['/LOG='+str(root/'first-install.log')], env)
         if before:
             assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == before
-            assert not (program/'StudyCenter-Public.exe').exists()
-            result['beta2_transition_preserves_identity_and_database'] = True
+            assert (program/'start.cmd').is_file()
+            result['beta4_transition_preserves_identity_and_database'] = True
     else:
         if not args.archive:
             parser.error('--archive is required on Linux')
@@ -157,7 +170,7 @@ def main():
     assert manifest['source_git_sha'] == args.expected_source
     assert receipt['version'] == manifest['version']
     python = receipt['python']
-    run_command([python, '-I', '-c', 'import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ("playwright","faster_whisper","av","pytest"))'], env)
+    run_command([python, '-I', '-c', 'import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ("playwright","faster_whisper","sherpa_onnx","av","pytest"))'], env)
     assert not (program/'.local/components').exists()
     result['base_without_optional_components'] = True
     result['python_origin'] = receipt['python_origin']
@@ -165,21 +178,22 @@ def main():
     # Native text-PDF extraction is a real isolated interpreter/application call.
     code = '''
 import pymupdf
-from studycenter_public.platform.paths import AppPaths
-from studycenter_public.storage.db import Database
-from studycenter_public.services.documents import DocumentService
+from studycenter_public.core.documents import pdf_content
 from pathlib import Path
 import sys
-p=AppPaths.create(Path(sys.argv[1]))
+path=Path(sys.argv[1])/'synthetic-package-check.pdf'
 d=pymupdf.open();page=d.new_page();page.insert_text((72,72),'Synthetic slim native PDF text. No OCR runtime needed.')
-s=DocumentService(Database(p.database),p)
-r=s.import_bytes(d.tobytes(),title='Synthetic PDF',mime='application/pdf')
-assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
+d.save(path);d.close()
+try:
+    pages=pdf_content(path, None)
+    assert 'Synthetic slim' in pages[0]['text']
+finally:
+    path.unlink()
 '''
     run_command([python, '-I', '-c', code, data], env)
     result['native_pdf_without_ocr'] = True
     offline = dict(env, UV_OFFLINE='1')
-    probe_app(program, data, offline, result)
+    probe_app(program, data, offline, result, expect_legacy_note=bool(args.previous_installer))
     # Isolated child PATH hides discoverable system Python on the hosted runner;
     # it never uninstalls or edits an existing interpreter. Record actual choice.
     private_program = root/'private-runtime-program'
@@ -207,11 +221,17 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
     else:
         result['real_private_runtime_setup'] = False
         result['private_runtime_limit'] = 'A compatible interpreter remains discoverable in the hosted image registry; absence case is covered by isolated selection tests.'
-    baseline = (data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()
+    identity_file = data/'instance.json'
+    legacy_file = data/'studycenter-public.sqlite3'
+    core_file = data/'core'/'campusboard.sqlite3'
+    def persisted_bytes():
+        return tuple(path.read_bytes() if path.exists() else None for path in (identity_file, legacy_file, core_file))
+    baseline = persisted_bytes()
     if os.name == 'nt':
         run_command(install+['/LOG='+str(root/'update.log')], env)
-        assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == baseline
-        assert list((data/'backups').glob('before-update-*/studycenter-public.sqlite3'))
+        assert persisted_bytes() == baseline
+        if legacy_file.exists():
+            assert list((data/'backups').glob('before-update-*/studycenter-public.sqlite3'))
         result['slim_update_preserves_data_and_backup'] = True
     for name in ('ocr', 'browser', 'speech'):
         run_command(starter(program, '--component', name, '--allow-download', '--setup-only'), env, timeout=600)
@@ -222,9 +242,9 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
     result['optional_components_real_install_and_offline_repeat'] = True
     result['all_components_installed_bytes_including_cache'] = sum(p.stat().st_size for p in program.rglob('*') if p.is_file())
     result['component_network_scope'] = 'Own draft archives fetched once by gh; verified read-only asset seed. Python extras fetched by uv. No model weights.'
-    probe_app(program, data, offline, result)
+    probe_app(program, data, offline, result, expect_legacy_note=bool(args.previous_installer))
     if os.name == 'nt':
-        preserved = (data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()
+        preserved = persisted_bytes()
         notices = list((program/'.local/components').rglob('*COPYING.LGPL-2.1-or-later'))
         assert notices and max(len(str(p)) for p in notices) > 260
         result['long_component_notice_path_chars'] = max(len(str(p)) for p in notices)
@@ -245,7 +265,7 @@ assert 'Synthetic slim' in s.db.pages(r['id'])[0]['text']
         result['junction_refused_without_foreign_deletion'] = True
         uninstall(program, env, root/'uninstall.log')
         assert marker.read_bytes() == b'Synthetic foreign junction target'
-        assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == preserved
+        assert persisted_bytes() == preserved
         assert not (program/'start.cmd').exists() and not (program/'.local').exists()
         result['uninstall_retains_data_removes_own_environment'] = True
         if before:

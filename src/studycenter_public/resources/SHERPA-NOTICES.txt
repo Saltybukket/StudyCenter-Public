@@ -1,0 +1,17 @@
+Sherpa ONNX 1.13.8 optional speech runtime
+
+The application installs sherpa-onnx and sherpa-onnx-core only when the user
+chooses the speech component. Wheel identities and SHA-256 values, PyPI URLs,
+and upstream source revisions are in sherpa-provenance.json. The wheels are
+provided by their upstream publisher. Model weights are downloaded separately.
+
+The sherpa-onnx wheel includes the Apache 2.0 license reproduced in
+SHERPA-APACHE-2.0.txt; the core wheel declares Apache-2.0. Its Windows and
+Linux wheels contain ONNX Runtime binaries with an embedded 1.28.2 version
+string, consistent with the sherpa-onnx v1.13.8 upstream release notes.
+ONNXRUNTIME-LICENSE.txt and ONNXRUNTIME-THIRD-PARTY-NOTICES.txt are copied
+from the ONNX Runtime v1.28.2 source revision in sherpa-provenance.json.
+
+The upstream source references are for the identified released versions;
+independent reproducibility of the upstream wheel binaries from those source
+revisions and a complete native dependency audit have not been established.

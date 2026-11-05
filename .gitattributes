@@ -5,3 +5,9 @@
 *.iss text eol=crlf
 *.png binary
 *.ico binary
+
+# Preserve the byte-bound shared-source snapshot across Windows and Linux.
+src/studycenter_public/core/** -text whitespace=blank-at-eol,space-before-tab,cr-at-eol,-blank-at-eof
+# Third-party formatting is preserved verbatim with its provenance hash.
+src/studycenter_public/core/static/vendor/** -whitespace
+packaging/product-source.json -text

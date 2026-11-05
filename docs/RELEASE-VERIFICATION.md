@@ -394,3 +394,23 @@ Installation in beiden Paketläufen bestand.
 
 Bekannte Funktionslücken stehen in UI-PARITY.md, insbesondere Google-Kalenderabgleich
 und GitLab-Import. Vollständige private Parität wird nicht behauptet.
+
+
+## beta.5: gemeinsamer Produktkern und neue Einführung
+
+Die Public-App startet den direkt übernommenen Produktkern. Private Laufzeitdaten,
+Profile und Secrets wurden nicht übernommen. Der Quell- und Anpassungsnachweis
+liegt in `packaging/product-source.json`; die Prüfung mit `scripts/sync_product.py`
+erkennt unbemerkte Änderungen. Die ursprüngliche Einführung in ICE wurde erst
+nach Umsetzung der neuen Tour gelesen und zum Vergleich verwendet.
+
+Isolierte Edge-Prüfung: Desktop und 390px Mobilbreite, fünf Tour-Routen,
+Kurs-/Aufgabenformular, Pause/Reload/Fortsetzen, Abschluss, Replay, Escape und
+Speicherfehler bestanden. Zwei dabei entdeckte Darstellungsfehler wurden behoben
+und erneut geprüft. Fremder Ursprung sowie fehlendes CSRF-Token werden abgewiesen.
+
+Der abschließende vollständige lokale Testlauf einschließlich der übernommenen
+Original-Verhaltenstests bestand mit 860 Tests und 30 übersprungenen Tests. Die unabhängige Prüfung fand und korrigierte weitere Übergangsprobleme
+bei Neustart, optionalen Komponenten, geplanten Einträgen, Belegfeldern,
+Quest-Bindungen und sichtbaren Abruffehlern. Echte Anbieterzugänge wurden nicht
+verwendet; die Installationstests der exakten Pakete stehen gesondert aus.

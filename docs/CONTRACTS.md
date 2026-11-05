@@ -1,5 +1,13 @@
 # Shared contracts
 
+These contracts describe the current beta.4 implementation, not a requirement
+for a separate product architecture. The authoritative target is direct reuse
+of the private StudyCenter product source with identical UI and behavior, as
+specified in AGENTS.md and UI-PARITY.md. Adapt or replace these contracts where
+needed for that integration, preserving existing user data, source evidence,
+transaction integrity and installation isolation. They must not justify an
+independent reimplementation or reduced functionality.
+
 Integration owns this file and project configuration. Module owners may create
 their own tests but do not change other owners' files or commit/push.
 

@@ -30,14 +30,19 @@ def run_shell(runtime,app,start_hidden=False):
         pystray.MenuItem('Vollständig beenden',quit_app)))
     from ..platform import notifications
     notifications.desktop_notify=lambda item,endpoint:tray.notify(str(item.get('title','Erinnerung')),'StudyCenter Public')
-    app.state.stop=quit_app
+    app.state.stop_callback=quit_app
     threading.Thread(target=tray.run,daemon=True).start()
+    # A CLI stop or server failure must also release this instance's shell.
+    def watch_server():
+        runtime.thread.join()
+        quit_app()
+    threading.Thread(target=watch_server,daemon=True).start()
     try:
         import webview
         window=webview.create_window('StudyCenter Public',runtime.url,width=1220,height=840,min_size=(760,550),hidden=start_hidden)
         state['window']=window
         def closing():
-            if app.state.settings.get('background',False) and not state['stopping']:
+            if getattr(app.state.settings, 'background', False) and not state['stopping']:
                 window.hide();tray.notify('StudyCenter läuft im Tray. „Vollständig beenden“ beendet diese Instanz.','StudyCenter Public');return False
             quit_app();return True
         window.events.closing+=closing
@@ -50,5 +55,5 @@ def run_shell(runtime,app,start_hidden=False):
         tray.notify('WebView2 nicht verfügbar. StudyCenter wurde im Standardbrowser geöffnet.','StudyCenter Public')
         runtime.thread.join()
     finally:
-        if not app.state.settings.get('background',False) or state['stopping']:quit_app()
+        if not getattr(app.state.settings, 'background', False) or state['stopping']:quit_app()
         elif runtime.thread.is_alive():runtime.thread.join()

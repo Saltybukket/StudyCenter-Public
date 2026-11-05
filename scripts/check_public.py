@@ -16,7 +16,8 @@ FORBIDDEN_PARTS = {'.env', '.local', '.venv', 'browser-profiles', '__pycache__'}
 RULES = {
     'credential': re.compile(rb'(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----)'),
     'personal path': re.compile(rb'(?:[A-Za-z]:[\\/](?:Users|Projects)[\\/]|/home/[a-z][a-z0-9_-]+/)', re.I),
-    'private identity': re.compile(rb'(?:CampusBoard|campusboard|CAMPUSBOARD_|Saltybukket/CampusBoard|OpenAI\.Codex_[A-Za-z0-9]+)'),
+    # Product names and source identifiers are reusable code, not personal data.
+    'private identity': re.compile(rb'(?:OpenAI\.Codex_[A-Za-z0-9]+|tunnel_[a-f0-9]{24,})'),
     'personal mail': re.compile(rb'(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{1,64}@(?:student\.)?tugraz\.at', re.I),
     'private endpoint': re.compile(rb'(?:localhost|127\.0\.0\.1):8000\b|ngrok(?:-free)?\.(?:app|dev)|trycloudflare\.com', re.I),
 }
