@@ -413,4 +413,42 @@ Der abschließende vollständige lokale Testlauf einschließlich der übernommen
 Original-Verhaltenstests bestand mit 860 Tests und 30 übersprungenen Tests. Die unabhängige Prüfung fand und korrigierte weitere Übergangsprobleme
 bei Neustart, optionalen Komponenten, geplanten Einträgen, Belegfeldern,
 Quest-Bindungen und sichtbaren Abruffehlern. Echte Anbieterzugänge wurden nicht
-verwendet; die Installationstests der exakten Pakete stehen gesondert aus.
+verwendet. Die exakten Paketläufe sind unten getrennt dokumentiert.
+
+
+Die endgültigen beta.5-Artefakte sind an
+`45d8145f3c7bdf72775f08777ba75c29548ca72e` gebunden. Das Git-Archiv, Wheel und
+Bootstrap-Dateien wurden byteweise verglichen. Die originalen Zeilenenden des
+übernommenen Kerns bleiben über `.gitattributes` erhalten; das Quellmanifest gilt
+auch für die archivierten und ausgelieferten Dateien. Inhaltsprüfungen für Wheel
+(182 Dateien/Chunks), Linux-Archiv (5), Quellarchiv (312) und Windows-Nutzdateien
+(8) fanden keine privaten Inhalte. Der Windows-Installer wurde lokal nur entpackt.
+
+Der [endgültige Windows-VM-Lauf](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42108193872)
+bestand den vollständigen Slim-Lebenszyklus: Installation, Update von beta.4,
+synthetische Altaufgabe in gemeinsamer Oberfläche und Core-Datenbank, Backup,
+Erhalt der alten lauffähigen App bei gescheitertem Update, optionale Komponenten,
+Offline-Wiederholung, Abbruch/Wiederaufnahme und Deinstallation mit Datenerhalt.
+Die fremde Junction wurde ohne Löschen ihres Ziels abgewiesen. Der Runner nutzte
+System-Python; vollständig fehlendes Windows-Python bleibt isoliert getestet.
+
+Der [endgültige Linux-VM-Lauf](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42108198137)
+bestand Basisinstallation, real geladene eigene Python-Laufzeit, HTTP/PDF,
+optionale Komponenten und Offline-Wiederholung. Die separate visuelle Browserprobe
+meldete BLOCKED, weil der Runner-Browser die unveränderte Herkunftsprüfung nicht
+erfüllt. Ihr grüner Transport-Exit ist keine Linux-Desktop-Abnahme. Echte Konten,
+Sprachmodellgewichte, Windows-11-Desktop und eine eingefrorene MCP-Brücke wurden
+nicht live geprüft. Es wurden keine Host-Installer ausgeführt oder private
+Installationen/Daten verändert.
+
+Der erste Linux-Kandidat scheiterte an einem fehlenden Ordner der synthetischen
+PDF-Testfixture. Diese wurde korrigiert und mit einem tatsächlich fehlenden
+verschachtelten Ordner geprüft. Zusätzlich wurde im Browser nachgewiesen, dass
+eine erfolgreiche optionale Einrichtung ihr Formular sichtbar ließ; nach der
+Korrektur verschwinden Formular und Aktion, während Fehler wiederholbar bleiben.
+Nach diesen letzten Änderungen bestanden 15 fokussierte Tests und Desktop-/Mobil-
+Browserproben; danach bestanden die obigen exakt neu gebauten Paketläufe.
+
+Die neue Tour wurde vor dem ICE-Vergleich implementiert. ICE wurde nicht gelöscht:
+Der bislang geprüfte Bestandsumstieg betrifft Public beta.4; ICE besitzt eine
+eigene Daten- und Schlüsselablage, deren Umstieg noch nicht nachgewiesen ist.
