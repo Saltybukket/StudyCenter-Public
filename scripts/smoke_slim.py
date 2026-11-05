@@ -51,7 +51,7 @@ def uninstall(program, env, log):
     raise RuntimeError('Own uninstaller did not remove the program and its environment')
 
 
-def wait_http(process, data):
+def wait_http(process, data, expected_version):
     deadline = time.monotonic()+60
     while time.monotonic() < deadline:
         if process.poll() is not None:
@@ -60,7 +60,7 @@ def wait_http(process, data):
             url = json.loads((data/'runtime.json').read_text())['url']
             with urllib.request.urlopen(url+'/api/health', timeout=2) as response:
                 health = json.load(response)
-            assert health['version'] == '0.1.0b3' and health['application'] == 'StudyCenter.Public'
+            assert health['version'] == expected_version and health['application'] == 'StudyCenter.Public'
             return url
         except (OSError, KeyError, json.JSONDecodeError):
             time.sleep(.1)
@@ -72,7 +72,8 @@ def probe_app(program, data, env, result):
     process = subprocess.Popen(starter(program, '--no-browser', '--port', '0', '--data-dir', str(data)), env=env, stdout=log, stderr=subprocess.STDOUT,
                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     try:
-        url = wait_http(process, data)
+        expected_version = json.loads((program/'slim-manifest.json').read_text())['version']
+        url = wait_http(process, data, expected_version)
         for path in ('/board', '/settings', '/overview'):
             with urllib.request.urlopen(url+path) as response:
                 assert response.status == 200

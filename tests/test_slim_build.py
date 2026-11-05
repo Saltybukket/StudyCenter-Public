@@ -1,7 +1,23 @@
 """Release tag and cached component identity boundaries."""
 import hashlib
+import io
+import json
 import pytest
 from scripts import build_slim
+
+
+@pytest.mark.parametrize('actual,accepted', [('0.1.0b4', True), ('0.1.0b3', False)])
+def test_package_readiness_is_bound_to_candidate_version(tmp_path, monkeypatch, actual, accepted):
+    from scripts import smoke_slim
+    (tmp_path/'runtime.json').write_text(json.dumps({'url':'http://127.0.0.1:8767'}))
+    process = type('Running', (), {'poll': lambda self: None})()
+    monkeypatch.setattr(smoke_slim.urllib.request, 'urlopen', lambda *a, **kw:
+                        io.BytesIO(json.dumps({'version':actual, 'application':'StudyCenter.Public'}).encode()))
+    if accepted:
+        assert smoke_slim.wait_http(process, tmp_path, '0.1.0b4') == 'http://127.0.0.1:8767'
+    else:
+        with pytest.raises(AssertionError):
+            smoke_slim.wait_http(process, tmp_path, '0.1.0b4')
 
 
 def test_release_tag_requires_exact_beta_syntax():
