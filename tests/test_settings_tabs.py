@@ -52,7 +52,7 @@ def test_settings_sections_have_unique_linked_panels_and_keep_public_controls(pu
         assert element is not None, control_id
         assert element.find_parent(attrs={'data-settings-pane': pane}) is not None
     assert not soup.select('[data-settings-pane="google"], [data-tunnel-action]')
-    assert soup.select_one('a[href="/settings#bell"]') is not None
+    assert soup.select_one('#bell-link[href="/notifications"]') is not None
 
 
 def test_linux_marks_windows_tray_unavailable_and_preserves_shutdown(public_client, monkeypatch):

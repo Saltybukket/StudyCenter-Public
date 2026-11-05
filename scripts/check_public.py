@@ -30,6 +30,13 @@ def source_scanner_example(name, content, committed_blob):
         'scripts/check_public.py', 'StudyCenter-Public/scripts/check_public.py'
     } and content == committed_blob
 
+def git_scanner_content(content, committed_blob):
+    """Ignore only unchanged deny-pattern definitions, not the whole file."""
+    prefixes=(b"'personal path': re.compile(", b"'private identity': re.compile(",
+              b"'personal mail': re.compile(", b"'private endpoint': re.compile(")
+    allowed={line.strip() for line in committed_blob.splitlines() if line.strip().startswith(prefixes)}
+    return b'\n'.join(line for line in content.splitlines() if line.strip() not in allowed)
+
 def check(name, content, artifacts=False):
     problems = []
     parts = name.replace('\\', '/').split('/')
@@ -121,13 +128,13 @@ def main():
             entries.append((name,git('show',f':{name}') if a.staged else (ROOT/name).read_bytes()))
     failures = []
     checked = 0
-    committed_scanner = git('show', 'HEAD:scripts/check_public.py') if a.artifact else None
+    committed_scanner = git('show', 'HEAD:scripts/check_public.py')
     for name, content in entries:
         checked += 1
         # The scanner necessarily contains deny-pattern examples, not app data.
-        if (not a.artifact and name == 'scripts/check_public.py') or (
-            a.artifact and source_scanner_example(name, content, committed_scanner)
-        ):
+        if not a.artifact and name == 'scripts/check_public.py':
+            failures.extend(check(name,git_scanner_content(content,committed_scanner)))
+        elif a.artifact and source_scanner_example(name, content, committed_scanner):
             failures.extend((name,'credential') for _ in RULES['credential'].finditer(content))
         else: failures.extend(check(name,content,bool(a.artifact)))
     raw_count=len(set(failures));reviewed=[]

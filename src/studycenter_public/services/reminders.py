@@ -7,6 +7,10 @@ from zoneinfo import ZoneInfo
 from ..storage.db import encode, now as db_now
 
 DEFAULTS = {'enabled':False,'timezone':'Europe/Vienna','quiet_start':'22:00','quiet_end':'07:00','offsets':{'exam':[60,30],'exercise':[30],'lecture':[30],'task':[1440,120],'registration':[10,0]},'exceptions':{}}
+# Offset minutes recover the same target instant for multiple reminders. Group
+# by UTC seconds and item identity, not title or the displayed local time.
+_TARGET_SECOND="(CAST(ROUND((julianday(due_at)-2440587.5)*86400) AS INTEGER)+CASE WHEN json_type(metadata,'$.offset_minutes')='integer' AND json_extract(metadata,'$.offset_minutes') BETWEEN 0 AND 43200 THEN json_extract(metadata,'$.offset_minutes')*60 ELSE 0 END)"
+_GROUPS="SELECT item_id,"+_TARGET_SECOND+" AS target_second,MAX(julianday(due_at)) AS last_due,COUNT(*) AS messages,SUM(CASE WHEN COALESCE(json_extract(metadata,'$.read'),0)=0 THEN 1 ELSE 0 END) AS unread FROM reminder_jobs WHERE state='emitted' AND julianday(due_at)>=julianday(?) GROUP BY item_id,target_second"
 
 
 def validate_personal_reminder(value):
@@ -85,9 +89,17 @@ class ReminderService:
 
     def _instant(self,item,zone):
         value=item['data']
-        if value.get('due_at'):
+        linked=item.get('linked_deadline')
+        if item.get('linked_deadline_unavailable') and not value.get('due_at'):return None
+        if linked:
+            if not linked.get('time'):return None
+            result=datetime.fromisoformat(linked['date']+'T'+linked['time'])
+        elif value.get('due_at'):
             result=datetime.fromisoformat(value['due_at'])
         else:
+            if value.get('kind')=='task' and value.get('date_meaning')=='window' and not value.get('end_date'):
+                # The opening of a task window does not establish a deadline.
+                return None
             if value.get('kind')=='registration':
                 opening=re.compile(r'\b(?:Anmeldebeginn|Anmeldung\s+(?:beginnt|öffnet)|registration\s+(?:opens|starts|opening)|enrol(?:l)?ment\s+(?:opens|starts)|opens\s+(?:on|at|\d{1,4}))\b',re.I)
                 closing_indicator=re.compile(r'\b(?:Anmeldeschluss|Anmeldeende|Anmeldung\s+endet|registration\s+(?:closes|ends|deadline)|enrol(?:l)?ment\s+(?:closes|ends|deadline))\b',re.I)
@@ -150,6 +162,64 @@ class ReminderService:
 
     def notifications(self):
         return [json.loads(row['metadata']) | row | {'id':row['job_key'],'read':bool(json.loads(row['metadata']).get('read'))} for row in self.db.rows("SELECT * FROM reminder_jobs WHERE state='emitted' ORDER BY due_at DESC LIMIT 200")]
+
+    def unread_count(self,now=None):
+        current=now or datetime.now(timezone.utc)
+        if current.tzinfo is None:raise ValueError('Notification evaluation requires an aware instant')
+        row=self.db.one('SELECT COUNT(*) AS n FROM ('+_GROUPS+') WHERE unread>0',((current-timedelta(days=90)).isoformat(),))
+        return row['n']
+
+    def notification_page(self,page=1,unread=False,now=None):
+        """A bounded 90-day inbox; reading never changes an item's status."""
+        current=now or datetime.now(timezone.utc)
+        if current.tzinfo is None:raise ValueError('Notification evaluation requires an aware instant')
+        cutoff=(current-timedelta(days=90)).isoformat()
+        with self.db.connection() as con:
+            summary=self.db.one('SELECT COUNT(*) AS n,COALESCE(SUM(CASE WHEN unread>0 THEN 1 ELSE 0 END),0) AS unread FROM ('+_GROUPS+')',(cutoff,),con)
+            unread_count=summary['unread'];count=unread_count if unread else summary['n']
+            pages=max(1,(count+19)//20)
+            page=max(1,min(int(page),pages))
+            rows=self.db.rows('SELECT * FROM ('+_GROUPS+')'+(' WHERE unread>0' if unread else '')+' ORDER BY last_due DESC,item_id DESC,target_second DESC LIMIT 20 OFFSET ?', (cutoff,(page-1)*20),con)
+            for row in rows:
+                latest=self.db.one("SELECT metadata,due_at FROM reminder_jobs WHERE state='emitted' AND julianday(due_at)>=julianday(?) AND item_id=? AND "+_TARGET_SECOND+"=? ORDER BY julianday(due_at) DESC,job_key DESC LIMIT 1",(cutoff,row['item_id'],row['target_second']),con)
+                row.update({'metadata':latest['metadata'],'due_at':latest['due_at']})
+        notifications=[]
+        for row in rows:
+            try:
+                due=datetime.fromisoformat(row['due_at'])
+                display=due.astimezone(ZoneInfo('Europe/Vienna')).strftime('%d.%m.%Y · %H:%M') if due.tzinfo else due.strftime('%d.%m.%Y · %H:%M')+' (Zeitzone unbekannt)'
+            except (ValueError,TypeError):
+                display='Datum nicht lesbar'
+            notifications.append(json.loads(row['metadata']) | row | {'read':not row['unread'],'display_due':display})
+        return {'items':notifications,'page':page,'pages':pages,'count':count,'unread':unread_count,'filter':'unread' if unread else 'all'}
+
+    def mark_groups_read(self,groups,now=None):
+        if not isinstance(groups,list) or not 1<=len(groups)<=20 or any(not isinstance(group,dict) or set(group)!={'item_id','target_second'} or type(group['item_id']) is not int or group['item_id']<1 or type(group['target_second']) is not int for group in groups):
+            raise ValueError('Eine Seite mit höchstens 20 gültigen Meldungsgruppen auswählen')
+        current=now or datetime.now(timezone.utc)
+        if current.tzinfo is None:raise ValueError('Notification evaluation requires an aware instant')
+        cutoff=(current-timedelta(days=90)).isoformat()
+        unique={(group['item_id'],group['target_second']) for group in groups}
+        with self.db.connection() as con:
+            con.execute('BEGIN IMMEDIATE')
+            for item_id,target in unique:
+                query="state='emitted' AND julianday(due_at)>=julianday(?) AND item_id=? AND "+_TARGET_SECOND+'=?'
+                args=(cutoff,item_id,target)
+                if not self.db.one('SELECT 1 AS found FROM reminder_jobs WHERE '+query+' LIMIT 1',args,con):raise ValueError('Unbekannte Meldungsgruppe')
+                con.execute("UPDATE reminder_jobs SET metadata=json_set(metadata,'$.read',json('true')) WHERE "+query,args)
+        return {'read':len(unique)}
+
+    def mark_many_read(self,keys):
+        if not isinstance(keys,list) or not 1<=len(keys)<=20 or any(not isinstance(key,str) or not key or len(key)>300 for key in keys):
+            raise ValueError('Eine Seite mit höchstens 20 gültigen Meldungen auswählen')
+        keys=list(dict.fromkeys(keys))
+        with self.db.connection() as con:
+            con.execute('BEGIN IMMEDIATE')
+            for key in keys:
+                row=self.db.one("SELECT metadata FROM reminder_jobs WHERE job_key=? AND state='emitted'",(key,),con)
+                if not row:raise ValueError('Unbekannte Meldung')
+                con.execute('UPDATE reminder_jobs SET metadata=? WHERE job_key=?',(encode(json.loads(row['metadata']) | {'read':True}),key))
+        return {'read':len(keys)}
 
     def mark_read(self,job_key):
         with self.db.connection() as con:

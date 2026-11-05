@@ -17,6 +17,7 @@ from ..providers.settings import ProviderSettings
 from ..providers.oauth import ChatGPTAuth
 from ..services.assistant import AssistantService
 from ..services.extraction import ExtractionService
+from ..services.async_utils import finish_thread
 
 def create_app(paths,secrets=None):
     @asynccontextmanager
@@ -24,6 +25,11 @@ def create_app(paths,secrets=None):
         async def reminders():
             from datetime import datetime,timezone
             while True:
+                try:
+                    await finish_thread(app.state.class_completion.tick)
+                    app.state.class_completion.error=''
+                except Exception as exc:
+                    app.state.class_completion.error=str(exc)
                 notifications=app.state.reminders.run_due(datetime.now(timezone.utc))
                 if notifications:
                     from ..platform.notifications import notify
@@ -48,8 +54,12 @@ def create_app(paths,secrets=None):
     state.endpoint='http://127.0.0.1:8767';state.stop=lambda:None
     state.actions=ActionService(state.db);state.documents=DocumentService(state.db,paths)
     state.reminders=ReminderService(state.db)
+    from ..services.class_completion import ClassCompletionService
+    state.class_completion=ClassCompletionService(state.db)
     state.profiles=ProviderSettings(paths.config/'providers.json',state.secrets)
     state.oauth=ChatGPTAuth(state.secrets,paths.host_id)
+    from ..services.quests import QuestService
+    state.quests=QuestService(state.db,state.profiles,state.secrets,state.oauth,documents=state.documents)
     state.assistant=AssistantService(state.db,state.actions,state.profiles,state.secrets,state.oauth,documents=state.documents)
     state.extraction=ExtractionService(state.db,state.profiles,state.secrets,state.oauth,documents=state.documents)
     state.jobs={};state.job_status={}

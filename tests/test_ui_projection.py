@@ -70,3 +70,36 @@ def test_ui_assets_have_content_versions_for_existing_browser_caches(tmp_path):
     assert soup.select_one('script[src*="public.js"]')['src']==static_url('public.js')
     assert soup.select_one('link[href*="settings.css"]')['href']==static_url('settings.css')
     assert c.get(static_url('public.js')).status_code==200
+
+
+def test_task_window_displays_closing_and_does_not_invent_missing_closing(tmp_path):
+    from datetime import datetime, timedelta
+    from studycenter_public.config import VIENNA
+    c=client(tmp_path)
+    today=datetime.now(VIENNA).date()
+    c.app.state.actions.execute([
+        {'type':'create_task','title':'AB 1','date':str(today),
+         'end_date':str(today+timedelta(days=2)),'date_meaning':'window'},
+        {'type':'create_task','title':'AB 2','date':str(today),'date_meaning':'window'},
+        {'type':'create_task','title':'Aufgabe planen','date':str(today),'date_meaning':'start'},
+    ],str(uuid4()))
+    board=c.get('/board').text
+    assert 'Arbeitsblatt 1 bearbeiten' in board
+    assert 'Arbeitsblatt 2 bearbeiten' in board and 'Schluss nicht belegt' in board
+    entries=c.get('/overview').context['focus_actions']
+    assert {item['title'] for item in entries} == {'AB 1','Aufgabe planen'}
+    assert {item['title'] for item in c.app.state.db.items()} == {'AB 1','AB 2','Aufgabe planen'}
+
+
+def test_list_views_load_one_shared_item_snapshot(tmp_path,monkeypatch):
+    c=client(tmp_path)
+    original=c.app.state.db.items
+    calls=[]
+    def counted(*args,**kwargs):
+        calls.append(1)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(c.app.state.db,'items',counted)
+    for path in ('/overview','/board','/pins','/archive','/timeline','/calendar?month=2026-10'):
+        calls.clear()
+        assert c.get(path).status_code==200
+        assert len(calls)==1

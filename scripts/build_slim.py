@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -17,7 +18,12 @@ import tomllib
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = 'https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/'
+ORIGIN = 'https://github.com/Saltybukket/StudyCenter-Public/releases/download/'
+BASE = None
+BETA3_SHA256 = {
+    'windows': {'browser': '1e62cae8a64eaad14c79453cfc97d2fbda508c58fc1d0a2e8821aeb9c723cbd5', 'ocr': '460cf67e76cc6922303f1e74b4ecf47e33a743a84431838e94077c8d1029288f', 'speech': '92ee71f1e7842f643738e20d6a5ae814256d922bceeb7e4f07f5913b2170e358'},
+    'linux': {'browser': 'ad29088be7c8029ffc467b5f50b484e1de27fafd4416b4274338e0ebf8c84d47', 'ocr': 'f648d985f6b7d819bf4a90a810dce55f5460d6bd663fc677e8eec952ef70831b', 'speech': 'effdb5bbb482176bf6676692a591bb5a03925a8b5049be799111b3d8aa84a886'},
+}
 OLD_SOURCES = 'https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/StudyCenter-Public-corresponding-sources-0.1.0b1-all-platform-notices.zip'
 BETA2_LINUX_SHA = '10a01f2638092d51e2b9e07ad9167ecbad72df836fb9c9a39f6b766429642bbb'
 
@@ -30,6 +36,30 @@ def digest(path):
 def record(path):
     path = Path(path)
     return dict(filename=path.name, url=BASE + path.name, sha256=digest(path), size=path.stat().st_size)
+
+
+def release_version(tag):
+    match = re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.([1-9][0-9]*)', tag)
+    if not match:
+        raise ValueError('Release tag must be vMAJOR.MINOR.PATCH-beta.N')
+    return '.'.join(match.groups()[:3]) + 'b' + match.group(4)
+
+
+def verify_cached_components(optional, platform, output):
+    if set(optional) != {'browser', 'ocr', 'speech'}:
+        raise ValueError('Incomplete cached components')
+    for name, expected_hash in BETA3_SHA256[platform].items():
+        archive = optional[name]['archive']
+        suffix = 'speech-notices' if name == 'speech' else name
+        filename = f'studycenter-public-0.1.0b3-{platform}-x86_64-{suffix}.tar.gz'
+        if (archive.get('filename') != filename or
+                archive.get('url') != ORIGIN + 'v0.1.0-beta.3/' + filename or
+                archive.get('sha256') != expected_hash):
+            raise ValueError('Cached component identity or origin differs')
+        path = output / filename
+        if not path.is_file() or path.stat().st_size != archive.get('size') or digest(path) != expected_hash:
+            raise ValueError('Cached component archive changed')
+    return optional
 
 
 def safe_name(name):
@@ -196,27 +226,43 @@ def main():
     parser.add_argument('--windows-bundle', type=Path)
     parser.add_argument('--linux-archive', type=Path)
     parser.add_argument('--wheel', type=Path, required=True)
+    parser.add_argument('--release-tag', required=True, help='Explicit release tag matching the wheel and project version')
     parser.add_argument('--output', type=Path, default=ROOT/'dist/slim')
     parser.add_argument('--iscc', type=Path)
     parser.add_argument('--reuse-components', action='store_true')
     parser.add_argument('--proxy-wheel', type=Path)
     parser.add_argument('--source-commit')
     args = parser.parse_args()
+    global BASE
+    version = tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
+    if release_version(args.release_tag) != version:
+        raise ValueError('Release tag and project version differ')
+    if args.wheel.name != f'studycenter_public-{version}-py3-none-any.whl':
+        raise ValueError('Wheel filename and project version differ')
+    with zipfile.ZipFile(args.wheel) as archive:
+        metadata = f'studycenter_public-{version}.dist-info/METADATA'
+        from email.parser import BytesParser
+        fields = BytesParser().parsebytes(archive.read(metadata), headersonly=True)
+        if fields.get('Name') != 'studycenter-public' or fields.get('Version') != version:
+            raise ValueError('Wheel metadata and project version differ')
+    if args.source_commit:
+        actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        if args.source_commit != actual:
+            raise ValueError('Release source must match the current committed checkpoint')
+    BASE = ORIGIN + args.release_tag + '/'
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     slim_artifact_reviews(output)
-    version = tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
     wheel = output/args.wheel.name
     if args.wheel.resolve() != wheel:
         shutil.copy2(args.wheel, wheel)
     for platform, bundle in [('windows', args.windows_bundle), ('linux', None)]:
         cached = output/(platform+'-components.json')
         if args.reuse_components and cached.is_file():
-            optional = json.loads(cached.read_text())
-            for definition in optional.values():
-                if definition.get('archive') and record(output/definition['archive']['filename']) != definition['archive']:
-                    raise ValueError('Cached component archive changed')
+            optional = verify_cached_components(json.loads(cached.read_text()), platform, output)
         else:
+            if args.reuse_components:
+                raise ValueError('Missing cached component manifest: ' + str(cached))
             if platform == 'linux':
                 if not args.linux_archive:
                     continue

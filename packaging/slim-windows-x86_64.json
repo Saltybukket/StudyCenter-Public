@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "version": "0.1.0b3",
+  "version": "0.1.0b4",
   "platform": "windows-x86_64",
   "python": "3.12",
   "wheel": {
-    "filename": "studycenter_public-0.1.0b3-py3-none-any.whl",
-    "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter_public-0.1.0b3-py3-none-any.whl",
-    "sha256": "c41eb3394770a030f00450e2b22ed903ca7edcee5b9aa9fda8806622e5607fff",
-    "size": 195726
+    "filename": "studycenter_public-0.1.0b4-py3-none-any.whl",
+    "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/studycenter_public-0.1.0b4-py3-none-any.whl",
+    "sha256": "6594a42e526e8095fa61fb17be81ebdba60eb5a8e5f2d47973b99529e757aa0b",
+    "size": 274348
   },
   "lock": {
     "filename": "requirements-windows.lock",
-    "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/requirements-windows.lock",
+    "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/requirements-windows.lock",
     "sha256": "26ecbd9b0918d463129b2d6967a9e0379494d528bbe0d2691f6e33b2b8022b03",
     "size": 1713
   },
@@ -53,7 +53,7 @@
   "extra_wheels": [
     {
       "filename": "proxy_tools-0.1.0-py3-none-any.whl",
-      "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/proxy_tools-0.1.0-py3-none-any.whl",
+      "url": "https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/proxy_tools-0.1.0-py3-none-any.whl",
       "sha256": "e230f9c9936e3dfc56d00b20000043f530010455bfad63cee56fef8b80288aa0",
       "size": 3928
     }

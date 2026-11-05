@@ -1,6 +1,9 @@
 import io
 import hashlib
 import json
+import subprocess
+import sys
+import pytest
 from scripts.check_public import check, file_chunks, reviewed_artifact_matches, source_scanner_example
 
 
@@ -72,3 +75,27 @@ def test_additional_private_key_headers_are_detected_in_native_artifacts():
         split = b'x' * (4 * 1024 * 1024 - 7) + header
         assert any(('component.dll', 'credential') in check(name, block, True)
                    for name, block in file_chunks('component.dll', io.BytesIO(split)))
+
+
+@pytest.mark.parametrize('mode',['staged','outgoing'])
+@pytest.mark.parametrize('marker,rule',[
+    (('C:'+'/'+'Users'+'/'+'synthetic'+'/file').encode(),'personal path'),
+    (('Campus'+'Board').encode(),'private identity'),
+    (('example'+'@'+'student.'+'tugraz.at').encode(),'personal mail'),
+    (('127.0.0.1'+':'+'8000').encode(),'private endpoint'),
+])
+def test_git_gate_scans_new_content_in_scanner_itself(monkeypatch,capsys,mode,marker,rule):
+    from scripts import check_public as gate
+    committed=subprocess.check_output(['git','show','HEAD:scripts/check_public.py'])
+    altered=committed+b'\n# synthetic added value: '+marker+b'\n'
+    def fake_git(*args):
+        if args==('show','HEAD:scripts/check_public.py'):return committed
+        if args[0]=='diff':return b'scripts/check_public.py\n'
+        if args[0]=='rev-list':return b'syntheticcommit\n'
+        if args[0]=='ls-tree':return b'scripts/check_public.py\n'
+        if args[0]=='show':return altered
+        raise AssertionError(args)
+    monkeypatch.setattr(gate,'git',fake_git)
+    monkeypatch.setattr(sys,'argv',['check_public.py','--staged'] if mode=='staged' else ['check_public.py','--outgoing','BASE'])
+    assert gate.main() is True
+    assert rule in capsys.readouterr().out

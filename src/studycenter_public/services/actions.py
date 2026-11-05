@@ -8,6 +8,7 @@ from ..domain.validation import FIELDS as DOMAIN_FIELDS, validate_values
 from .reminders import validate_personal_reminder, personal_reminder_state, write_personal_reminder
 
 FIELDS = {'title','body','description','date','time','end_date','end_time','due_at','date_meaning','obligation','source_state','pinned','ignored'}
+CREATE_FIELDS=FIELDS | {'course_id','linked_source_id'}
 TYPES = {'create_note','create_task','create_event','update','set_status','set_override','decide_source','delete','set_reminder'}
 
 
@@ -31,8 +32,9 @@ class ActionService:
             if not isinstance(action,dict) or action.get('type') not in TYPES:
                 raise ValueError('Unsupported action')
             if action['type'].startswith('create_'):
-                if set(action)-({'type','fields'} | FIELDS):raise ValueError('Unknown create action fields')
+                if set(action)-({'type','fields'} | CREATE_FIELDS):raise ValueError('Unknown create action fields')
                 if not isinstance(action.get('fields',{}),dict):raise ValueError('Personal fields must be a mapping')
+                if set(action.get('fields',{}))-CREATE_FIELDS:raise ValueError('Unknown create action fields')
                 validate_values({k:v for k,v in action.items() if k not in ('type','fields')} | action.get('fields',{}))
                 title=action.get('title',action.get('fields',{}).get('title',''))
                 if not isinstance(title,str) or not title.strip() or len(title)>240:
@@ -57,13 +59,29 @@ class ActionService:
 
     def preview(self,actions):
         actions=self._validate(actions)
-        return {'preview':True,'count':len(actions),'actions':json.loads(encode(actions)),'versions':{str(a.get('item_id',a.get('id'))):self.db.item(a.get('item_id',a.get('id')))['version'] for a in actions if not a['type'].startswith('create_') and self.db.item(a.get('item_id',a.get('id'))) is not None}}
+        versions={}
+        for action in actions:
+            if action['type'].startswith('create_'):
+                payload={k:v for k,v in action.items() if k not in ('type','fields')} | action.get('fields',{}) | {'kind':action['type'][7:]}
+                if payload.get('course_id') is not None or payload.get('linked_source_id') is not None:
+                    with self.db.connection() as con:
+                        self.db._validate_personal_binding(con,payload,payload.get('course_id'))
+                        if payload.get('linked_source_id'):
+                            source=self.db._item(payload['linked_source_id'],con)
+                            versions[str(source['id'])]=source['version']
+                continue
+            item_id=action.get('item_id',action.get('id'))
+            if str(item_id) in versions:continue
+            item=self.db.item(item_id)
+            if item is not None:versions[str(item_id)]=item['version']
+        return {'preview':True,'count':len(actions),'actions':json.loads(encode(actions)),'versions':versions}
 
     def _snapshot(self,con,item_id):
         row=self.db.one('SELECT * FROM items WHERE id=?',(item_id,),con)
         if not row:return None
         return {'row':row,'decisions':self.db.rows('SELECT * FROM decisions WHERE item_id=? ORDER BY field',(item_id,),con),
-                'reminder':personal_reminder_state(self.db,con,item_id)}
+                'reminder':personal_reminder_state(self.db,con,item_id),
+                'completion':self.db.one('SELECT * FROM class_completions WHERE item_id=?',(item_id,),con)}
 
     def _existing(self,con,request_id,body_hash):
         existing=self.db.one('SELECT * FROM action_receipts WHERE request_id=?',(request_id,),con)
@@ -84,7 +102,12 @@ class ActionService:
                 kind=action['type']
                 if kind.startswith('create_'):
                     payload={k:v for k,v in action.items() if k not in ('type','fields')} | action.get('fields',{}) | {'kind':kind[7:]}
-                    item_id=self.db._create_item(con,payload,'personal:'+str(uuid4()))
+                    linked=payload.get('linked_source_id')
+                    if linked:
+                        expected=(expected_versions or {}).get(str(linked),(expected_versions or {}).get(linked))
+                        source=self.db._item(linked,con)
+                        if expected is not None and (not source or source['version']!=expected):raise ValueError('Item version changed; preview again')
+                    item_id=self.db._create_item(con,payload,'personal:'+str(uuid4()),course_id=payload.get('course_id'))
                     before[str(item_id)]=None
                 else:
                     item_id=action.get('item_id',action.get('id'));snap=self._snapshot(con,item_id)
@@ -96,6 +119,7 @@ class ActionService:
                         if expected is not None and snap['row']['version']!=expected:
                             raise ValueError('Item version changed; preview again')
                     if kind=='set_status':
+                        con.execute("INSERT INTO class_completions(item_id,previous_status,end_date,state) SELECT id,status,'',? FROM items WHERE id=? AND course_id IS NOT NULL AND json_extract(payload,'$.kind')='event' ON CONFLICT(item_id) DO UPDATE SET state=excluded.state",('manual:'+request_id,item_id))
                         con.execute('UPDATE items SET status=? WHERE id=?',(action['status'],item_id))
                     elif kind in ('update','set_override'):
                         overrides=json.loads(snap['row']['overrides']) | action['fields']
@@ -130,7 +154,10 @@ class ActionService:
             for key,previous in before.items():
                 item_id=int(key);current=self._snapshot(con,item_id);applied=after[key]
                 applied.setdefault('reminder',{'present':False,'value':None})
-                if previous is not None:previous.setdefault('reminder',{'present':False,'value':None})
+                applied.setdefault('completion',None)
+                if previous is not None:
+                    previous.setdefault('reminder',{'present':False,'value':None})
+                    previous.setdefault('completion',None)
                 snapshots[key]=current
                 restored=[];conflicts=[]
                 if not current:
@@ -168,6 +195,15 @@ class ActionService:
                             write_personal_reminder(self.db,con,item_id,previous['reminder'])
                             restored.append('reminder')
                         else:conflicts.append('reminder')
+                    if previous['completion']!=applied['completion']:
+                        if current['completion']==applied['completion']:
+                            con.execute('DELETE FROM class_completions WHERE item_id=?',(item_id,))
+                            if previous['completion']:
+                                completion=previous['completion']
+                                con.execute('INSERT INTO class_completions(item_id,previous_status,end_date,state) VALUES(?,?,?,?)',
+                                    (item_id,completion['previous_status'],completion['end_date'],completion['state']))
+                            restored.append('class_completion')
+                        else:conflicts.append('class_completion')
                     if restored:con.execute('UPDATE items SET version=version+1,updated_at=? WHERE id=?',(now(),item_id))
                 results.append({'item_id':item_id,'restored':restored,'conflicts':conflicts})
             blocked=any(result['conflicts'] for result in results)

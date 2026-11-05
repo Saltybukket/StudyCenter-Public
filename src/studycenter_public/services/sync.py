@@ -9,6 +9,7 @@ from ..collectors.browser import BrowserManager, BrowserUnavailable, SERVICE_URL
 from ..collectors.tu import InstitutionalCollector
 from ..collectors.mail import IMAPCollector, WebmailCollector, MailError
 from .documents import DocumentService
+from ..domain.source_validity import explicit_course_semester
 
 
 class SyncService:
@@ -60,8 +61,11 @@ class SyncService:
         selected = []
         for identifier in dict.fromkeys(requested):
             course = discovered[identifier]
+            semester = explicit_course_semester(course['title'])
             local = self.db.upsert_course(source['id'], identifier, course['title'],
-                metadata={key:course[key] for key in ('url','kind','course_type','group') if key in course})
+                metadata={key:course[key] for key in ('url','kind') if key in course} | {
+                    'course_type':course.get('course_type'), 'group':course.get('group'),
+                    'confirmed':course.get('confirmed') is True, 'semester':semester})
             selected.append({**course, 'trusted_course_id':local['id']})
         return self._update(source, {'selected_courses': selected, 'crawl_states': {}})
 

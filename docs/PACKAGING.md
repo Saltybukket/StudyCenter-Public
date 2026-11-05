@@ -158,3 +158,20 @@ The installer lifecycle probe refuses developer and self-hosted machines. It
 runs only in an ephemeral GitHub-hosted Windows VM, uses a preinstalled Inno
 compiler, and verifies selected folders with spaces/non-ASCII characters,
 install/update/uninstall, preserved data and removed own optional shortcuts.
+
+## Slim beta release with existing optional components
+
+Build the application wheel from the committed source, then pass its matching
+explicit tag and committed SHA to `scripts/build_slim.py --release-tag
+v0.1.0-beta.4 --wheel <wheel> --source-commit <HEAD> --reuse-components
+--windows-bundle 'build/beta2-installer-decoded/{app}' --iscc build/tools/inno/ISCC.exe`.
+The output directory defaults to `dist/slim`. It must already contain the
+`windows-components.json` and `linux-components.json` caches, their six beta.3
+archives, and `proxy_tools-0.1.0-py3-none-any.whl`. The Windows bundle must contain
+`SYSTEM-RUNTIME-REQUIREMENTS.iss`. Cached component archive identity, original
+release URL, size and pinned SHA-256 are checked; the new manifest continues to
+point at the immutable beta.3 URLs. The new wheel, locks, manifests and bootstrap
+assets use the new tag. Do not upload stale files from the shared cache as new
+release assets. Run the separate exact-draft workflows with the release tag,
+source SHA and installer/archive SHA after creating the unpublished candidate.
+The Windows workflow runs on Windows 2022; neither workflow publishes a release.

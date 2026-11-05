@@ -2,11 +2,11 @@
 
 StudyCenter bündelt Aufgaben, Notizen, Termine und Originalquellen in einer lokalen Anwendung. Für Studierende der TU Graz entwickelt, funktioniert es auch ohne TU-Konto und ohne KI.
 
-**Windows 10/11 x64:** [beta.3-Setup herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-windows-x86_64-setup.exe), öffnen und einrichten.
+**Windows 10/11 x64:** [beta.4-Setup herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/studycenter-public-0.1.0b4-windows-x86_64-setup.exe), öffnen und einrichten.
 
-**Linux x64:** [beta.3-Slim-Archiv herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/studycenter-public-0.1.0b3-linux-x86_64-slim.tar.gz), entpacken und `sh start.sh` ausführen.
+**Linux x64:** [beta.4-Slim-Archiv herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/studycenter-public-0.1.0b4-linux-x86_64-slim.tar.gz), entpacken und `sh start.sh` ausführen.
 
-[SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.3/SHA256SUMS) · [Release mit Größenangaben](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.3)
+[SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.4/SHA256SUMS) · [Release mit Größenangaben](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.4)
 
 Bei einem Update den bisherigen Public-Datenordner beibehalten. Die [beta.2-Komplettpakete](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2) bleiben unverändert verfügbar; ein bereits eingerichteter lokaler Datenbestand wird weiterverwendet.
 
@@ -23,6 +23,15 @@ Die Slim-Basis nutzt eine eigene Python-Umgebung: geeignetes CPython 3.12 x64 wi
 ## Aus Git starten
 
 Repository klonen und im Checkout `start.cmd` unter Windows beziehungsweise `sh start.sh` unter Linux ausführen. [Befehle und Voraussetzungen](docs/DEVELOPMENT.md).
+
+Beta.4 ergänzt einen begrenzten Timeline-Rückblick und einen
+Kalenderexport mit belegten lokalen Uhrzeiten. Eindeutig erkennbare vergangene
+Pflicht-Lehreinheiten können nach Tagesende automatisch erledigt werden; eine
+persönliche Wiederöffnung bleibt erhalten. Quests planen eigene Ziele oder
+ausgewählte gespeicherte Unterlagen als editierbare Lernschritte; die Oberfläche
+benennt die Quellenarten für die KI-Anfrage. Die Ausgabe umfasst diese Erweiterungen; vollständige Gleichheit mit der privaten
+Referenz ist noch nicht erreicht. Insbesondere Google-Kalenderabgleich und GitLab-Import
+sind weiterhin offen. [Funktionsvergleich und offene Unterschiede](docs/UI-PARITY.md).
 
 ## Entwickeln
 

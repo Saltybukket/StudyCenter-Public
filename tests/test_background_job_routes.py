@@ -61,8 +61,9 @@ def test_job_routes_start_async_work_and_expose_completion(tmp_path, monkeypatch
     with own_client(tmp_path) as (client, headers):
         configure_provider(client, headers)
         route, name, identifier, service, method = job_target(client, headers, operation)
-        async def worker(actual_identifier):
+        async def worker(actual_identifier,**kwargs):
             assert actual_identifier == identifier
+            if operation=='extract':assert kwargs.get('profile') and callable(kwargs.get('authorize'))
             while not release.is_set():
                 await asyncio.sleep(.001)
             return {'sentinel': 'synthetic-completion'}
@@ -85,8 +86,9 @@ def test_job_routes_expose_async_worker_failure(tmp_path, monkeypatch, operation
     with own_client(tmp_path) as (client, headers):
         configure_provider(client, headers)
         route, name, identifier, service, method = job_target(client, headers, operation)
-        async def worker(actual_identifier):
+        async def worker(actual_identifier,**kwargs):
             assert actual_identifier == identifier
+            if operation=='extract':assert kwargs.get('profile') and callable(kwargs.get('authorize'))
             await asyncio.sleep(0)
             raise ValueError('Synthetic worker failure')
         monkeypatch.setattr(service, method, worker)

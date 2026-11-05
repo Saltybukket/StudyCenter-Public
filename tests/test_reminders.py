@@ -38,4 +38,14 @@ class ReminderContract(unittest.TestCase):
    self.assertEqual(svc.run_due(datetime(2026,10,14,8,0,tzinfo=timezone.utc))[0]['title'],'Opening')
    db.add_item({'kind':'task','title':'No time','date':'2026-10-14','date_meaning':'deadline'})
    self.assertEqual(svc.run_due(datetime(2026,10,14,9,0,tzinfo=timezone.utc)),[])
+def test_unknown_task_window_closing_does_not_remind_at_opening(tmp_path):
+ from studycenter_public.services.reminders import ReminderService
+ db=Database(tmp_path/'db.sqlite3');svc=ReminderService(db)
+ svc.save_settings({'enabled':True,'offsets':{'task':[0],'registration':[0]}})
+ db.add_item({'kind':'task','title':'Unknown closing','date':'2026-10-14','time':'10:00','date_meaning':'window'})
+ db.add_item({'kind':'task','title':'Known deadline','date':'2026-10-14','time':'10:00','date_meaning':'deadline'})
+ db.add_item({'kind':'registration','title':'Registration opens','date':'2026-10-14','time':'10:00',
+              'end_date':'2026-10-30','end_time':'18:00','date_meaning':'window'})
+ assert {job['title'] for job in svc.due(datetime(2026,10,14,8,0,tzinfo=timezone.utc))}=={'Known deadline','Registration opens'}
+
 if __name__=='__main__':unittest.main()

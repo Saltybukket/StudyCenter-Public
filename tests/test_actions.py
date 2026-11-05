@@ -37,4 +37,17 @@ class ActionContract(unittest.TestCase):
   receipt=svc.undo(rid,str(uuid.uuid4()));self.assertEqual(receipt['state'],'blocked');self.assertEqual(self.db.item(a['id'])['status'],'done');self.assertEqual(self.db.item(b['id'])['status'],'planned')
   for action in [{'type':'create_task','title':'Bad','date':'tomorrow'},{'type':'create_note','title':'Bad','credential':'unexpected'},{'type':'set_override','item_id':a['id'],'fields':{'source_state':'booked'}}]:
    with self.assertRaises(ValueError):svc.execute([action],str(uuid.uuid4()))
+def test_preview_reads_each_distinct_item_once(tmp_path,monkeypatch):
+ from studycenter_public.services.actions import ActionService
+ db=Database(tmp_path/'synthetic.sqlite3');item=db.add_item({'kind':'task','title':'Synthetic'})
+ original=db.item;calls=[]
+ def counted(item_id):
+  calls.append(item_id);return original(item_id)
+ monkeypatch.setattr(db,'item',counted)
+ actions=[{'type':'set_status','item_id':item['id'],'status':'planned'},
+          {'type':'update','item_id':item['id'],'fields':{'pinned':True}}]
+ preview=ActionService(db).preview(actions)
+ assert calls==[item['id']]
+ assert preview['versions']=={str(item['id']):item['version']}
+
 if __name__=='__main__':unittest.main()

@@ -136,6 +136,12 @@ class BackupService:
             created=[]
             try:
                 with closing(sqlite3.connect(stage/'database.sqlite3')) as con:
+                    # Restore older archives into a schema usable immediately by
+                    # the running process, before replacing its database.
+                    con.execute('CREATE TABLE IF NOT EXISTS class_completions(item_id INTEGER PRIMARY KEY REFERENCES items(id),previous_status TEXT NOT NULL,end_date TEXT NOT NULL,state TEXT NOT NULL)')
+                    con.execute('CREATE TABLE IF NOT EXISTS quest_plans(id TEXT PRIMARY KEY,request_id TEXT UNIQUE NOT NULL,input_hash TEXT NOT NULL,data TEXT NOT NULL,state TEXT NOT NULL,version INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)')
+                    con.execute('CREATE TABLE IF NOT EXISTS quest_receipts(request_id TEXT PRIMARY KEY,quest_id TEXT NOT NULL,body_hash TEXT NOT NULL,action TEXT NOT NULL,before_state TEXT NOT NULL,after_state TEXT NOT NULL,receipt TEXT NOT NULL,created_at TEXT NOT NULL)')
+                    con.execute('CREATE INDEX IF NOT EXISTS reminder_jobs_state ON reminder_jobs(state)')
                     for doc_id,original,metadata in con.execute('SELECT id,original_path,metadata FROM documents').fetchall():
                         if not original:continue
                         target=documents/Path(original).name

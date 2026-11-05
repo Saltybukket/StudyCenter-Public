@@ -11,6 +11,7 @@ from ..platform.secrets import SecretStore
 from ..providers.contracts import ProviderProfile
 from ..providers.settings import ProviderSettings
 from ..providers.factory import create_provider
+from ..services.async_utils import finish_thread
 
 router=APIRouter(prefix='/api')
 
@@ -45,6 +46,23 @@ async def actions(r:Request):
 @router.post('/actions/undo')
 async def undo(r:Request):
     data=await r.json();return r.app.state.actions.undo(data['request_id'],data['undo_id'])
+
+@router.get('/quests')
+def quests(r:Request):return r.app.state.quests.list()
+
+@router.post('/quests/preview')
+async def quest_preview(r:Request):
+    state=r.app.state;profile=require_content_consent(state)
+    return await state.quests.preview(await r.json(),profile=profile,authorize=lambda:check_content_consent(state,profile))
+
+@router.post('/quests/{quest_id}/actions')
+async def quest_action(r:Request,quest_id:str):return await finish_thread(r.app.state.quests.execute,quest_id,await r.json())
+
+@router.post('/quests/undo')
+async def quest_undo(r:Request):
+    data=await r.json()
+    if not isinstance(data,dict):raise ValueError('Ungültiger Quest-Beleg')
+    return await finish_thread(r.app.state.quests.undo,data.get('request_id'),data.get('undo_id'))
 
 @router.get('/documents')
 def documents(r:Request):
@@ -84,6 +102,11 @@ def require_content_consent(state):
     signature=f'{profile.provider}|{profile.base_url}|{profile.model}|{profile.profile_id}'
     if state.settings.get('cloud_consent')!=signature:
         raise ValueError('Unter KI-Verbindung zuerst die Übertragung der ausgewählten Inhalte an diesen Anbieter bestätigen.')
+    return profile
+
+def check_content_consent(state,expected):
+    if require_content_consent(state)!=expected:
+        raise ValueError('Die KI-Verbindung wurde geändert; bitte den Vorgang erneut starten.')
 
 def launch(state,name,work):
     if name in state.jobs and not state.jobs[name].done():raise ValueError('Dieser Vorgang läuft bereits')
@@ -100,16 +123,16 @@ def launch(state,name,work):
 
 @router.post('/documents/{document_id}/extract')
 async def extract(r:Request,document_id:int):
-    s=r.app.state;require_content_consent(s)
-    return launch(s,'extract/'+str(document_id),s.extraction.extract(document_id))
+    s=r.app.state;profile=require_content_consent(s)
+    return launch(s,'extract/'+str(document_id),s.extraction.extract(document_id,profile=profile,authorize=lambda:check_content_consent(s,profile)))
 
 @router.get('/jobs')
 def jobs(r:Request):return r.app.state.job_status
 
 @router.post('/assistant')
 async def assistant(r:Request):
-    s=r.app.state;require_content_consent(s);data=await r.json()
-    return await s.assistant.respond(data['text'],data.get('session_id'),task=data.get('task','assistant'),direct=s.settings.get('direct_mode',False),document_ids=data.get('document_ids'))
+    s=r.app.state;profile=require_content_consent(s);data=await r.json()
+    return await s.assistant.respond(data['text'],data.get('session_id'),task=data.get('task','assistant'),direct=s.settings.get('direct_mode',False),document_ids=data.get('document_ids'),profile=profile,authorize=lambda:check_content_consent(s,profile))
 
 @router.post('/assistant/apply')
 async def assistant_apply(r:Request):return r.app.state.assistant.apply((await r.json())['proposal_id'])
@@ -123,7 +146,7 @@ async def save_provider(r:Request):
     if data.pop('session_only',False) and not s.secrets.session_only:
         s.secrets=SecretStore(s.paths.instance_id,session_only=True)
         s.profiles.secrets=s.secrets;s.oauth.secrets=s.secrets
-        s.assistant.secrets=s.secrets;s.extraction.secrets=s.secrets
+        s.assistant.secrets=s.secrets;s.extraction.secrets=s.secrets;s.quests.secrets=s.secrets
         s.sync.secrets=s.secrets
     key=data.pop('api_key','');consent=data.pop('content_consent',False)
     profile=ProviderProfile(**data)
@@ -139,11 +162,11 @@ async def select_provider(r:Request):
 
 @router.post('/providers/probe')
 async def probe_provider(r:Request):
-    s=r.app.state;require_content_consent(s)
-    profile=s.profiles.active_profile()
+    s=r.app.state;profile=require_content_consent(s)
     from ..providers.contracts import ModelRequest,ProviderError
     provider=create_provider(profile,s.secrets,oauth=s.oauth)
     schema={'type':'object','additionalProperties':False,'required':['ok'],'properties':{'ok':{'type':'boolean'}}}
+    check_content_consent(s,profile)
     result=await provider.generate(ModelRequest('assistant','Synthetischer Verbindungstest ohne Studieninhalte. Antworte als JSON mit ok=true.',{'test':'synthetic connection check'},schema,max_input_chars=2000))
     if not result.complete or result.content!={'ok':True}:raise ProviderError('probe_response')
     return {'synthetic_response_valid':True,'provider':result.provider,'model':result.model,'usage':result.usage}
@@ -245,26 +268,20 @@ async def restore(r:Request):
     path=Path(saved['path']).resolve()
     if path.parent!=s.paths.cache.resolve():raise ValueError('Ungültiger Wiederherstellungsort')
     result=BackupService(s.db,s.paths).restore(path,confirmed=True)
+    s.class_completion.invalidate()
     from ..config import Settings
     s.settings=Settings(s.paths)
     s.settings.set('cloud_consent',None)
     s.profiles=ProviderSettings(s.paths.config/'providers.json',s.secrets)
-    s.assistant.profiles=s.profiles;s.extraction.profiles=s.profiles
+    s.assistant.profiles=s.profiles;s.extraction.profiles=s.profiles;s.quests.profiles=s.profiles
     path.unlink(missing_ok=True)
     return result
 
 @router.get('/calendar/export')
 def calendar_export(r:Request):
-    import hashlib
-    lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//StudyCenter Public//Personal planning//DE']
-    for item in r.app.state.db.items(active_only=True):
-        day=item.get('end_date') or item.get('date')
-        if not day:continue
-        # Personal local export does not create or assert an official booking.
-        title=str(item['title']).replace('\\','\\\\').replace('\n','\\n').replace(',','\\,').replace(';','\\;')
-        lines+=['BEGIN:VEVENT',f"UID:{r.app.state.paths.instance_id}-{item['id']}@studycenter-public",'DTSTART;VALUE=DATE:'+day.replace('-',''),'SUMMARY:'+title,'DESCRIPTION:Persönliche Planung. Originalquelle in StudyCenter prüfen.','END:VEVENT']
-    lines.append('END:VCALENDAR')
-    return Response('\r\n'.join(lines)+'\r\n',media_type='text/calendar',headers={'Content-Disposition':'attachment; filename="studycenter-public.ics"'})
+    from ..services.calendar_export import export_calendar
+    result=export_calendar(r.app.state.db.items(active_only=True),r.app.state.paths.instance_id)
+    return Response(result,media_type='text/calendar',headers={'Content-Disposition':'attachment; filename="studycenter-public.ics"'})
 
 @router.post('/sources/{source_id}/discover')
 async def discover(r:Request,source_id:int):return launch(r.app.state,'discover/'+str(source_id),r.app.state.sync.discover_courses(source_id))
@@ -284,6 +301,18 @@ def notifications(r:Request):return r.app.state.reminders.notifications()
 
 @router.post('/notifications/read')
 async def read_notification(r:Request):r.app.state.reminders.mark_read((await r.json())['job_key']);return {'read':True}
+
+@router.post('/notifications/read-many')
+async def read_notifications(r:Request):
+    data=await r.json()
+    if not isinstance(data,dict):raise ValueError('Ungültige Meldungsauswahl')
+    return r.app.state.reminders.mark_many_read(data.get('job_keys'))
+
+@router.post('/notifications/read-groups')
+async def read_notification_groups(r:Request):
+    data=await r.json()
+    if not isinstance(data,dict):raise ValueError('Ungültige Meldungsauswahl')
+    return r.app.state.reminders.mark_groups_read(data.get('groups'))
 
 @router.get('/settings')
 def settings(r:Request):

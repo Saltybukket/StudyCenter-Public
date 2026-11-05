@@ -122,9 +122,13 @@ def main():
             # promotion. Check the real installer rollback over an old full app.
             broken = root/'broken-own-assets'
             broken.mkdir()
-            for name in ('studycenter_public-0.1.0b3-py3-none-any.whl', 'proxy_tools-0.1.0-py3-none-any.whl', 'requirements-windows.lock'):
+            wheels = list(assets.glob('studycenter_public-*-py3-none-any.whl'))
+            if len(wheels) != 1:
+                raise ValueError('Expected exactly one application wheel')
+            wheel_name = wheels[0].name
+            for name in (wheel_name, 'proxy_tools-0.1.0-py3-none-any.whl', 'requirements-windows.lock'):
                 shutil.copy2(assets/name, broken/name)
-            (broken/'studycenter_public-0.1.0b3-py3-none-any.whl').write_bytes(b'Synthetic interrupted release wheel')
+            (broken/wheel_name).write_bytes(b'Synthetic interrupted release wheel')
             old_hash = hashlib.sha256((program/'StudyCenter-Public.exe').read_bytes()).hexdigest()
             failed = subprocess.run(list(map(str, install+['/LOG='+str(root/'failed-update.log')])),
                                     env=dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(broken)), timeout=300,
@@ -150,7 +154,7 @@ def main():
     receipt = json.loads((program/'.local/installation.json').read_text())
     manifest = json.loads((program/'slim-manifest.json').read_text())
     assert manifest['source_git_sha'] == args.expected_source
-    assert receipt['version'] == '0.1.0b3'
+    assert receipt['version'] == manifest['version']
     python = receipt['python']
     run_command([python, '-I', '-c', 'import importlib.util; assert all(importlib.util.find_spec(m) is None for m in ("playwright","faster_whisper","av","pytest"))'], env)
     assert not (program/'.local/components').exists()

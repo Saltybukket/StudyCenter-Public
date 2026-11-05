@@ -416,8 +416,9 @@ class DocumentService:
         path = owned_path(Path(document.get('original_path') or document.get('path') or ''),self.paths.documents).resolve()
         if not path.is_relative_to(Path(self.paths.documents).resolve()) or not path.is_file():
             raise ValueError('Original fehlt oder liegt außerhalb dieser Installation')
-        if hashlib.sha256(path.read_bytes()).hexdigest() != document['hash']:
-            raise ValueError('Originalhash stimmt nicht mehr überein')
+        with path.open('rb') as stream:
+            if hashlib.file_digest(stream,'sha256').hexdigest() != document['hash']:
+                raise ValueError('Originalhash stimmt nicht mehr überein')
         return path
 
     def search(self, query, limit=50):

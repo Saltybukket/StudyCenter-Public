@@ -342,3 +342,28 @@ Release archives and application/source scans have no unresolved findings;
 native archives reuse exact reviewed beta.2 files and their existing source
 offer. No real TU/AI accounts, paid calls, downloaded model weights, host
 dependency installers or native Windows 11 guest acceptance were used.
+
+
+## beta.4: Review und Slim-Kandidat
+
+Der Kandidat ergänzt Quests, verknüpfte Fristen, den konservativen Abschluss
+vergangener Lehreinheiten, Kalender-/ICS-Korrekturen, Benachrichtigungsgruppen
+und Assistenten-Sammelvorschauen. Eine erneute unabhängige Prüfung behob außerdem
+einen Direktmodus-Umweg bei Sammelaufträgen, ausgelassene/erfundene Filter,
+verlorene gleichzeitige Enduhrzeiten und irrtümliche Fristerinnerungen am
+Öffnungstag eines Aufgabenfensters ohne bekannten Schluss.
+
+Lokaler kompletter Windows-Quelltestlauf: 649 bestanden, 28 übersprungen.
+Isolierte synthetische Desktop-/Mobilprüfung für Übersicht, Aufgaben, Kalender,
+Timeline, Meldungen, Quests und Sammelvorschau bestanden. Alle 73 App-Dateien
+im neuen Wheel stimmen mit dem geprüften Quellbestand überein. Wheel und
+Linux-Bootstrap bestehen den Public-Scan. Konten/Modelle sind synthetisch;
+keine echten TU- oder Anbieterzugänge und keine persönlichen Daten verwendet.
+
+Die unveränderten optionalen Komponenten bleiben an ihre veröffentlichten
+beta.3-URLs, Größen und SHA-256 gebunden. Installer und App-Wheel verwenden
+die neue beta.4-Version. Die Workflows prüfen den tatsächlichen Entwurfsrelease,
+Quellcommit und Paket-Hash in wegwerfbaren Windows-/Linux-Umgebungen.
+Die exakten Paketläufe sind vor Veröffentlichung gesondert zu bestätigen;
+der lokale Quelltestlauf ersetzt diese Prüfung nicht. Bekannte Funktionslücken
+stehen in UI-PARITY.md; vollständige private Parität wird nicht behauptet.

@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter,Query,Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import PlainTextResponse
+from ..domain.presentation import calendar_clock, display_title, overview_date
 router=APIRouter()
 templates=Jinja2Templates(directory=Path(__file__).parent/'templates')
 
@@ -17,12 +18,22 @@ def static_url(name):
     return '/static/'+name+'?v='+digest
 
 templates.env.globals['static_url']=static_url
-NAV=[('/overview','Übersicht','◉'),('/board','Aufgaben & Notizen','✓'),('/pins','Pins','◇'),('/timeline','Timeline','↗'),('/calendar','Kalender','▦'),('/archive','Archiv','□'),('/sources','Kurse & Quellen','⊞'),('/documents','Dokumente','≡'),('/assistant','Assistent','◎'),('/mail','TU-Mail','✉'),('/model','KI-Verbindung','⌘'),('/settings','Einstellungen','⚙')]
+templates.env.globals['display_title']=display_title
+templates.env.globals['calendar_clock']=calendar_clock
+templates.env.globals['overview_date']=overview_date
+NAV=[('/overview','Übersicht','◉'),('/board','Aufgaben & Notizen','✓'),('/quests','Quests','✦'),('/pins','Pins','◇'),('/timeline','Timeline','↗'),('/calendar','Kalender','▦'),('/archive','Archiv','□'),('/sources','Kurse & Quellen','⊞'),('/documents','Dokumente','≡'),('/assistant','Assistent','◎'),('/mail','TU-Mail','✉'),('/model','KI-Verbindung','⌘'),('/settings','Einstellungen','⚙')]
 
 def render(r,page,title,**extra):
+    from datetime import datetime
+    from ..config import VIENNA
     s=r.app.state
     extra['is_windows']=sys.platform=='win32'
-    response=templates.TemplateResponse(request=r,name='page.html',context={'request':r,'page':page,'title':title,'nav':NAV,'csrf':s.csrf,'settings':s.settings.values,'data_dir':str(s.paths.data),'secret_storage':s.secrets.status,'items':s.db.items(),'sources':s.db.sources(),'documents':s.db.documents(),'model_status':s.profiles.status(),'today':date.today().isoformat(),**extra})
+    extra['class_completion_error']=bool(s.class_completion.error)
+    extra['notification_unread']=s.reminders.unread_count()
+    if 'courses' not in extra:extra['courses']=s.db.courses()
+    items=extra.pop('items',None)
+    if items is None:items=s.db.items()
+    response=templates.TemplateResponse(request=r,name='page.html',context={'request':r,'page':page,'title':title,'nav':NAV,'csrf':s.csrf,'settings':s.settings.values,'data_dir':str(s.paths.data),'secret_storage':s.secrets.status,'items':items,'sources':s.db.sources(),'documents':s.db.documents(),'model_status':s.profiles.status(),'today':datetime.now(VIENNA).date().isoformat(),**extra})
     response.set_cookie('scpublic_session',s.session,httponly=True,samesite='strict')
     return response
 
@@ -32,33 +43,49 @@ def overview(r:Request):
     from datetime import datetime
     from ..config import VIENNA
     today=datetime.now(VIENNA).date()
-    active=[i for i in r.app.state.db.items() if i['status'] not in ('done','ignored')]
+    items=r.app.state.db.items()
+    active=[i for i in items if i['status'] not in ('done','ignored')]
     def effective(item):
-        return (item.get('end_date') if item.get('date_meaning') in ('deadline','window') else None) or item.get('date') or ''
+        return overview_date(item) or ''
     dated=sorted((i for i in active if effective(i)),key=lambda i:(effective(i),i['id']))
     focus=[i for i in dated if effective(i)<=(today+timedelta(days=13)).isoformat()]
     week=[i for i in dated if today.isoformat()<=effective(i)<=(today+timedelta(days=6)).isoformat()]
-    return render(r,'overview','Übersicht',active=active,focus_actions=focus,week_active=week,checks_active=[i for i in active if i.get('conflict')])
+    return render(r,'overview','Übersicht',items=items,active=active,focus_actions=focus,week_active=week,checks_active=[i for i in active if i.get('conflict')])
 
 @router.get('/board')
-def board(r:Request):return render(r,'board','Aufgaben & Notizen',active=[i for i in r.app.state.db.items() if i['status'] not in ('done','ignored')])
+def board(r:Request):
+    items=r.app.state.db.items()
+    return render(r,'board','Aufgaben & Notizen',items=items,active=[i for i in items if i['status'] not in ('done','ignored')])
 
 @router.get('/pins')
-def pins(r:Request):return render(r,'board','Pins',active=[i for i in r.app.state.db.items() if i.get('pinned') and i['status'] not in ('done','ignored')])
+def pins(r:Request):
+    items=r.app.state.db.items()
+    return render(r,'board','Pins',items=items,active=[i for i in items if i.get('pinned') and i['status'] not in ('done','ignored')])
 
 @router.get('/archive')
-def archive(r:Request):return render(r,'archive','Archiv',active=[i for i in r.app.state.db.items() if i['status'] in ('done','ignored')])
+def archive(r:Request):
+    items=r.app.state.db.items()
+    return render(r,'archive','Archiv',items=items,active=[i for i in items if i['status'] in ('done','ignored')])
 
 @router.get('/timeline')
-def timeline(r:Request,start:str='',end:str=''):
+def timeline(r:Request,start:str='',end:str='',past:int=0,days:int=14,course:str='',kind:str=''):
+    from ..config import VIENNA
+    from datetime import datetime
+    today=datetime.now(VIENNA).date()
+    past=max(0,min(30,past));days=max(1,min(366,days))
+    first=max(date.fromisoformat(start),today-timedelta(days=30)) if start else today-timedelta(days=past)
+    last=min(date.fromisoformat(end),today+timedelta(days=366)) if end else today+timedelta(days=days)
+    if first>last:raise ValueError('Beginn liegt nach dem Ende')
     groups=defaultdict(list)
-    for item in r.app.state.db.items():
-        day=item.get('end_date') if item.get('date_meaning') in ('deadline','window') and item.get('end_date') else item.get('date')
-        day=day or 'Ohne belegtes Datum'
-        if start and day<start:continue
-        if end and day>end and day!='Ohne belegtes Datum':continue
+    items=r.app.state.db.items()
+    for item in items:
+        if item['status']=='ignored' or (course and str(item.get('course_id'))!=course) or (kind and item.get('kind')!=kind):continue
+        day=overview_date(item)
+        if not day or not first.isoformat()<=day<=last.isoformat():continue
+        if item['status']=='done' and day>=today.isoformat():continue
         groups[day].append(item)
-    return render(r,'timeline','Timeline',groups=sorted(groups.items()),start=start,end=end)
+    if first<=today<=last:groups.setdefault(today.isoformat(),[])
+    return render(r,'timeline','Timeline',items=items,groups=sorted(groups.items()),start=start,end=end,past=past,days=days,course=course,kind=kind,courses=r.app.state.db.courses())
 
 @router.get('/calendar')
 def cal(r:Request,month:str='',view:str='month',anchor:str=Query('',alias='date')):
@@ -70,13 +97,14 @@ def cal(r:Request,month:str='',view:str='month',anchor:str=Query('',alias='date'
     week_days=[week_start+timedelta(days=n) for n in range(7)]
     rows=calendar.Calendar(firstweekday=0).monthdatescalendar(day.year,day.month)
     groups=defaultdict(list)
-    for item in r.app.state.db.items():
-        effective=item.get('end_date') if item.get('date_meaning') in ('deadline','window') and item.get('end_date') else item.get('date')
+    items=r.app.state.db.items()
+    for item in items:
+        effective=overview_date(item) or (item.get('date') if item.get('date_meaning')=='window' or item.get('linked_deadline_unavailable') else None)
         if effective:groups[effective].append(item)
     previous=(day-timedelta(days=1)).strftime('%Y-%m');next_month=(day+timedelta(days=32)).strftime('%Y-%m')
     days=[day+timedelta(days=n) for n in range(calendar.monthrange(day.year,day.month)[1])]
     lanes=[]
-    for item in r.app.state.db.items():
+    for item in items:
         if not item.get('date') and not item.get('end_date'):continue
         first=date.fromisoformat(item.get('date') or item['end_date'])
         last=date.fromisoformat(item.get('end_date') or first.isoformat())
@@ -84,7 +112,7 @@ def cal(r:Request,month:str='',view:str='month',anchor:str=Query('',alias='date'
         left=(max(first,days[0])-days[0]).days
         span=(min(last,days[-1])-max(first,days[0])).days+1
         lanes.append({'item':item,'left':left/len(days)*100,'width':span/len(days)*100,'point':first==last,'before':first<days[0],'after':last>days[-1]})
-    return render(r,'calendar','Kalender',weeks=rows,week_days=week_days,selected_date=selected.isoformat(),previous_week=(week_start-timedelta(days=7)).isoformat(),next_week=(week_start+timedelta(days=7)).isoformat(),groups=groups,gantt_days=days,gantt_lanes=lanes,month=day.strftime('%Y-%m'),previous=previous,next_month=next_month,view=view)
+    return render(r,'calendar','Kalender',items=items,weeks=rows,week_days=week_days,selected_date=selected.isoformat(),previous_week=(week_start-timedelta(days=7)).isoformat(),next_week=(week_start+timedelta(days=7)).isoformat(),groups=groups,gantt_days=days,gantt_lanes=lanes,month=day.strftime('%Y-%m'),previous=previous,next_month=next_month,view=view)
 
 @router.get('/items/{item_id}')
 def item(r:Request,item_id:int):
@@ -95,7 +123,7 @@ def item(r:Request,item_id:int):
     if category=='event':
         category='lecture' if any(word in entry['title'].casefold() for word in ('lecture','vorlesung')) else 'exercise'
     reminder={'enabled':True,'offsets':rules['offsets'].get(category,[])} | rules['exceptions'].get(str(item_id),{})
-    return render(r,'item',entry['title'],entry=entry,item_reminder=reminder)
+    return render(r,'item',display_title(entry),entry=entry,item_reminder=reminder)
 
 @router.get('/items/{item_id}/compare')
 def compare(r:Request,item_id:int):
@@ -124,6 +152,17 @@ def sources(r:Request):return render(r,'sources','Kurse & Quellen')
 @router.get('/assistant')
 def assistant(r:Request):return render(r,'assistant','StudyCenter-Assistent')
 
+@router.get('/quests')
+def quests(r:Request):
+    from datetime import datetime
+    from ..config import VIENNA
+    from ..services.quests import quest_item_eligible
+    plans=r.app.state.quests.list()
+    items=r.app.state.db.items()
+    current=datetime.now(VIENNA)
+    options=[item for item in items if quest_item_eligible(item,current)]
+    return render(r,'quests','Quests',items=items,quest_items=options,quests=plans,xp=sum(quest['xp'] for quest in plans))
+
 @router.get('/model')
 def model(r:Request):return render(r,'model','KI-Verbindung',oauth_accounts=r.app.state.oauth.accounts())
 
@@ -132,6 +171,12 @@ def mail(r:Request):return render(r,'mail','TU-Mail',mail_status=r.app.state.syn
 
 @router.get('/settings')
 def settings(r:Request):return render(r,'settings','Einstellungen',reminders=r.app.state.reminders.settings(),notifications=r.app.state.reminders.notifications())
+
+@router.get('/notifications')
+def notifications(r:Request,page:int=1,filter:str='unread'):
+    if filter not in ('all','unread'):raise ValueError('Ungültiger Meldungsfilter')
+    inbox=r.app.state.reminders.notification_page(page,unread=filter=='unread')
+    return render(r,'notifications','Benachrichtigungen',inbox=inbox)
 
 @router.get('/setup')
 def setup(r:Request,step:int=1):return render(r,'setup','StudyCenter Public einrichten',step=max(1,min(step,5)))

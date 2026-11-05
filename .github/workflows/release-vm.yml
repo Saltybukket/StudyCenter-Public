@@ -2,6 +2,10 @@ name: Exact candidate installer in disposable Windows VM
 on:
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: Exact beta release tag, matching the source version
+        required: true
+        type: string
       installer_sha256:
         description: Expected SHA256 of the own unpublished candidate installer
         required: true
@@ -42,21 +46,29 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
           EXPECTED_INSTALLER_SHA256: ${{ inputs.installer_sha256 }}
           EXPECTED_SOURCE_GIT_SHA: ${{ inputs.source_git_sha }}
         run: |
           if ($env:EXPECTED_INSTALLER_SHA256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Invalid expected installer checksum' }
           if ($env:EXPECTED_SOURCE_GIT_SHA -cnotmatch '^[0-9a-f]{40}$') { throw 'Invalid expected build source' }
-          $release = gh release view v0.1.0-beta.3 --repo $env:GITHUB_REPOSITORY --json isDraft,assets,targetCommitish | ConvertFrom-Json
+          if ($env:RELEASE_TAG -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.([1-9][0-9]*)$') { throw 'Invalid release tag' }
+          $version = "$($Matches[1]).$($Matches[2]).$($Matches[3])b$($Matches[4])"
+          if ((git rev-parse HEAD) -cne $env:EXPECTED_SOURCE_GIT_SHA) { throw 'Workflow checkout differs from candidate source' }
+          $projectVersion = & .venv/Scripts/python.exe -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          if ($projectVersion -cne $version) { throw 'Tag and project version differ' }
+          $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,assets,targetCommitish | ConvertFrom-Json
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           if (-not $release.isDraft) { throw 'This probe accepts only the own unpublished draft candidate' }
           if ($release.targetCommitish -cne $env:EXPECTED_SOURCE_GIT_SHA) { throw 'Draft source differs' }
-          $expectedName = 'studycenter-public-0.1.0b3-windows-x86_64-setup.exe'
+          $expectedName = "studycenter-public-$version-windows-x86_64-setup.exe"
           $assets = @($release.assets | Where-Object { $_.name -eq $expectedName })
           if ($assets.Count -ne 1) { throw 'Own candidate asset is missing or ambiguous' }
           $candidate = Join-Path $env:RUNNER_TEMP 'StudyCenter-Public-candidate'
           New-Item -ItemType Directory -Path $candidate | Out-Null
-          gh release download v0.1.0-beta.3 --repo $env:GITHUB_REPOSITORY --pattern '*windows-x86_64*' --pattern '*.whl' --pattern 'requirements-windows.lock' --pattern 'SHA256SUMS' --dir $candidate
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern '*windows-x86_64*' --pattern '*.whl' --pattern 'requirements-windows.lock' --pattern 'SHA256SUMS' --dir $candidate
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          gh release download v0.1.0-beta.3 --repo $env:GITHUB_REPOSITORY --pattern 'studycenter-public-0.1.0b3-windows-x86_64-*.tar.gz' --dir $candidate --skip-existing
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $installer = Join-Path $candidate $expectedName
           $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -93,10 +93,11 @@
  showComponents().catch(error=>report(error.message,true));
 
  let pending=null,lastReceipt=null;
- const actionText=actions=>actions.map(a=>{
+ const actionText=(actions,targets=[])=>actions.map(a=>{
   const names={create_note:'Neue persönliche Notiz',create_task:'Neue persönliche Aufgabe',create_event:'Neuer persönlicher Termin',update:'Persönliche Angabe ändern',set_override:'Persönliche Angabe ändern',set_status:'Persönlicher Status',set_reminder:'Persönliche Erinnerung',decide_source:'Persönliche Quellenentscheidung',delete:'Persönlichen Eintrag entfernen'};
-  const labels={title:'Titel',body:'Text',date:'Datum',time:'Uhrzeit',end_date:'Schlussdatum',end_time:'Schlusszeit',pinned:'Pin',obligation:'Pflichtgrad',date_meaning:'Datumsrolle'};
+  const labels={title:'Titel',body:'Text',date:'Datum',time:'Uhrzeit',end_date:'Schlussdatum',end_time:'Schlusszeit',pinned:'Pin',obligation:'Pflichtgrad',date_meaning:'Datumsrolle',course_id:'Kurs-ID',linked_source_id:'Originalaufgabe-ID'};
   const lines=[names[a.type]||'Persönliche Aktion'];
+  const target=targets.find(item=>item.id===a.item_id);if(target)lines.push(target.title+(target.date?' · '+target.date:''));
   if(a.title)lines.push(a.title);
   if(a.status)lines.push('Status: '+a.status);
   if(a.type==='set_reminder')lines.push((a.enabled?'Aktiv':'Aus')+' · '+a.offsets.join(', ')+' Minuten davor');
@@ -119,7 +120,7 @@
  bind('#preview-cancel','click',()=>{pending=null;previewDialog.close();});
  bind('#receipt-undo','click',async()=>{if(!lastReceipt)return;const result=await api('/api/actions/undo',{request_id:lastReceipt.request_id,undo_id:crypto.randomUUID()});if(result.state==='blocked'||result.blocked){report('Rücknahme blockiert: Der Eintrag wurde danach geändert. Es wurde nichts überschrieben.',true);receiptDialog.close();return;}location.reload();});
  bind('#receipt-close','click',()=>location.reload());
- bind('#create-form','submit',async(e,form)=>{e.preventDefault();const data=fields(form);const kind=data.kind;delete data.kind;for(const key of ['date','time','end_date','end_time'])if(!data[key])delete data[key];if(data.time&&!data.date)throw Error('Eine Uhrzeit braucht ein Datum.');if(data.end_time&&!data.end_date)throw Error('Eine Schlusszeit braucht ein Schlussdatum.');await preview([{type:'create_'+kind,...data}]);});
+ bind('#create-form','submit',async(e,form)=>{e.preventDefault();const data=fields(form);const kind=data.kind;delete data.kind;for(const key of ['date','time','end_date','end_time'])if(!data[key])delete data[key];for(const key of ['course_id','linked_source_id']){if(data[key])data[key]=Number(data[key]);else delete data[key];}if(data.time&&!data.date)throw Error('Eine Uhrzeit braucht ein Datum.');if(data.end_time&&!data.end_date)throw Error('Eine Schlusszeit braucht ein Schlussdatum.');await preview([{type:'create_'+kind,...data}]);});
  const editForm=document.getElementById('edit-form'),editDefaults=editForm?fields(editForm):{};
  bind('#edit-form','submit',async(e,form)=>{e.preventDefault();const values=fields(form);if(values.time&&!values.date)throw Error('Eine Uhrzeit braucht ein Datum.');if(values.end_time&&!values.end_date)throw Error('Eine Schlusszeit braucht ein Schlussdatum.');if(values.date&&values.end_date&&(values.end_date<values.date||(values.end_date===values.date&&values.time&&values.end_time&&values.end_time<values.time)))throw Error('Der Schluss darf nicht vor dem Beginn liegen.');const data=Object.fromEntries(Object.entries(values).filter(([key,value])=>value!==editDefaults[key]));if(!Object.keys(data).length){report('Keine Änderung zum Prüfen.');return;}for(const key of ['date','time','end_date','end_time'])if(key in data)data[key]=data[key]||null;await preview([{type:'update',item_id:+form.dataset.id,fields:data}],{[form.dataset.id]:+form.dataset.version});});
  bind('.item-status','click',async(e,b)=>preview([{type:'set_status',item_id:+b.dataset.id,status:b.dataset.status}],{[b.dataset.id]:+b.dataset.version}));
@@ -149,7 +150,7 @@
   for(const link of result.links||[]){const a=document.createElement('a');a.href=link.path;a.textContent='Öffnen: '+link.title;turn.append(a,document.createElement('br'));}
   for(const citation of result.citations||[]){const a=document.createElement('a');a.href=`/documents/${citation.document_id}?page=${citation.page}`;a.textContent=`\nBeleg · Seite ${citation.page}: ${citation.quote}`;turn.append(a);}
   if(result.receipt)showReceipt(result.receipt);
-  else if(result.preview){const b=document.createElement('button');b.textContent='Vorschau prüfen';b.addEventListener('click',()=>{pending={proposal_id:result.proposal_id};document.getElementById('preview-content').textContent=actionText(result.preview.actions);previewDialog.showModal();});turn.append(b);}
+  else if(result.preview){const b=document.createElement('button');b.textContent='Vorschau prüfen';b.addEventListener('click',()=>{pending={proposal_id:result.proposal_id};document.getElementById('preview-content').textContent=actionText(result.preview.actions,result.preview.targets||[]);previewDialog.showModal();});turn.append(b);}
  }
  bind('#assistant-form','submit',async(e,form)=>{e.preventDefault();const text=form.elements.text.value;const docIds=[...form.elements.documents.selectedOptions].map(o=>+o.value);form.querySelector('button').disabled=true;try{await ask(text,{task:form.elements.questions.checked?'questions':'assistant',document_ids:docIds});form.elements.text.value='';}finally{form.querySelector('button').disabled=false;}});
  bind('#provider-kind','change',(e,select)=>{const input=document.querySelector('#provider-form [name=base_url]');input.value=select.value==='ollama'?'http://localhost:11434':select.value==='lmstudio'?'http://localhost:1234/v1':'';});
@@ -174,6 +175,47 @@
  bind('#reminder-settings','submit',async(e,form)=>{e.preventDefault();const data=fields(form);const offsets={};for(const key of ['exam','exercise','lecture','task','registration'])offsets[key]=minutes(data[key]);await api('/api/reminders/settings',{enabled:form.elements.enabled.checked,offsets,quiet_start:data.quiet_start,quiet_end:data.quiet_end});report('Erinnerungen gespeichert.');});
  bind('#personal-reminder','submit',async(e,form)=>{e.preventDefault();await preview([{type:'set_reminder',item_id:+form.dataset.id,enabled:form.elements.enabled.checked,offsets:minutes(form.elements.minutes.value)}]);});
  bind('.notification-read','click',async(e,b)=>{await api('/api/notifications/read',{job_key:b.dataset.id});location.reload();});
+ const notificationGroup=button=>({item_id:Number(button.dataset.itemId),target_second:Number(button.dataset.targetSecond)});
+ bind('.notification-group-read','click',async(e,button)=>{await api('/api/notifications/read-groups',{groups:[notificationGroup(button)]});location.reload();});
+ bind('#notifications-read-page','click',async()=>{const groups=[...document.querySelectorAll('.notification-group-read')].map(notificationGroup);if(groups.length){await api('/api/notifications/read-groups',{groups});location.reload();}});
+ const questForm=document.getElementById('quest-create');
+ if(questForm){
+  const syncQuestPlanning=()=>{const paced=questForm.elements.planning.value==='paced';questForm.querySelectorAll('[data-quest-paced]').forEach(node=>{node.hidden=!paced;});questForm.querySelector('[data-quest-checklist]').hidden=paced;};
+  questForm.addEventListener('input',event=>{delete questForm.dataset.requestId;if(event.target.name==='attachment')delete questForm.dataset.attachmentId;syncQuestPlanning();});
+  syncQuestPlanning();
+ }
+ bind('#quest-create','submit',async(e,form)=>{
+  e.preventDefault();const button=form.querySelector('button[type="submit"],button:not([type])');button.disabled=true;
+  const data=fields(form);const selected=[...form.elements.document_ids.selectedOptions].map(option=>Number(option.value));
+  const file=form.elements.attachment.files[0];
+  try{
+   if(file&&!form.dataset.attachmentId){
+    if(file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf'))throw Error('Bitte ein PDF auswählen.');
+    const upload=new FormData();upload.append('file',file);const saved=await api('/api/documents/import',upload);form.dataset.attachmentId=String(saved.id);
+   }
+   if(form.dataset.attachmentId)selected.push(Number(form.dataset.attachmentId));
+   const mode=data.item_id==='auto'?'auto':data.item_id?'item':'custom';const itemId=mode==='item'?Number(data.item_id):null;
+   if(!data.goal.trim()&&mode==='custom'&&!selected.length)throw Error('Bitte ein Lernziel, eine Aufgabe oder ein Dokument auswählen.');
+   form.dataset.requestId ||= crypto.randomUUID();
+   await api('/api/quests/preview',{request_id:form.dataset.requestId,goal:data.goal,planning:data.planning,horizon:Number(data.horizon),daily_minutes:Number(data.daily_minutes),mode,item_id:itemId,document_ids:selected});location.reload();
+  }
+  finally{button.disabled=false;}
+ });
+ async function questAction(card,action){
+  const receipt=await api('/api/quests/'+encodeURIComponent(card.dataset.questId)+'/actions',{request_id:crypto.randomUUID(),version:Number(card.dataset.version),...action});
+  sessionStorage.setItem('studycenter-public-quest-receipt',receipt.request_id);location.reload();
+ }
+ bind('.quest-activate','submit',async(e,form)=>{
+  e.preventDefault();const button=form.querySelector('button');button.disabled=true;
+  const steps=[...form.querySelectorAll('.quest-edit-step')].map(step=>({id:step.dataset.stepId,title:step.querySelector('[name=step_title]').value,detail:step.querySelector('[name=detail]').value,topic:step.querySelector('[name=topic]').value,minutes:Number(step.querySelector('[name=minutes]').value),day_offset:Number(step.querySelector('[name=day_offset]').value)}));
+  try{await questAction(form.closest('.quest-card'),{action:'activate',title:form.elements.title.value,steps});}finally{button.disabled=false;}
+ });
+ bind('.quest-step-toggle','change',async(e,box)=>{box.disabled=true;try{await questAction(box.closest('.quest-card'),{action:'step',step_id:box.dataset.stepId,done:box.checked});}catch(error){box.checked=!box.checked;throw error;}finally{box.disabled=false;}});
+ bind('.quest-archive','click',async(e,button)=>{button.disabled=true;try{await questAction(button.closest('.quest-card'),{action:'archive',archived:button.dataset.archived==='true'});}finally{button.disabled=false;}});
+ bind('.quest-discard','click',async(e,button)=>{button.disabled=true;try{await questAction(button.closest('.quest-card'),{action:'discard'});}finally{button.disabled=false;}});
+ const questUndo=document.getElementById('quest-undo');
+ if(questUndo&&sessionStorage.getItem('studycenter-public-quest-receipt'))questUndo.hidden=false;
+ bind('#quest-undo','click',async(e,button)=>{button.disabled=true;try{const result=await api('/api/quests/undo',{request_id:sessionStorage.getItem('studycenter-public-quest-receipt'),undo_id:crypto.randomUUID()});if(result.state==='blocked'){report('Die Quest wurde zwischenzeitlich geändert; Rückgängig ist nicht möglich.',true);return;}sessionStorage.removeItem('studycenter-public-quest-receipt');location.reload();}finally{button.disabled=false;}});
  async function saveMcp(rotate=false){const data=await api('/api/mcp/configure',{enabled:document.getElementById('mcp-enable').checked,write:document.getElementById('mcp-write').checked,rotate});document.getElementById('mcp-result').textContent=data.new_token?`Endpunkt: ${data.endpoint}\nNeuer Zugang (nur hier sichtbar): ${data.new_token}`:`${data.enabled?'Aktiv':'Deaktiviert'} · ${data.endpoint}`;}
  bind('#mcp-enable','change',()=>saveMcp());bind('#mcp-write','change',()=>saveMcp());bind('#mcp-token','click',()=>saveMcp(true));
  bind('#backup','click',async()=>{const blob=await api('/api/backup',{});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='studycenter-public-backup.zip';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);report('Private Sicherung erstellt. Nicht öffentlich teilen.');});

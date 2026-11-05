@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..domain.evidence import effective_evidence, newer_observation, newer_publication
 from ..domain.validation import validate_values
+from ..domain.source_validity import historical_semester_candidate, validate_source_dates
 from ..platform.paths import reject_links
 
 
@@ -31,8 +32,12 @@ CREATE TABLE decisions(id INTEGER PRIMARY KEY,item_id INTEGER NOT NULL REFERENCE
 CREATE TABLE action_receipts(request_id TEXT PRIMARY KEY,body_hash TEXT NOT NULL,receipt TEXT NOT NULL,before_state TEXT NOT NULL,after_state TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE settings(name TEXT PRIMARY KEY,value TEXT NOT NULL);
 CREATE TABLE reminder_jobs(job_key TEXT PRIMARY KEY,item_id INTEGER NOT NULL REFERENCES items(id),due_at TEXT NOT NULL,state TEXT NOT NULL,metadata TEXT NOT NULL);
+CREATE TABLE class_completions(item_id INTEGER PRIMARY KEY REFERENCES items(id),previous_status TEXT NOT NULL,end_date TEXT NOT NULL,state TEXT NOT NULL);
+CREATE TABLE quest_plans(id TEXT PRIMARY KEY,request_id TEXT UNIQUE NOT NULL,input_hash TEXT NOT NULL,data TEXT NOT NULL,state TEXT NOT NULL,version INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+CREATE TABLE quest_receipts(request_id TEXT PRIMARY KEY,quest_id TEXT NOT NULL,body_hash TEXT NOT NULL,action TEXT NOT NULL,before_state TEXT NOT NULL,after_state TEXT NOT NULL,receipt TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE INDEX evidence_item ON item_evidence(item_id,current);
 CREATE INDEX document_source ON documents(source_id,url,fetched_at);
+CREATE INDEX reminder_jobs_state ON reminder_jobs(state);
 """
 
 _LOCKS={}
@@ -53,6 +58,12 @@ class Database:
             if version == 0:
                 # executescript commits implicitly; wrap migration itself atomically.
                 con.executescript('BEGIN IMMEDIATE;'+SCHEMA+'PRAGMA user_version=1;COMMIT;')
+            else:
+                # Additive migration for installations created before this feature.
+                con.execute('CREATE TABLE IF NOT EXISTS class_completions(item_id INTEGER PRIMARY KEY REFERENCES items(id),previous_status TEXT NOT NULL,end_date TEXT NOT NULL,state TEXT NOT NULL)')
+                con.execute('CREATE TABLE IF NOT EXISTS quest_plans(id TEXT PRIMARY KEY,request_id TEXT UNIQUE NOT NULL,input_hash TEXT NOT NULL,data TEXT NOT NULL,state TEXT NOT NULL,version INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)')
+                con.execute('CREATE TABLE IF NOT EXISTS quest_receipts(request_id TEXT PRIMARY KEY,quest_id TEXT NOT NULL,body_hash TEXT NOT NULL,action TEXT NOT NULL,before_state TEXT NOT NULL,after_state TEXT NOT NULL,receipt TEXT NOT NULL,created_at TEXT NOT NULL)')
+                con.execute('CREATE INDEX IF NOT EXISTS reminder_jobs_state ON reminder_jobs(state)')
 
     @contextmanager
     def connection(self):
@@ -194,7 +205,7 @@ class Database:
         from uuid import uuid4
         payload = dict(value)
         with self.connection() as con:
-            item_id = self._create_item(con,payload,'personal:'+str(uuid4()))
+            item_id = self._create_item(con,payload,'personal:'+str(uuid4()),course_id=payload.get('course_id'))
         return self.item(item_id)
 
     def _create_item(self, con, payload, identity, source_id=None, course_id=None):
@@ -202,7 +213,25 @@ class Database:
         title = payload.get('title','').strip()
         if not title or len(title)>240 or payload.get('kind') not in ('note','task','event','exam','registration','notice'):
             raise ValueError('A bounded title and valid item kind are required')
+        if identity.startswith('personal:'):self._validate_personal_binding(con,payload,course_id)
         return con.execute('INSERT INTO items(identity,source_id,course_id,payload,created_at,updated_at) VALUES(?,?,?,?,?,?)',(identity,source_id,course_id,encode(payload),now(),now())).lastrowid
+
+    def _validate_personal_binding(self,con,payload,course_id):
+        if course_id is not None and not self.one('SELECT id FROM courses WHERE id=?',(course_id,),con):raise ValueError('Persönlicher Kurs fehlt')
+        linked=payload.get('linked_source_id')
+        if linked is None:return
+        source=self._item(linked,con)
+        if (payload.get('kind')!='task' or not course_id or not source or source.get('course_id')!=course_id
+            or source['identity'].startswith('personal:') or not any(proof['current'] for proof in source['evidence'])):
+            raise ValueError('Verknüpfte Aufgabe braucht einen aktuellen Quellbeleg im selben Kurs')
+        if payload.get('date_meaning')!='start' or not payload.get('date'):
+            raise ValueError('Verknüpfte Aufgabe braucht einen persönlichen Beginn')
+        if source.get('kind') not in ('task','exam'):
+            raise ValueError('Originaleintrag muss eine Aufgabe oder Prüfung sein')
+        if source.get('kind')=='exam':
+            import re
+            if source.get('date_meaning')!='window' or not re.search(r'\bquiz\b',source.get('title') or '',re.I):
+                raise ValueError('Als Originalprüfung wird nur ein Quizfenster unterstützt')
 
     def ingest(self, document, candidate, connection=None):
         if connection is None:
@@ -223,9 +252,16 @@ class Database:
             course = self.one('SELECT * FROM courses WHERE id=?', (trusted_course_id,), con) if type(trusted_course_id) is int else None
             if not course or json.loads(course['metadata']).get('source_id') != doc['source_id']:
                 trusted_course_id = None
+            # Validate against the retained quote at the admission boundary, not
+            # just the model path. A failed candidate rolls back the whole batch.
+            validate_source_dates(value)
+            if trusted_course_id is not None:
+                value = historical_semester_candidate(value, json.loads(course['metadata']).get('semester'))
+                validate_values(value)
             # A model's course_id never establishes source authority. The stored
             # collector binding is checked again at admission, including restores.
             value.pop('course_id', None)
+            value.pop('linked_source_id', None)
             if trusted_course_id is not None:
                 value['course_id'] = trusted_course_id
             scope = (['course', doc['source_id'], trusted_course_id]
@@ -269,11 +305,22 @@ class Database:
         return result
 
     def item(self,item_id):
-        with self.connection() as con:return self._item(item_id,con)
+        with self.connection() as con:
+            item=self._item(item_id,con)
+            if item and item.get('linked_source_id'):
+                source=self._item(item['linked_source_id'],con)
+                course=self.one('SELECT * FROM courses WHERE id=?',(item.get('course_id'),),con)
+                from ..domain.presentation import attach_linked_deadlines
+                attach_linked_deadlines([item]+([source] if source else []),{course['id']:self._course(course)} if course else {})
+            return item
 
     def items(self, query=None, kind=None, active_only=False):
         with self.connection() as con:
             items=[self._item(r['id'],con) for r in self.rows('SELECT id FROM items WHERE deleted=0 ORDER BY id',connection=con)]
+            if any(item.get('linked_source_id') for item in items):
+                from ..domain.presentation import attach_linked_deadlines
+                courses={row['id']:self._course(row) for row in self.rows('SELECT * FROM courses',connection=con)}
+                attach_linked_deadlines(items,courses)
         if kind:items=[i for i in items if i['data'].get('kind')==kind]
         if active_only:items=[i for i in items if i['status'] not in ('done','ignored')]
         if query:
