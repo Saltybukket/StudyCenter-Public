@@ -344,7 +344,7 @@ offer. No real TU/AI accounts, paid calls, downloaded model weights, host
 dependency installers or native Windows 11 guest acceptance were used.
 
 
-## beta.4: Review und Slim-Kandidat
+## beta.4: Review und verifizierte Slim-Pakete
 
 Der Kandidat ergänzt Quests, verknüpfte Fristen, den konservativen Abschluss
 vergangener Lehreinheiten, Kalender-/ICS-Korrekturen, Benachrichtigungsgruppen
@@ -364,6 +364,33 @@ Die unveränderten optionalen Komponenten bleiben an ihre veröffentlichten
 beta.3-URLs, Größen und SHA-256 gebunden. Installer und App-Wheel verwenden
 die neue beta.4-Version. Die Workflows prüfen den tatsächlichen Entwurfsrelease,
 Quellcommit und Paket-Hash in wegwerfbaren Windows-/Linux-Umgebungen.
-Die exakten Paketläufe sind vor Veröffentlichung gesondert zu bestätigen;
-der lokale Quelltestlauf ersetzt diese Prüfung nicht. Bekannte Funktionslücken
-stehen in UI-PARITY.md; vollständige private Parität wird nicht behauptet.
+Die exakten Pakete sind an Commit
+`c7b8fb645d9c36d4b05a683d5f24977ef61c130a` gebunden. Der
+[Windows-Paketlauf](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42100775327)
+bestand Installation, beta.2-Update mit Datenerhalt, Erhalt der alten lauffähigen
+Version bei fehlgeschlagenem Update, optionale Komponenten, Offline-Wiederholung,
+Abbruch/Wiederaufnahme und Deinstallation unter Erhalt der Nutzerdaten. Eine fremde
+Junction wurde ohne Löschen ihres Ziels abgewiesen. Windows verwendete den
+vorhandenen Systeminterpreter; ein Windows-System ohne Python ist nur durch
+isolierte Auswahltests abgedeckt, nicht durch diesen echten VM-Lauf.
+
+Der [Linux-Paketlauf](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42100781808)
+bestand Basisinstallation, echte eigene Python-Laufzeit, HTTP/PDF-Kernfunktionen,
+optionale Komponenten und Offline-Wiederholung. Seine separate Browserprüfung
+meldete ausdrücklich `BLOCKED`: Der Browser des Runner-Images erfüllt die
+unveränderte strenge Herkunfts-/Eigentümerprüfung nicht. Der grüne Workflow ist
+deshalb **keine Linux-Desktop-/UI-Abnahme**. Es wurde kein Ersatzbrowser installiert
+und keine Sandbox-Prüfung abgeschwächt. Auch native Windows-11-Abnahme und echte
+TU-/KI-Konten wurden nicht geprüft.
+
+Der erste Linux-Probelauf scheiterte an einer veralteten beta.3-Versionskonstante
+im Test. Die Bereitschaftsprüfung liest jetzt die erwartete Kandidatenversion;
+22 gezielte Pakettests bestanden, danach bestanden die obigen exakten Paketläufe.
+Der zusätzliche [vollständige native Neubau](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42100108851)
+scheiterte unter Windows an einer geänderten Upstream-OCR-Archivzuordnung. Die
+Herkunftsbindung wurde nicht gelockert. Die hier veröffentlichten Slim-Pakete
+verwenden weiterhin die unveränderten geprüften beta.3-Komponenten, deren echte
+Installation in beiden Paketläufen bestand.
+
+Bekannte Funktionslücken stehen in UI-PARITY.md, insbesondere Google-Kalenderabgleich
+und GitLab-Import. Vollständige private Parität wird nicht behauptet.
