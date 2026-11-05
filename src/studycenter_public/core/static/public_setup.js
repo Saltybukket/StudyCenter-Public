@@ -15,7 +15,7 @@
         const result = await api('/api/components');
         if (!result.components[form.dataset.componentInstall].installed) throw new Error(result.components[form.dataset.componentInstall].error || 'Einrichtung noch nicht abgeschlossen.');
         status.textContent = 'Bereit';
-        form.hidden = true;
+        form.remove();
       } catch (error) { status.textContent = error.message || 'Einrichtung fehlgeschlagen. Du kannst es erneut versuchen.'; }
       finally { installing = false; buttons.forEach(button => button.disabled = false); }
     });

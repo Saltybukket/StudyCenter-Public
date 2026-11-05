@@ -95,6 +95,24 @@ def probe_app(program, data, env, result, expect_legacy_note=False):
             print((program/'.local/app-smoke.log').read_text(errors='replace')[-4000:], flush=True)
 
 
+def pdf_probe_code():
+    return '''
+import pymupdf
+from studycenter_public.core.documents import pdf_content
+from pathlib import Path
+import sys
+path=Path(sys.argv[1])/'synthetic-package-check.pdf'
+path.parent.mkdir(parents=True, exist_ok=True)
+d=pymupdf.open();page=d.new_page();page.insert_text((72,72),'Synthetic slim native PDF text. No OCR runtime needed.')
+d.save(path);d.close()
+try:
+    pages=pdf_content(path, None)
+    assert 'Synthetic slim' in pages[0]['text']
+finally:
+    path.unlink()
+'''
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--assets', required=True, type=Path)
@@ -176,20 +194,7 @@ def main():
     result['python_origin'] = receipt['python_origin']
     result['base_installed_bytes_including_caches'] = sum(p.stat().st_size for p in program.rglob('*') if p.is_file())
     # Native text-PDF extraction is a real isolated interpreter/application call.
-    code = '''
-import pymupdf
-from studycenter_public.core.documents import pdf_content
-from pathlib import Path
-import sys
-path=Path(sys.argv[1])/'synthetic-package-check.pdf'
-d=pymupdf.open();page=d.new_page();page.insert_text((72,72),'Synthetic slim native PDF text. No OCR runtime needed.')
-d.save(path);d.close()
-try:
-    pages=pdf_content(path, None)
-    assert 'Synthetic slim' in pages[0]['text']
-finally:
-    path.unlink()
-'''
+    code = pdf_probe_code()
     run_command([python, '-I', '-c', code, data], env)
     result['native_pdf_without_ocr'] = True
     offline = dict(env, UV_OFFLINE='1')

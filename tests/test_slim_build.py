@@ -72,3 +72,14 @@ def test_source_wheel_requires_exact_committed_package_bytes(tmp_path, monkeypat
     with pytest.raises(ValueError, match='changed='): build_slim.verify_source_wheel(wheel, 'synthetic-commit')
     write(payload, True)
     with pytest.raises(ValueError, match='extra='): build_slim.verify_source_wheel(wheel, 'synthetic-commit')
+
+
+def test_pdf_probe_creates_missing_data_root_and_removes_fixture(tmp_path, monkeypatch):
+    import sys
+    from scripts.smoke_slim import pdf_probe_code
+    data = tmp_path/'new'/'data'
+    assert not data.exists()
+    monkeypatch.setattr(sys, 'argv', ['synthetic-pdf-probe', str(data)])
+    exec(compile(pdf_probe_code(), '<synthetic-pdf-probe>', 'exec'), {})
+    assert data.is_dir()
+    assert not (data/'synthetic-package-check.pdf').exists()

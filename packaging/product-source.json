@@ -462,7 +462,7 @@
       "reason": "Run the Public onboarding tour."
     },
     "static/public_setup.js": {
-      "shipped_sha256": "393d848b19ba5376c9e069ad16df90bb4a0e1b46e4e8d380e502693795f48be7",
+      "shipped_sha256": "65172be9514745d14328315967b6e43cad79cd19985a411997b1eece50401e98",
       "reason": "Support the Public setup and credential controls."
     },
     "templates/onboarding.html": {
