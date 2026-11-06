@@ -2,6 +2,7 @@
 import hashlib
 import io
 import json
+from pathlib import Path
 import pytest
 from scripts import build_slim
 
@@ -133,3 +134,37 @@ def test_shared_self_test_checks_existing_database_read_only(tmp_path):
         con.execute('DROP TABLE items')
     with pytest.raises(AssertionError):
         verify_self_test_database(tmp_path)
+
+
+def test_upgrade_fixture_closes_wal_before_exact_byte_baseline(tmp_path):
+    from contextlib import closing
+    import gc
+    import importlib.util
+    import sqlite3
+    from studycenter_public.core.db import Database
+    from studycenter_public.core.models import Candidate
+    from scripts.smoke_slim import seed_upgrade_evidence, verify_upgrade_backup, require_persisted_unchanged
+    data = tmp_path/'data'
+    core = data/'core'
+    (core/'documents').mkdir(parents=True)
+    database = core/'campusboard.sqlite3'
+    Database(database)
+    payload = Candidate(title='Synthetic installation check', kind='task', quote='note', page=1, anchor='note').model_dump_json()
+    with closing(sqlite3.connect(database)) as con, con:
+        con.execute("INSERT INTO items(identity,payload,created_at,changed_at) VALUES(?,?,?,?)",
+                    ('note:manual:'+'a'*32, payload, '2026-01-01', '2026-01-01'))
+    expected = seed_upgrade_evidence(data)
+    before = (b'identity', None, database.read_bytes())
+    gc.collect()
+    require_persisted_unchanged(before, (b'identity', None, database.read_bytes()))
+    spec = importlib.util.spec_from_file_location('synthetic_pre_update_backup',
+                                                  Path(__file__).resolve().parents[1]/'packaging/backup_core.py')
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    helper.backup(data)
+    require_persisted_unchanged(before, (b'identity', None, database.read_bytes()))
+    verify_upgrade_backup(data, tmp_path, expected)
+    with closing(sqlite3.connect(database)) as con, con:
+        con.execute("UPDATE items SET pinned=1 WHERE identity=?", ('note:manual:'+'a'*32,))
+    with pytest.raises(AssertionError, match='core/campusboard.sqlite3'):
+        require_persisted_unchanged(before, (b'identity', None, database.read_bytes()))

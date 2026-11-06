@@ -1,5 +1,6 @@
 """Bounded synthetic slim-package probe; installers only in hosted Windows CI."""
 import argparse
+from contextlib import closing
 import hashlib
 import importlib.util
 import json
@@ -16,6 +17,15 @@ import urllib.parse
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
+PERSISTED_FILES = ('instance.json', 'studycenter-public.sqlite3', 'core/campusboard.sqlite3')
+
+
+def require_persisted_unchanged(before, after):
+    if len(before) != len(PERSISTED_FILES) or len(after) != len(PERSISTED_FILES):
+        raise AssertionError('Incomplete persisted data inventory')
+    changed = [name for name, old, new in zip(PERSISTED_FILES, before, after) if old != new]
+    if changed:
+        raise AssertionError('Persisted data bytes changed: '+', '.join(changed))
 
 def run_command(command, env, timeout=300):
     print('Run:', ' '.join(map(str, command[:4])), flush=True)
@@ -93,7 +103,7 @@ def probe_app(program, data, env, result, expect_legacy_note=False, *, create_no
         if expect_legacy_note:
             with urllib.request.urlopen(url+'/entries?view=all') as response:
                 assert b'Synthetic installation check' in response.read(), 'Migrated note is absent from the installed shared UI'
-            with sqlite3.connect(data/'core'/'campusboard.sqlite3') as connection:
+            with closing(sqlite3.connect(data/'core'/'campusboard.sqlite3')) as connection:
                 rows = connection.execute('SELECT identity,payload FROM items').fetchall()
             assert any(identity.startswith('note:beta4:') and json.loads(payload).get('title') == 'Synthetic installation check'
                        for identity, payload in rows), 'Migrated note is absent from the shared database'
@@ -101,7 +111,7 @@ def probe_app(program, data, env, result, expect_legacy_note=False, *, create_no
         if expect_manual_note:
             with urllib.request.urlopen(url+'/entries?view=all') as response:
                 assert b'Synthetic installation check' in response.read()
-            with sqlite3.connect(data/'core'/'campusboard.sqlite3') as connection:
+            with closing(sqlite3.connect(data/'core'/'campusboard.sqlite3')) as connection:
                 row = connection.execute('SELECT payload FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
             assert row and json.loads(row[0])['title'] == 'Synthetic installation check'
             result['previous_synthetic_note_visible_in_shared_ui_and_database'] = True
@@ -146,7 +156,7 @@ def probe_ice_import(program, root, env, result):
     command = starter(program, '--import-ice', '--backup', str(backup), '--destination', str(destination))
     run_command(command, env)
     assert hashlib.sha256(backup.read_bytes()).hexdigest() == original
-    with sqlite3.connect((destination/'core/campusboard.sqlite3').resolve().as_uri()+'?mode=ro', uri=True) as con:
+    with closing(sqlite3.connect((destination/'core/campusboard.sqlite3').resolve().as_uri()+'?mode=ro', uri=True)) as con:
         assert con.execute("SELECT count(*) FROM items WHERE identity='note:manual:123'").fetchone()[0] == 1
     marker = destination/'synthetic-retain.txt'
     marker.write_text('keep', encoding='utf-8')
@@ -164,7 +174,9 @@ def seed_upgrade_evidence(data):
     documents.mkdir(exist_ok=True)
     original = documents/(digest+'.txt')
     original.write_bytes(content)
-    with sqlite3.connect(data/'core/campusboard.sqlite3') as con:
+    # sqlite3.Connection.__exit__ commits but does not close. Close explicitly
+    # before the byte baseline so a later GC cannot checkpoint a pending WAL.
+    with closing(sqlite3.connect(data/'core/campusboard.sqlite3')) as con, con:
         item = con.execute('SELECT id FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()[0]
         source = con.execute("INSERT INTO sources(kind,title,url) VALUES('manual','Synthetic source','import:package-smoke')").lastrowid
         doc = con.execute("INSERT INTO documents(source_id,url,title,mime,hash,fetched_at,original_path) VALUES(?,'import:package-smoke','Synthetic original','text/plain',?,'2026-01-01',?)", (source,digest,str(original))).lastrowid
@@ -181,7 +193,7 @@ def verify_upgrade_backup(data, root, expected):
     digest, content = expected
     assert manifest['counts']['documents'] >= 1 and manifest['counts']['item_evidence'] >= 1
     assert (destination/'documents'/(digest+'.txt')).read_bytes() == content
-    with sqlite3.connect(destination/'campusboard.sqlite3') as con:
+    with closing(sqlite3.connect(destination/'campusboard.sqlite3')) as con:
         assert con.execute('SELECT count(*) FROM item_evidence').fetchone()[0] >= 1
         row = con.execute('SELECT payload FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
         assert row and json.loads(row[0])['title'] == 'Synthetic installation check'
@@ -212,7 +224,7 @@ def main():
               'real_tu_accounts': False, 'models_downloaded': False, 'windows11_native': False}
     def persisted_bytes():
         return tuple(path.read_bytes() if path.exists() else None for path in
-                     (data/'instance.json', data/'studycenter-public.sqlite3', data/'core/campusboard.sqlite3'))
+                     (data/name for name in PERSISTED_FILES))
     previous_version = None
     upgrade_evidence = None
     if os.name == 'nt':
@@ -254,7 +266,7 @@ def main():
             print((root/'failed-update.log').read_text(errors='replace'), flush=True)
             assert failed.returncode != 0, 'Corrupt release wheel was accepted'
             assert hashlib.sha256((program/'start.cmd').read_bytes()).hexdigest() == old_hash
-            assert persisted_bytes() == before
+            require_persisted_unchanged(before, persisted_bytes())
             if upgrade_evidence:
                 verify_upgrade_backup(data, root, upgrade_evidence)
                 result['failed_update_retains_restorable_core_backup'] = True
@@ -262,7 +274,7 @@ def main():
             result['failed_installer_update_retains_old_functioning_core'] = True
         run_command(install+['/LOG='+str(root/'first-install.log')], env)
         if before:
-            assert persisted_bytes() == before
+            require_persisted_unchanged(before, persisted_bytes())
             assert (program/'start.cmd').is_file()
             if upgrade_evidence:
                 verify_upgrade_backup(data, root, upgrade_evidence)
@@ -293,7 +305,7 @@ def main():
                     raise ValueError('Unexpected candidate bootstrap entry')
                 shutil.copy2(path, program/path.name)
             run_command(starter(program, '--setup-only', '--update', '--data-dir', str(data)), env)
-            assert persisted_bytes() == before
+            require_persisted_unchanged(before, persisted_bytes())
             verify_upgrade_backup(data, root, upgrade_evidence)
             result['successful_update_retains_restorable_core_backup'] = True
             result['previous_transition_preserves_identity_and_database'] = previous_version
@@ -352,7 +364,7 @@ def main():
     baseline = persisted_bytes()
     if os.name == 'nt':
         run_command(install+['/LOG='+str(root/'update.log')], env)
-        assert persisted_bytes() == baseline
+        require_persisted_unchanged(baseline, persisted_bytes())
         if legacy_file.exists():
             assert list((data/'backups').glob('before-update-*/studycenter-public.sqlite3'))
         result['slim_update_preserves_data_and_backup'] = True
@@ -388,7 +400,7 @@ def main():
         result['junction_refused_without_foreign_deletion'] = True
         uninstall(program, env, root/'uninstall.log')
         assert marker.read_bytes() == b'Synthetic foreign junction target'
-        assert persisted_bytes() == preserved
+        require_persisted_unchanged(preserved, persisted_bytes())
         assert not (program/'start.cmd').exists() and not (program/'.local').exists()
         result['uninstall_retains_data_removes_own_environment'] = True
         if before:
