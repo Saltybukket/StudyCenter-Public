@@ -14,9 +14,25 @@ def main(argv=None):
     parser.add_argument('--no-browser',action='store_true');parser.add_argument('--browser',action='store_true')
     parser.add_argument('--background',action='store_true',help='Windows: im Tray ohne sichtbares Startfenster beginnen')
     parser.add_argument('--quit',action='store_true');parser.add_argument('--self-test',action='store_true')
+    parser.add_argument('--import-ice',action='store_true',help='ICE-Backup offline in einen neuen Datenordner importieren')
+    parser.add_argument('--backup',help='ICE-Backup-ZIP für --import-ice')
+    parser.add_argument('--destination',help='Neuer Datenordner für --import-ice')
     parser.add_argument('--after-process', type=int, help=argparse.SUPPRESS)
     parser.add_argument('--after-pidfd', type=int, help=argparse.SUPPRESS)
     args=parser.parse_args(argv)
+    if args.import_ice:
+        if not args.backup or not args.destination or args.data_dir or args.quit or args.self_test or args.after_process is not None or args.after_pidfd is not None:
+            parser.error('--import-ice benötigt --backup und --destination und keinen laufenden Datenordner')
+        from .ice_migration import IceImportError, import_ice
+        try:
+            result=import_ice(args.backup,args.destination)
+        except IceImportError as error:
+            print(str(error),file=sys.stderr)
+            return 1
+        print(json.dumps(result,ensure_ascii=False))
+        return 0
+    if args.backup or args.destination:
+        parser.error('--backup und --destination sind nur mit --import-ice gültig')
     if args.port<0 or args.port>65535:parser.error('Port muss zwischen 0 und 65535 liegen')
     if args.after_pidfd is not None:
         if sys.platform != 'linux' or args.after_pidfd < 0:

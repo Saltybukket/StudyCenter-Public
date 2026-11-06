@@ -299,12 +299,15 @@ async def collect_mail(source, db, store, credentials=None):
 async def webmail_bootstrap(context, browser=None):
     response = await context.request.get('https://webmail.tugraz.at/imp/dynamic.php?page=mailbox', max_redirects=0, timeout=30000)
     text = await response.text()
-    cache = browser.settings.webmail_store if browser else None
-    if response.status == 302 and urlsplit(response.headers.get('location','')).path == '/imp/basic.php' and cache and cache.read():
+    cache = getattr(browser.settings, 'webmail_store', None) if browser else None
+    cache_path = browser.session_path.with_name(browser.session_path.stem+'-webmail.dpapi') if browser and cache is None else None
+    if response.status == 302 and urlsplit(response.headers.get('location','')).path == '/imp/basic.php' and (cache or (cache_path and cache_path.exists())):
         # View selection is session state, not authentication evidence. The next
         # AJAX request must still pass Horde's real token/session validation.
         try:
-            return cache.read()
+            saved = cache.read() if cache else json.loads(dpapi(cache_path.read_bytes(),decrypt=True))
+            if saved:
+                return saved
         except Exception:
             pass
     if response.status != 200 or 'DimpCore' not in text:
@@ -321,6 +324,9 @@ async def webmail_bootstrap(context, browser=None):
             pass
     if cache:
         cache.write(configs)
+    elif cache_path:
+        cache_path.parent.mkdir(parents=True,exist_ok=True)
+        cache_path.write_bytes(dpapi(encode(configs).encode()))
     return configs
 
 

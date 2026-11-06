@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "adaptations": {
+    "__main__.py": "Route package entry to the Public-owned launcher.",
+    "app.py": "Inject isolated Public runtime, credentials, service paths and instance endpoint; support user-owned tunnel configuration.",
+    "config.py": "Require explicit instance-bound Public settings instead of private default paths and configuration.",
+    "desktop.py": "Route desktop entry to the Public-owned launcher.",
+    "mcp.py": "Use instance-scoped MCP credentials and active endpoint for source links.",
+    "mcp_client.py": "Resolve the selected Public instance and its credentials for the stdio bridge.",
+    "reminders.py": "Use the instance notification adapter and endpoint for reminder links.",
+    "runtime.py": "Keep process waiting in the shared core; route lifecycle management through the Public runtime.",
+    "speech.py": "Use Public-managed speech model paths and installation callback.",
+    "templates/base.html": "Include the Public onboarding interface.",
+    "templates/macros.html": "Replace personal WSL defaults with user-supplied connection fields.",
+    "templates/model.html": "Describe the user-configured Public model connection.",
+    "templates/settings.html": "Expose Public setup, credential storage status, migration notice and user-owned tunnel configuration.",
+    "tunnel.py": "Use user-configured tunnel identity and isolated stores; avoid inspecting other applications processes."
+  },
+  "additions": {
+    "static/onboarding.css": "Style the Public onboarding tour.",
+    "static/onboarding.js": "Run the Public onboarding tour.",
+    "static/public_setup.js": "Support the Public setup and credential controls.",
+    "templates/onboarding.html": "Provide the Public onboarding tour.",
+    "templates/public_setup.html": "Provide the Public optional component setup page."
+  }
+}

@@ -8,6 +8,7 @@ from ..platform.secrets import SecretStore
 
 def main():
     import httpx
+    sys.stdin.reconfigure(encoding='utf-8');sys.stdout.reconfigure(encoding='utf-8')
     data = Path(sys.argv[1]).resolve()
     client = sys.argv[2] if len(sys.argv) > 2 else 'codex'
     identity = read_owned_identity(data)
@@ -23,10 +24,15 @@ def main():
         for line in sys.stdin:
             try:
                 message=json.loads(line)
+            except json.JSONDecodeError:
+                print(json.dumps({'jsonrpc':'2.0','id':None,'error':{'code':-32700,'message':'Ungültiges JSON.'}}),flush=True)
+                continue
+            try:
                 response=connection.post(endpoint+'/mcp',json=message)
                 response.raise_for_status()
                 if response.status_code!=202: print(response.text,flush=True)
             except Exception as error:
-                print(json.dumps({'jsonrpc':'2.0','id':None,'error':{'code':-32603,'message':type(error).__name__}}),flush=True)
+                if isinstance(message,dict) and 'id' in message:
+                    print(json.dumps({'jsonrpc':'2.0','id':message['id'],'error':{'code':-32603,'message':'CampusBoard nicht erreichbar / Anfrage abgewiesen: '+type(error).__name__}}),flush=True)
 
 if __name__=='__main__': main()

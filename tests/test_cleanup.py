@@ -13,6 +13,44 @@ class MemoryKeyring:
     def delete_password(self,service,user):self.deletes.append((service,user));self.values.pop((service,user),None)
 
 
+@pytest.mark.parametrize('content,ready', [
+    ('{"width":1220,"height":840,"x":-100,"y":20}', True),
+    ('{"width":1220,"height":840,"x":0,"y":0,"extra":"user"}', False),
+    ('{"width":true,"height":840,"x":0,"y":0}', False),
+    ('not json', False),
+])
+def test_window_bounds_cleanup_preflight_only_accepts_owned_shape(tmp_path, content, ready):
+    from studycenter_public.platform.cleanup import cleanup_preflight
+    paths = AppPaths.create(tmp_path/'own')
+    backend = MemoryKeyring()
+    secrets = SecretStore(paths.instance_id, backend=backend)
+    window = paths.data/'desktop-window.json'
+    window.write_text(content)
+    if ready:
+        assert cleanup_preflight(paths, secrets, confirmed=True)['ready']
+    else:
+        with pytest.raises((ValueError, TypeError)):
+            cleanup_preflight(paths, secrets, confirmed=True)
+    assert window.read_text() == content and not backend.deletes
+
+
+def test_window_bounds_reparse_point_blocks_preflight(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from studycenter_public.platform.cleanup import cleanup_preflight
+    paths = AppPaths.create(tmp_path/'own')
+    backend = MemoryKeyring()
+    window = paths.data/'desktop-window.json'
+    window.write_text('{"width":1220,"height":840,"x":0,"y":0}')
+    original = Path.lstat
+    def lstat(path, *args, **kwargs):
+        value = original(path, *args, **kwargs)
+        return SimpleNamespace(st_mode=value.st_mode, st_file_attributes=0x400) if path == window else value
+    monkeypatch.setattr(Path, 'lstat', lstat)
+    with pytest.raises(ValueError, match='Reparse'):
+        cleanup_preflight(paths, SecretStore(paths.instance_id, backend=backend), confirmed=True)
+    assert window.exists() and not backend.deletes
+
+
 def test_unknown_nested_document_blocks_before_credentials_are_removed(tmp_path):
     paths=AppPaths.create(tmp_path/'own')
     backend=MemoryKeyring();secrets=SecretStore(paths.instance_id,backend=backend)

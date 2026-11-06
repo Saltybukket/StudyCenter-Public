@@ -144,6 +144,7 @@ def test_rich_import_and_real_public_startup(tmp_path):
     assert json.loads((target / 'instance.json').read_text())['application'] == 'StudyCenter.Public'
     with sqlite3.connect(target / 'core' / 'campusboard.sqlite3') as con:
         assert con.execute('SELECT id,status,pinned,seen FROM items').fetchone() == (17,'done',1,1)
+        assert con.execute('SELECT status_revision,pin_revision,visibility_revision,content_revision FROM items').fetchone() == (0,0,0,0)
         assert con.execute('SELECT id,item_id,document_id FROM item_evidence').fetchone() == (19,17,11)
         assert con.execute('SELECT job_id FROM notification_reads').fetchone() == ('job',)
         assert con.execute('SELECT state FROM reminder_jobs').fetchone() == ('delivered',)
@@ -213,6 +214,55 @@ def test_rejects_schema_change(tmp_path):
     with pytest.raises(IceImportError, match='Tabellenspalten'):
         import_ice(source, tmp_path / 'target')
     assert not (tmp_path / 'target').exists()
+
+
+def rewrite_database_in_backup(source, tmp_path, change):
+    with zipfile.ZipFile(source) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    db = tmp_path / 'rewrite.sqlite3'
+    db.write_bytes(files['studycenter_ice.sqlite3'])
+    with closing(sqlite3.connect(db)) as con, con:
+        change(con)
+    files['studycenter_ice.sqlite3'] = db.read_bytes()
+    manifest = json.loads(files['manifest.json'])
+    manifest['files']['studycenter_ice.sqlite3'] = {'size':len(files['studycenter_ice.sqlite3']), 'sha256':digest(files['studycenter_ice.sqlite3'])}
+    files['manifest.json'] = json.dumps(manifest).encode()
+    with zipfile.ZipFile(source, 'w') as archive:
+        for name, data in files.items(): archive.writestr(name, data)
+
+
+def test_new_revision_schema_and_trusted_trigger_preserve_counters(tmp_path):
+    from studycenter_public.core.db import Database
+    reference = Database(tmp_path / 'reference.sqlite3')
+    with reference.connection() as con:
+        trigger = con.execute("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='item_revisions'").fetchone()['sql']
+    source = backup(tmp_path)
+    def upgrade(con):
+        for name in ('status_revision', 'pin_revision', 'visibility_revision', 'content_revision'):
+            con.execute(f'ALTER TABLE items ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0')
+        con.execute('UPDATE items SET status_revision=3,pin_revision=2,visibility_revision=1,content_revision=7')
+        con.execute(trigger)
+    rewrite_database_in_backup(source, tmp_path, upgrade)
+    target = tmp_path / 'new'
+    import_ice(source, target)
+    with closing(sqlite3.connect(target / 'core' / 'campusboard.sqlite3')) as con:
+        assert con.execute('SELECT status_revision,pin_revision,visibility_revision,content_revision FROM items').fetchone() == (3, 2, 1, 7)
+
+
+def test_revision_schema_rejects_partial_columns_and_unknown_trigger(tmp_path):
+    source = backup(tmp_path)
+    rewrite_database_in_backup(source, tmp_path, lambda con: con.execute('ALTER TABLE items ADD COLUMN status_revision INTEGER NOT NULL DEFAULT 0'))
+    with pytest.raises(IceImportError, match='Tabellenspalten'):
+        import_ice(source, tmp_path / 'partial')
+    source = backup(tmp_path)
+    rewrite_database_in_backup(source, tmp_path, lambda con: con.execute('CREATE TRIGGER hostile AFTER UPDATE ON items BEGIN DELETE FROM items; END'))
+    with pytest.raises(IceImportError, match='trigger'):
+        import_ice(source, tmp_path / 'unknown')
+    source = backup(tmp_path)
+    rewrite_database_in_backup(source, tmp_path, lambda con: con.execute('CREATE TRIGGER item_revisions AFTER UPDATE ON items BEGIN DELETE FROM items; END'))
+    with pytest.raises(IceImportError, match='trigger'):
+        import_ice(source, tmp_path / 'altered')
+    assert not (tmp_path / 'partial').exists() and not (tmp_path / 'unknown').exists() and not (tmp_path / 'altered').exists()
 
 
 def test_unreferenced_manifested_document_rejected(tmp_path):

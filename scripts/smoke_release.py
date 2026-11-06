@@ -227,6 +227,17 @@ def run_browser_checks(executable,root,environment,enabled=True):
     return {'bundled_driver_and_required_browsers':True,'bundled_browser_engines':[name for name,channel in engines],'browser_mode':'headless','bundled_screenshots_without_video_helper':True,'native_speech_imports_cpu':component_result['speech_runtime_imports']}
 
 
+def verify_self_test_database(data):
+    """The shared product self-test initializes its own core database only."""
+    database = Path(data)/'core'/'campusboard.sqlite3'
+    if not database.is_file():
+        raise AssertionError('Shared core database was not initialized')
+    with sqlite3.connect(database.resolve().as_uri()+'?mode=ro', uri=True) as con:
+        assert con.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+        tables = {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {'courses', 'sources', 'documents', 'items'} <= tables
+
+
 def smoke(executable,output=None,ocr=True,browsers=True,*,installed_inventory=None):
     executable=Path(executable).absolute()
     for path in (executable,*executable.parents):
@@ -259,8 +270,7 @@ def smoke(executable,output=None,ocr=True,browsers=True,*,installed_inventory=No
     environment['HF_HUB_DISABLE_TELEMETRY']='1';environment['HF_HUB_OFFLINE']='1';environment['HF_HUB_DISABLE_XET']='1'
     self_data=root/'Self test ä space';self_data.mkdir(exist_ok=True)
     subprocess.run([str(executable),'--self-test','--data-dir',str(self_data),'--no-browser'],check=True,timeout=60,env=environment)
-    with sqlite3.connect(self_data/'studycenter-public.sqlite3') as con:
-        assert con.execute('SELECT count(*) FROM action_receipts').fetchone()[0]==1
+    verify_self_test_database(self_data)
     browser_checks=run_browser_checks(executable,root,environment,browsers)
     require_program_unchanged(executable.parent,initial_program)
     data=root/'HTTP test ü space';data.mkdir(exist_ok=True)

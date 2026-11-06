@@ -19,6 +19,7 @@ class Settings:
     llm_base_url: str = ""
     llm_model: str = ""
     llm_api_key: str = ""
+    llm_trust_env: bool = False
     teachcenter_url: str = "https://tc.tugraz.at/main/"
     ocr_lang: str = "eng"
     tesseract: str | None = None

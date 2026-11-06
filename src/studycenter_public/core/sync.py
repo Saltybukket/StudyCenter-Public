@@ -17,7 +17,7 @@ class SyncService:
     def __init__(self, db, settings, browser):
         self.db, self.settings, self.browser = db, settings, browser
         self.store = DocumentStore(db, settings)
-        self.auth = ChatGPTAuth(store=settings.auth_store)
+        self.auth = ChatGPTAuth(store=getattr(settings, 'auth_store', None))
         settings.chatgpt = self.auth
         self.model = ModelAdapter(db, settings, self.auth)
         self.gate = asyncio.Lock()
@@ -132,7 +132,7 @@ class SyncService:
                                 async with self.browser.crawl_context() as context:
                                     result = await collect_webmail(source,context,self.db,self.store,self.browser)
                         else:
-                            result = await collect_mail(source, self.db, self.store, self.settings.mail_store)
+                            result = await collect_mail(source, self.db, self.store, getattr(self.settings, 'mail_store', None))
                     else:
                         self.db.execute("UPDATE sources SET state='success',last_success=? WHERE id=?", (now(), source["id"]))
                         result = {"source": source["id"], "complete": True}

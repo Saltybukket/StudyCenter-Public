@@ -72,6 +72,12 @@ def test_source_wheel_requires_exact_committed_package_bytes(tmp_path, monkeypat
     with pytest.raises(ValueError, match='changed='): build_slim.verify_source_wheel(wheel, 'synthetic-commit')
     write(payload, True)
     with pytest.raises(ValueError, match='extra='): build_slim.verify_source_wheel(wheel, 'synthetic-commit')
+    with zipfile.ZipFile(wheel, 'w') as archive:
+        archive.writestr('studycenter_public/__init__.py', b'altered')
+        with pytest.warns(UserWarning, match='Duplicate name'):
+            archive.writestr('studycenter_public/__init__.py', payload)
+    with pytest.raises(ValueError, match='duplicate'):
+        build_slim.verify_source_wheel(wheel, 'synthetic-commit')
 
 
 def test_pdf_probe_creates_missing_data_root_and_removes_fixture(tmp_path, monkeypatch):
@@ -83,3 +89,47 @@ def test_pdf_probe_creates_missing_data_root_and_removes_fixture(tmp_path, monke
     exec(compile(pdf_probe_code(), '<synthetic-pdf-probe>', 'exec'), {})
     assert data.is_dir()
     assert not (data/'synthetic-package-check.pdf').exists()
+
+
+def test_component_download_rejects_corrupt_bytes_without_promoting(tmp_path, monkeypatch):
+    from scripts import prepare_slim_assets
+    destination = tmp_path/'component.tar.gz'
+    destination.write_bytes(b'existing')
+    monkeypatch.setattr(prepare_slim_assets.urllib.request, 'urlopen',
+                        lambda *a, **k: io.BytesIO(b'wrong'))
+    with pytest.raises(ValueError, match='SHA256'):
+        prepare_slim_assets.fetch('https://example.invalid/component', destination, 5,
+                                  hashlib.sha256(b'right').hexdigest())
+    assert destination.read_bytes() == b'existing'
+    assert not (tmp_path/'component.tar.gz.partial').exists()
+
+
+def test_installer_scan_refuses_unreviewed_decoder(tmp_path, monkeypatch):
+    from scripts import scan_slim_installer
+    installer = tmp_path/'candidate.exe'
+    installer.write_bytes(b'synthetic installer')
+    bootstrap = tmp_path/'bootstrap'
+    bootstrap.mkdir()
+    decoder = tmp_path/'decoder.exe'
+    decoder.write_bytes(b'unreviewed decoder')
+    monkeypatch.setattr(scan_slim_installer.subprocess, 'run', lambda *a, **k: pytest.fail('decoder was executed'))
+    with pytest.raises(ValueError, match='decoder differs'):
+        scan_slim_installer.scan(installer, bootstrap, tmp_path/'scan', decoder)
+
+
+def test_shared_self_test_checks_existing_database_read_only(tmp_path):
+    import sqlite3
+    from scripts.smoke_release import verify_self_test_database
+    with pytest.raises(AssertionError, match='not initialized'):
+        verify_self_test_database(tmp_path)
+    assert not (tmp_path/'core').exists()
+    core = tmp_path/'core'
+    core.mkdir()
+    with sqlite3.connect(core/'campusboard.sqlite3') as con:
+        for name in ('courses', 'sources', 'documents', 'items'):
+            con.execute(f'CREATE TABLE {name}(id INTEGER)')
+    verify_self_test_database(tmp_path)
+    with sqlite3.connect(core/'campusboard.sqlite3') as con:
+        con.execute('DROP TABLE items')
+    with pytest.raises(AssertionError):
+        verify_self_test_database(tmp_path)

@@ -155,6 +155,14 @@ def _plan(paths,secrets,confirmed):
         _no_link(lock)
         if lock.stat().st_size:raise ValueError('Unbekannter Inhalt in der Instanzsperre.')
         expected[lock]=None
+    window=root/'desktop-window.json'
+    if window.exists():
+        _no_link(window);bounds=_json(window)
+        if (not isinstance(bounds,dict) or set(bounds)!={'width','height','x','y'}
+                or any(type(bounds[key]) is not int for key in bounds)
+                or not all(320<=bounds[key]<=16384 for key in ('width','height'))):
+            raise ValueError('Fensterdatei ist nicht als eigene App-Datei überprüfbar.')
+        expected[window]=None
     cache=Path(paths.cache).absolute();directories.update((cache/'ocr',cache/'speech',Path(paths.profiles).absolute()/'tu-browser'))
     speech=cache/'speech'
     if speech.is_dir():

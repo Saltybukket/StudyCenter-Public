@@ -341,7 +341,7 @@ def source_digest(source):
 def application_ready(python):
     try:
         result = subprocess.run([str(python), '-I', '-c',
-            'from importlib.metadata import version; version("studycenter-public"); from studycenter_public.web import create_app'],
+            'from importlib.metadata import version; version("studycenter-public"); from studycenter_public.product import create_app'],
             capture_output=True, timeout=30)
         return result.returncode == 0
     except (OSError, subprocess.SubprocessError):
@@ -356,7 +356,7 @@ def save_installation(root, receipt):
     temporary.replace(pointer)
 
 
-def ensure_environment(root, uv, *, source=None, manifest=None, update=False):
+def ensure_environment(root, uv, *, source=None, manifest=None, update=False, data_dir=None):
     root = regular_directory(root)
     receipt = read_receipt(root)
     python = environment_python(root)
@@ -368,6 +368,27 @@ def ensure_environment(root, uv, *, source=None, manifest=None, update=False):
         return receipt
     if receipt and not environment_usable(root, python) and not update:
         raise RuntimeError('The saved Public Python environment no longer works. Its system Python may have been removed. Run the starter with --update to repair using an available or private runtime; data stays intact.')
+    if sys.platform == 'linux' and receipt and update:
+        selected = data_dir or os.environ.get('STUDYCENTER_PUBLIC_DATA_DIR') or receipt.get('data_dir')
+        if not selected and source:
+            selected = root/'.local/data'
+        if not selected:
+            # Match AppPaths' implicit Linux data location without promoting it
+            # to an explicit data_dir (which would relocate config and cache).
+            selected = Path(os.environ.get('XDG_DATA_HOME', Path.home()/'.local/share'))/'studycenter-public'
+        if selected:
+            data = regular_directory(Path(selected).expanduser())
+            core = checked_file(data/'core/campusboard.sqlite3')
+            if core.is_file():
+                helper = Path(__file__).resolve().parent/'backup_core.py'
+                if not helper.is_file() and source:
+                    helper = source/'packaging/backup_core.py'
+                helper = checked_file(helper)
+                if not helper.is_file():
+                    raise RuntimeError('The pre-update core backup helper is missing; the previous environment is retained.')
+                # The old interpreter acquires the existing instance lock and
+                # snapshots its own schema before any new environment is made.
+                run([python, '-I', helper, data])
     if not receipt and source and environment_usable(root, python) and application_ready(python) and not update:
         config = checked_file(python.parent.parent / 'pyvenv.cfg')
         values = dict(line.split(' = ', 1) for line in config.read_text().splitlines() if ' = ' in line) if config.exists() else {}
@@ -424,7 +445,7 @@ def ensure_environment(root, uv, *, source=None, manifest=None, update=False):
         extra_flags = ['--no-build-isolation', '--editable'] if source else []
         run([*common, *extra_flags, target], env=env)
     run([uv, '--no-config', 'pip', 'check', '--python', python], env=env)
-    run([python, '-I', '-c', 'import studycenter_public; from studycenter_public.web import create_app'], env=env)
+    run([python, '-I', '-c', 'import studycenter_public; from studycenter_public.product import create_app'], env=env)
     if not environment_usable(root, python):
         raise RuntimeError('The prepared private environment is invalid; the previous installation is retained.')
     if manifest and not source:
@@ -589,6 +610,9 @@ def main(argv=None):
     parser.add_argument('--lock-check', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--prepare-target', type=Path, help=argparse.SUPPRESS)
     args, application_args = parser.parse_known_args(argv)
+    importing = '--import-ice' in application_args
+    if importing and (args.data_dir or args.stop or args.component or args.setup_only or '--quit' in application_args):
+        parser.error('ICE import uses --destination for a new instance; do not combine it with launch, stop or component options.')
     root = regular_directory(args.root)
     stopping = args.stop or '--quit' in application_args
     if stopping and not environment_usable(root, environment_python(root)):
@@ -600,13 +624,13 @@ def main(argv=None):
     if not args.uv and not stopping:
         parser.error('--uv is required for setup')
     with setup_lock(root):
-        install = read_receipt(root) if stopping else ensure_environment(root, args.uv, source=args.source, manifest=args.manifest, update=args.update)
+        install = read_receipt(root) if stopping else ensure_environment(root, args.uv, source=args.source, manifest=args.manifest, update=args.update, data_dir=args.data_dir)
         if stopping and not install:
             install = {'python': str(environment_python(root))}
         chosen_data = args.data_dir or os.environ.get('STUDYCENTER_PUBLIC_DATA_DIR') or install.get('data_dir')
         if not chosen_data and (args.source or install.get('source')):
             chosen_data = str(root / '.local/data')
-        if chosen_data and chosen_data != install.get('data_dir') and not stopping:
+        if chosen_data and chosen_data != install.get('data_dir') and not stopping and not importing:
             install['data_dir'] = str(Path(chosen_data).absolute())
             save_installation(root, install)
         args.data_dir = chosen_data
@@ -618,7 +642,7 @@ def main(argv=None):
     env = os.environ.copy()
     env.update(STUDYCENTER_PUBLIC_INSTALL_ROOT=str(root), STUDYCENTER_PUBLIC_COMPONENT_ROOT=str(root / '.local/components'))
     app = ['--quit'] if stopping else application_args
-    if args.data_dir:
+    if args.data_dir and not importing:
         app = ['--data-dir', args.data_dir, *app]
     return subprocess.call([install['python'], '-I', '-m', 'studycenter_public', *app], cwd=root, env=env)
 

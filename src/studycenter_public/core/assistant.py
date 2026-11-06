@@ -13,6 +13,7 @@ import httpx
 
 from .config import VIENNA
 from .db import encode, now
+from .item_state import REVISIONS, patch_personal_item, set_personal_field
 from .models import Candidate
 from .questions import CourseQuestions, course_matches, knowledge_question
 from .decision import candidates, plausible, creation_request, key, STOP, CourseMatch
@@ -144,8 +145,9 @@ def declines_notification(text):
 def preview_fingerprint(item, reminder=None, preferences=None):
     if item is None:return None
     # Opening a proof may mark it seen; that alone does not invalidate the proposal.
-    fields=('identity','course_id','payload','overrides','status','pinned','ignored','conflict')
-    payload={'item':{k:item[k] for k in fields},'reminder':reminder}
+    fields=('identity','course_id','payload','overrides','status','pinned','ignored','conflict',
+            'status_revision','pin_revision','visibility_revision','content_revision')
+    payload={'item':{k:item.get(k) for k in fields},'reminder':reminder}
     if preferences is not None:payload['preferences']=preferences
     return hashlib.sha256(encode(payload).encode()).hexdigest()
 
@@ -586,15 +588,20 @@ class Assistant:
                 if typed[name]==default:typed.pop(name)
         fingerprint = hashlib.sha256(encode(wire | ({'typed_action':typed} if direct_plan else {})).encode()).hexdigest()
         async with self.gate:
-            existing = self.db.one('SELECT * FROM assistant_requests WHERE id=?', (identifier,))
+            # Reserve once even if two Assistant instances receive the same ID.
+            with self.db.connection() as con:
+                con.execute('BEGIN IMMEDIATE')
+                found = con.execute('SELECT * FROM assistant_requests WHERE id=?', (identifier,)).fetchone()
+                existing = dict(found) if found else None
+                if not existing:
+                    con.execute('INSERT INTO assistant_requests(id,input_hash,input,state,created_at) VALUES(?,?,?,?,?)',
+                                (identifier,fingerprint,encode(request.model_dump(mode='json')),'running',now()))
             if existing:
                 if existing['input_hash'] != fingerprint and (direct_plan is not None or Command.model_validate_json(existing['input'])!=request):
                     raise ValueError('Request-ID wurde bereits für eine andere Eingabe verwendet.')
                 if existing['state'] == 'running':
-                    return {'message':'Diese Anfrage wurde unterbrochen. Bitte als neue Anfrage senden.', 'changed':False, 'failed':True, 'request_id':identifier}
+                    return {'message':'Diese Anfrage läuft bereits oder wurde unterbrochen. Bitte das Ergebnis abwarten oder als neue Anfrage senden.', 'changed':False, 'failed':True, 'request_id':identifier}
                 return json.loads(existing['result'])
-            self.db.execute('INSERT INTO assistant_requests(id,input_hash,input,state,created_at) VALUES(?,?,?,?,?)',
-                            (identifier,fingerprint,encode(request.model_dump(mode='json')),'running',now()))
             previous = self.db.one('SELECT input,action,result FROM assistant_requests WHERE id=?', (str(request.previous_id),)) if request.previous_id else None
             context = json.loads(previous['result']) if previous else {}
             try:
@@ -1065,7 +1072,9 @@ class Assistant:
         # Mutations and completed receipt share one SQLite transaction, including creation ID.
         with self.db.connection() as con:
             con.execute('BEGIN IMMEDIATE')
-            before=dict(con.execute('SELECT * FROM items WHERE id=?',(target['id'],)).fetchone()) if target else None
+            selected=con.execute('SELECT * FROM items WHERE id=?',(target['id'],)).fetchone() if target else None
+            if target and selected is None:raise ValueError('Der Eintrag ist nicht mehr vorhanden. Keine Änderung ausgeführt.')
+            before=dict(selected) if selected else None
             reminder_before=dict(row) if target and (row:=con.execute('SELECT * FROM personal_reminders WHERE item_id=?',(target['id'],)).fetchone()) else None
             if context.get('_apply_preview') and target and preview_fingerprint(before,reminder_before if reminder_edit else None)!=context['preview']['base_hash']:
                 raise ValueError('Der Eintrag wurde inzwischen geändert. Bitte eine neue Vorschau anfordern.')
@@ -1081,31 +1090,24 @@ class Assistant:
             else:
                 item_id,title=target['id'],target['data']['title']
                 if plan.action=='set_status':
-                    con.execute('UPDATE items SET status=? WHERE id=?',(plan.status,item_id))
+                    set_personal_field(con,item_id,'status',plan.status)
                     message=title+': '+{'open':'offen','doing':'in Arbeit','done':'erledigt'}[plan.status]+'.'
                     if plan.status=='done':message+=' Der Eintrag bleibt im Archiv gespeichert.'
                     if target['data']['kind'] in ('registration','event','exam'):
                         message+=' Nur dein lokaler Bearbeitungsstand; keine TU-Anmeldung, Abmeldung oder Buchungsänderung.'
                 elif plan.action=='set_pin':
-                    con.execute('UPDATE items SET pinned=? WHERE id=?',(int(plan.pinned),item_id))
+                    set_personal_field(con,item_id,'pinned',int(plan.pinned))
                     message=title+(' angeheftet.' if plan.pinned else ' von der Magnetwand gelöst.')
                 elif plan.action=='set_reminder':
                     message='Benachrichtigung für '+title+' lokal vorgemerkt.'
                 elif plan.action=='set_visibility':
-                    con.execute('UPDATE items SET ignored=? WHERE id=?',(int(plan.ignored),item_id))
+                    set_personal_field(con,item_id,'ignored',int(plan.ignored))
                     message=title+(' lokal ausgeblendet. Bleibt gespeichert.' if plan.ignored else ' wieder eingeblendet.')
                 elif plan.action=='cancel_reminder':
                     con.execute('DELETE FROM personal_reminders WHERE item_id=?',(item_id,))
                     message='Eigene Benachrichtigung für '+title+' aufgehoben. Automatische Fristregeln bleiben unverändert.'
                 else:
-                    fresh=con.execute('SELECT payload,overrides FROM items WHERE id=?',(item_id,)).fetchone()
-                    current=json.loads(fresh['payload']) | json.loads(fresh['overrides'])
-                    value=Candidate.model_validate(current | patch)
-                    if target['identity'].startswith('note:'):
-                        con.execute("UPDATE items SET payload=?,overrides='{}',changed_at=? WHERE id=?",(value.model_dump_json(),now(),item_id))
-                    else:
-                        overrides=json.loads(fresh['overrides']) | patch
-                        con.execute('UPDATE items SET overrides=? WHERE id=?',(encode(overrides),item_id))
+                    patch_personal_item(con,item_id,patch)
                     message='Persönliche Änderung für '+title+' gespeichert. Quellenbelege bleiben erhalten.'
             result={'message':message,'changed':True,'created':own_creation,'item_id':item_id,
                     'items':[{'id':item_id,'title':title,'url':f'/items/{item_id}'}], 'request_id':str(request.request_id)}
@@ -1127,6 +1129,7 @@ class Assistant:
             if not own_creation:
                 after=dict(con.execute('SELECT * FROM items WHERE id=?',(item_id,)).fetchone())
                 undo={'identity':target['identity'],'fields':{k:{'before':before[k],'after':after[k]} for k in fields if before[k]!=after[k]}}
+                undo['revisions']={REVISIONS[k]:after[REVISIONS[k]] for k in undo['fields']}
                 if reminder_edit:
                     after_reminder=con.execute('SELECT * FROM personal_reminders WHERE item_id=?',(item_id,)).fetchone()
                     undo['reminder']={'before':reminder_before,'after':dict(after_reminder) if after_reminder else None}
@@ -1148,9 +1151,8 @@ class Assistant:
             item['_course_type']=next(iter(values)) if len(values)==1 else ''
 
     def structured_match(self, item, plan):
-        from .app import item_timing
         value=item['data']
-        day,_,_=item_timing(value)
+        day=self.state_fn(item,datetime.now(VIENNA))['action_date']
         if plan.filter_status and item['status']!=plan.filter_status:return False
         if plan.date_filter=='undated' and day:return False
         if plan.date_filter=='overdue':
@@ -1224,8 +1226,9 @@ class Assistant:
             for row in rows:
                 before=row[field]
                 if before==value:continue
-                con.execute(f'UPDATE items SET {field}=? WHERE id=?',(value,row['id']))
-                changes.append({'id':row['id'],'identity':row['identity'],'field':field,'before':before,'after':value})
+                updated=set_personal_field(con,row['id'],field,value)
+                changes.append({'id':row['id'],'identity':row['identity'],'field':field,'before':before,'after':value,
+                                'revision':updated[REVISIONS[field]]})
                 row[field]=value
             result={'message':f'{len(changes)} Einträge lokal geändert. Keine Buchung oder Anmeldung verändert.',
                     'changed':bool(changes),'items':[self.summary(r) for r in rows if r['id'] in {c['id'] for c in changes}],
@@ -1320,7 +1323,7 @@ class Assistant:
 
     def item_reminder(self,plan,request,context,target):
         from .reminders import ItemPreferences,ReminderService
-        from .app import item_timing
+        from .action_state import item_timing
         profile_row=self.db.one('SELECT value FROM item_preferences WHERE item_id=?',(target['id'],))
         previous=json.loads(profile_row['value']) if profile_row else {}
         profile=dict(previous)
@@ -1401,14 +1404,20 @@ class Assistant:
         if row and row['state']=='completed' and result.get('undoable') and result.get('undo_bulk'):
             with self.db.connection() as con:
                 con.execute('BEGIN IMMEDIATE')
+                fresh=json.loads(con.execute('SELECT result FROM assistant_requests WHERE id=?',(str(identifier),)).fetchone()['result'])
+                if fresh.get('undone'):return fresh
                 for change in result['undo_bulk']:
                     field=change['field']
                     if field not in ('status','pinned'):raise ValueError('Ungültige Rücknahme.')
+                    if type(change.get('revision')) is not int or change['revision'] < 0:
+                        raise ValueError('Diese ältere Aktion kann ohne gespeicherten Bearbeitungsstand nicht sicher rückgängig gemacht werden. Bitte den aktuellen Stand prüfen und bei Bedarf ändern.')
+                for change in result['undo_bulk']:
+                    field=change['field']
                     current=con.execute('SELECT * FROM items WHERE id=? AND identity=?',(change['id'],change['identity'])).fetchone()
-                    if not current or current[field]!=change['after']:
+                    if not current or current[field]!=change['after'] or current[REVISIONS[field]]!=change['revision']:
                         raise ValueError('Ein Wert wurde inzwischen geändert. Keine Rücknahme ausgeführt.')
                 for change in result['undo_bulk']:
-                    con.execute(f"UPDATE items SET {change['field']}=? WHERE id=?",(change['before'],change['id']))
+                    set_personal_field(con,change['id'],change['field'],change['before'])
                 result.update(message='Sammeländerung rückgängig gemacht.',undone=True,changed=True,undoable=False)
                 con.execute('UPDATE assistant_requests SET result=? WHERE id=?',(encode(result),str(identifier)))
             return result
@@ -1416,8 +1425,20 @@ class Assistant:
             undo=result['undo_change']
             with self.db.connection() as con:
                 con.execute('BEGIN IMMEDIATE')
+                fresh=json.loads(con.execute('SELECT result FROM assistant_requests WHERE id=?',(str(identifier),)).fetchone()['result'])
+                if fresh.get('undone'):return fresh
+                fields=undo['fields']
+                if not isinstance(fields,dict) or any(k not in REVISIONS for k in fields):
+                    raise ValueError('Ungültige Rücknahme.')
+                needed={REVISIONS[k] for k in fields}
+                revisions=undo.get('revisions',{})
+                if (not isinstance(revisions,dict) or not needed.issubset(revisions)
+                        or any(type(revisions[k]) is not int or revisions[k] < 0 for k in needed)):
+                    raise ValueError('Diese ältere Aktion kann ohne gespeicherten Bearbeitungsstand nicht sicher rückgängig gemacht werden. Bitte den aktuellen Stand prüfen und bei Bedarf ändern.')
                 current=con.execute('SELECT * FROM items WHERE id=? AND identity=?',(result['item_id'],undo['identity'])).fetchone()
                 if not current or any(current[k]!=v['after'] for k,v in undo['fields'].items()):
+                    raise ValueError('Diese Werte wurden inzwischen anderweitig geändert. Rücknahme würde spätere Änderungen überschreiben.')
+                if any(current[k]!=revisions[k] for k in needed):
                     raise ValueError('Diese Werte wurden inzwischen anderweitig geändert. Rücknahme würde spätere Änderungen überschreiben.')
                 if 'reminder' in undo:
                     current_reminder=con.execute('SELECT * FROM personal_reminders WHERE item_id=?',(result['item_id'],)).fetchone()
@@ -1441,8 +1462,10 @@ class Assistant:
         if not result.get('created') or row['state']!='completed':
             raise ValueError('Für diese Anfrage ist keine rücknehmbare Änderung gespeichert.')
         with self.db.connection() as con:
+            con.execute('BEGIN IMMEDIATE')
+            fresh=json.loads(con.execute('SELECT result FROM assistant_requests WHERE id=?',(str(identifier),)).fetchone()['result'])
+            if fresh.get('undone'):return fresh
             if result.get('created_ids'):
-                con.execute('BEGIN IMMEDIATE')
                 for n,item_id in enumerate(result['created_ids']):
                     changed=con.execute('UPDATE items SET ignored=1 WHERE id=? AND identity=?',(item_id,'note:voice:'+str(identifier)+':'+str(n)))
                     if changed.rowcount!=1:raise ValueError('Eine erstellte Aufgabe fehlt. Keine Teil-Rücknahme ausgeführt.')

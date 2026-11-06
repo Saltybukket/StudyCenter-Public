@@ -7,8 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_distribution_includes_shared_resources_and_optional_runtimes():
+    from studycenter_public import __version__
     project = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
-    assert project['project']['version'] == '0.1.0b5'
+    assert project['project']['version'] == __version__
     patterns = project['tool']['setuptools']['package-data']['studycenter_public']
     assert {'core/templates/*.html', 'core/static/*', 'core/static/vendor/*'} <= set(patterns)
     base = ' '.join(project['project']['dependencies']).lower()

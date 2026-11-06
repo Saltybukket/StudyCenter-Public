@@ -103,6 +103,7 @@ def make_settings(paths, secrets=None):
     settings = Settings(data_dir=data_dir, llm_base_url='', llm_model='', llm_api_key='',
                         teachcenter_url='https://tc.tugraz.at/main/', ocr_lang=ocr.ocr_lang,
                         tesseract=ocr.tesseract, stt_engine='whisper', stt_model='small', stt_device='auto')
+    settings.llm_trust_env = False
     settings.process_env, settings.working_directory = ocr.process_env, ocr.working_directory
     settings.api_store = record('model-api')
     model_path = paths.config / 'model-api.json'
@@ -220,9 +221,14 @@ def create_app(paths, secrets=None):
         return result
     @app.get('/api/health')
     async def health():
-        return {'application': 'StudyCenter.Public', 'version': '0.1.0b5', 'instance_id': paths.instance_id}
+        from . import __version__
+        return {'application': 'StudyCenter.Public', 'version': __version__, 'instance_id': paths.instance_id}
     from .legacy import create_legacy_router
     app.include_router(create_legacy_router(paths))
+    from .ice_import_ui import create_ice_import_router
+    from .ice_migration import MAX_SIZE
+    app.state.upload_limits = {'/api/ice-import': MAX_SIZE}
+    app.include_router(create_ice_import_router(paths))
     from .onboarding import install
     install(app)
     return app

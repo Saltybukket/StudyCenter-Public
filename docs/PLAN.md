@@ -1,5 +1,105 @@
 # Delivery plan
 
+## Aktive Umsetzung: gemeinsame Grundlage (2026-11-06)
+
+Ziel: dieselbe versionierte Produktfunktion fuer Private und Public, ein nachvollziehbarer
+Windows/Linux-Auslieferungsweg und gemeinsame sichere Zustandsaenderungen. Keine
+Neugestaltung der Oberflaeche oder Aenderung des Luna-Dialogverhaltens in diesem Schritt.
+
+- [x] Ausgangsstand mit allen bestehenden Aenderungen extern sichern; privaten Produktstand pruefen und versionieren.
+- [x] `scripts/sync_product.py` an unveraenderlichen Quell-Commit/Tree binden; Offline-CI und lokale Herkunftspruefung, fehlgeschlagene Updates ohne Teilzustand.
+- [x] Einfache Distributionsunterschiede in explizite Einstellungen/Adapter verschieben; gemeinsame Quelldateien statt unabhaengiger Funktionskopien verwenden.
+- [x] Windows/Linux-Workflow auf die aktuelle Slim-Auslieferung abstimmen; Herkunft und Paketpruefungen erhalten.
+- [x] ICE-Import ueber installierten Einstieg und explizite Einrichtung erreichbar machen; nur neue isolierte Zielinstanz, keine Konto-/Profildaten uebernehmen.
+- [x] Zusammenhaengende Aufgaben-/Statusaenderungen aus grossen Modulen in einen gemeinsamen Dienst auslagern; HTTP und Assistent nutzen dieselben Regeln.
+- [x] Reihenfolge von Erledigen/Konfliktloesen, veraltete Aenderungen, Wiederholungen sowie Abgabe/Verfuegbarkeit/Bearbeitungstag gezielt pruefen.
+- [x] Verbleibende Altmodule anhand echter Nutzer untersuchen; nur belegbar unbenutzten Code entfernen, kleine Architekturpruefung ergaenzen.
+- [ ] Gemeinsame Verhaltenstests, Public-Datenschutzpruefung, Quellabgleich und tatsaechliche Paketpruefungen durchfuehren; Grenzen getrennt dokumentieren.
+
+Arbeitsteilung: getrennte Eigentumsbereiche fuer Quellabgleich, Release-Skripte,
+ICE-Integration und private Zustandslogik. Integration und PLAN liegen beim Orchestrator.
+Die Quelle wird erst nach erfolgreicher Integration erneut gebunden. Live-Daten,
+Profile, Anmeldungen und laufende Installationen bleiben unberuehrt.
+
+Pruefschwerpunkte: konkurrierende Aenderungen verlieren keinen persoenlichen Status;
+Wiederholung erzeugt keine doppelten Aufgaben; historische Quellen werden nicht zu
+aktuellen Fristen; Import ueberschreibt keinen vorhandenen Bestand; Paketpruefungen
+verwenden die aktuelle Produktanwendung statt alter Datenvertraege.
+
+
+### Lokaler Pruefstand 2026-11-06
+
+Privater Produkt-Pin: `e78cfbbb00fb3d19b97abb1e3da78f5a60d9ce80`;
+92 Quelldateien, davon 78 nach Textnormalisierung gemeinsam, 14 begruendete Adapter
+und 5 Public-Ergaenzungen. Private Gesamtsuite: 446 bestanden. Public Gesamtsuite:
+939 bestanden, 30 plattformbedingt uebersprungen. Ein danach aus Datenschutzgruenden
+neutralisierter synthetischer Test-Port wurde mit 7 Desktop-Tests erneut geprueft.
+Quell-/Arbeitsbaumabgleich, Architekturpruefung und Staging-Datenschutzcheck bestanden.
+Das unabhaengige Review hat keine offenen konkreten Findings am integrierten Code.
+
+Die private CI prueft bei Produktaenderungen den aktuellen Arbeitsstand gegen den
+Public-Export und meldet ein Auseinanderlaufen. Die Public-CI prueft den fest gebundenen
+Export ohne Zugang zum privaten Repository. Beide Pruefungen lesen nur Code.
+
+Der abschliessende GitHub-Build-/Installer-Lifecycle fuer diesen Commit steht noch aus.
+Lokale Diagnose-Installer und deren erfolgreiche Scans sind kein Nachweis fuer den
+finalen Release. beta.6 ist ein Kandidat; die Downloadlinks bleiben bei beta.5, bis
+konkrete neue Release-Artefakte geprueft und veroeffentlicht sind. Live-TU-Konten,
+native Windows-11-Bedienung und das bisher separat blockierte Linux-Browser-GUI-Gate
+sind durch diese Quell-/Protokolltests nicht nachgewiesen.
+
+## Gemeinsamer Produktstand und Auslieferung
+
+Die einzige Produktquelle ist das private `campusboard/` an einem vollstaendigen
+Git-Commit. Public enthaelt einen reproduzierbaren Export in `core/`, damit
+Installation und CI keinen Zugang zum privaten Repository benoetigen. Sieben
+zuvor angepasste Module (Browser, Dokumente, Google, iCal, Modelltransport, Mail,
+Sync) verwenden jetzt dieselbe Quelle mit ausdruecklich uebergebenen Diensten.
+Verbleibende Abweichungen stehen mit Grund in `packaging/product-adapters.json`;
+Launcher, Speicher-/Betriebssystemintegration und Einrichtung bleiben getrennt.
+
+`python scripts/sync_product.py verify` prueft lokal und in CI Inventar,
+ausgelieferte Bytes, Adapter-Policy und rekonstruierte Git-Paket-Tree-ID.
+`python scripts/sync_product.py verify --source-repo ../StudyCenter` prueft
+zusaetzlich die Commit-zu-Tree-Bindung am privaten Git-Objekt. Mit
+`--check-worktree` wird auch der aktive private Quell-Arbeitsstand gegen den Pin
+geprueft, ohne Profil- oder Datenverzeichnisse zu betreten. Der Offline-Check
+allein beweist diese Bindung und funktionale Gleichheit nicht. Aktualisierungen
+verwenden `update --source-repo ... --revision <vollstaendiger Commit> --output
+<neues Verzeichnis>` und erzeugen einen separaten Kandidaten; der laufende Export
+wird dabei nicht teilweise ueberschrieben. Neue Dateien und Adapteraenderungen
+muessen ausdruecklich geprueft und anschliessend mit `capture` neu gebunden werden.
+
+`action_state.py` vereinheitlicht Zeit-/Fristprojektionen; `item_state.py` kapselt
+persoenliche Aenderungen innerhalb der bestehenden SQLite-Transaktion. Formulare
+uebergeben Feldrevisionen und explizite Ziele fuer Pin/Sichtbarkeit. Alte Clients
+ohne Revision bleiben kompatibel, bieten aber keinen Schutz gegen veraltete
+Formulare. Alte offene KI-Vorschauen koennen nach der Umstellung eine erneute
+Vorschau benoetigen. Quellenkonflikt, Lesestand und persoenlicher Status bleiben
+unabhaengig. Alte Backup-Schemata werden migriert; unbekannte Trigger nicht ausgefuehrt.
+
+Vor Updates erstellen Windows-Installer und Linux-Starter mit der bisherigen
+Python-Umgebung eine konsistente Core-Sicherung einschliesslich Dokumentoriginalen
+und Belegen. Ein laufender Bestand oder Backupfehler blockiert den Wechsel. Der
+CI-Lifecycle prueft neben Neuinstallation den Upgradepfad von beta.5 mit synthetischen
+Daten und Fehlergegenproben. Native Windows-11-Bedienung und echte Kontenanmeldung
+werden dadurch nicht belegt.
+
+Die automatische Windows/Linux-Pruefung baut nun die Slim-Auslieferung aus dem
+exakten Quell-Wheel. Optionale native Komponenten sind ueber die bereits
+veroeffentlichten, geprueften Archive mit festen Hashes gebunden. Ein Wechsel
+rotierender Upstream-Pakete lockert keine Herkunftspruefung. Alte monolithische
+Build-/Smoke-Werkzeuge bleiben als historische Diagnose erhalten und sind kein
+aktueller Release-Nachweis. Die manuellen Exact-Candidate-Workflows pruefen
+zusaetzlich konkrete unveroeffentlichte Release-Artefakte.
+
+`python scripts/check_product_architecture.py` verhindert Rueckimporte vom
+Produktkern in die alte Public-Web-/Domain-/Storage-Schicht und prueft auch die
+Python-Imports in Setup-Probes. Dokument- und Sprachinfrastruktur wird noch vom
+Public-Adapter verwendet; Migration und Kompatibilitaetstests benoetigen weitere
+Altmodule. Diese sind deshalb nicht pauschal als Dead Code entfernt. Die statische
+Pruefung ersetzt keine Pruefung dynamischer Imports oder echter Kontenanbindung.
+
 ## Orientierung im Repository
 
 | Bereich | Zweck |
@@ -26,8 +126,9 @@ archiviert. Offene Pull Requests und nicht übernommene Branches bleiben erhalte
 ## Wechsel von ICE zu Public
 
 Der Public-Quellstand bietet einen expliziten Offline-Import eines nativen
-ICE-Format-1-Backups mit dem Datenbankschema von ICE beta.3. Der Import ist noch
-nicht Bestandteil der veröffentlichten beta.5-Installer. Es gibt keine automatische
+ICE-Format-1-Backups mit dem Datenbankschema von ICE beta.3. Der aktuelle Quellstand (Kandidat beta.6) bietet ihn auch unter Einrichtung
+als expliziten ZIP-Import in einen neuen Geschwisterordner an. Er ist noch nicht
+Bestandteil der veröffentlichten beta.5-Installer. Es gibt keine automatische
 Suche nach ICE-Daten und keine Übernahme in einen bereits vorhandenen Public-Bestand.
 
 1. In ICE eine aktuelle Sicherung erstellen. Zusätzlich das vollständige eigene
@@ -37,7 +138,7 @@ Suche nach ICE-Daten und keine Übernahme in einen bereits vorhandenen Public-Be
    nicht existieren:
 
    ```text
-   python scripts/import_ice.py --backup "ICE-Backup.zip" --destination "../public-from-ice"
+   python -m studycenter_public --import-ice --backup "ICE-Backup.zip" --destination "../public-from-ice"
    python -m studycenter_public --data-dir "../public-from-ice" --browser
    ```
 

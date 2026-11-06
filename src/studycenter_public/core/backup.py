@@ -126,16 +126,19 @@ def inspect_archive(path, destination):
         with tempfile.TemporaryDirectory() as temporary:
             reference = Database(Path(temporary) / 'reference.sqlite3')
             with reference.connection() as ref:
-                expected_trigger = ref.execute("SELECT sql,tbl_name FROM sqlite_master WHERE type='trigger' AND name='class_completion_reopened'").fetchone()
+                expected_triggers = {r['name']: (r['sql'], r['tbl_name']) for r in ref.execute(
+                    "SELECT name,sql,tbl_name FROM sqlite_master WHERE type='trigger'")}
             for name, kind, sql, table in objects:
-                if kind == 'trigger' and (name != 'class_completion_reopened' or (sql, table) != tuple(expected_trigger)):
+                if kind == 'trigger' and (name not in expected_triggers or (sql, table) != expected_triggers[name]):
                     raise ValueError('Nicht unterstützte Datenbankstruktur.')
             for table in tables:
                 actual = [tuple(row[1:6]) for row in con.execute(f'PRAGMA table_info({table})')]
                 with reference.connection() as ref:
                     expected = [tuple(row[1:6]) for row in ref.execute(f'PRAGMA table_info({table})')]
                 legacy_quests = table == 'quests' and actual == [column for column in expected if column[0] != 'planning']
-                if actual != expected and not legacy_quests:
+                revision_columns = {'status_revision','pin_revision','visibility_revision','content_revision'}
+                legacy_items = table == 'items' and actual == [column for column in expected if column[0] not in revision_columns]
+                if actual != expected and not legacy_quests and not legacy_items:
                     raise ValueError('Nicht unterstützte Tabellenspalten: ' + table)
         if con.execute('PRAGMA integrity_check').fetchone()[0] != 'ok' or con.execute('PRAGMA foreign_key_check').fetchone():
             raise ValueError('Datenbankprüfung fehlgeschlagen.')

@@ -25,7 +25,7 @@ Dein Datenbestand bleibt auf deinem Rechner. TU-Quellen werden auf deinen Klick 
 
 **Schon installiert?** Behalte beim Update deinen bisherigen Public-Datenordner. Falls die Datenübernahme stoppt, verwende die bisherige Version weiter und lösche keine Daten. [Hinweise zur Übernahme](docs/UI-PARITY.md).
 
-**Wechsel von ICE?** Dafür gibt es einen getrennten, lokalen [Backup-Import aus dem Quellcode](docs/PLAN.md#wechsel-von-ice-zu-public). Der beta.5-Installer übernimmt ICE-Daten noch nicht automatisch.
+**Wechsel von ICE?** Der aktuelle Quellstand bietet unter Einrichtung einen getrennten, lokalen [Backup-Import in eine neue Instanz](docs/PLAN.md#wechsel-von-ice-zu-public). Im veröffentlichten beta.5-Installer ist dieser Import noch nicht enthalten.
 
 ## Hilfe & Entwicklung
 

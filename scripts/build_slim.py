@@ -27,6 +27,15 @@ BETA3_SHA256 = {
 }
 OLD_SOURCES = 'https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.2/StudyCenter-Public-corresponding-sources-0.1.0b1-all-platform-notices.zip'
 BETA2_LINUX_SHA = '10a01f2638092d51e2b9e07ad9167ecbad72df836fb9c9a39f6b766429642bbb'
+# Generated project text from beta.2 source 62b235eedae220823229e10823d933b6718ccf63,
+# verified in installer 00a4f6c8452af411179f4664400324e5d2c4a1c183b4e93aee11ca3695d1990a.
+# It is also identical to the beta.3 copy; project license is AGPL-3.0-only.
+RUNTIME_REQUIREMENTS_SHA = '188a1d7149565492460b8450576b0fbd7cb6ae079c477a7a15726cc41775eef7'
+PROXY_WHEEL_SHA = 'e230f9c9936e3dfc56d00b20000043f530010455bfad63cee56fef8b80288aa0'
+BUILD_INPUTS = ('src/studycenter_public', 'packaging', 'scripts/build_slim.py',
+                'scripts/prepare_slim_assets.py', 'scripts/artifact_reviews.json',
+                'start.cmd', 'start.sh', 'LICENSE', 'README.md', 'docs/QUICKSTART.md',
+                'pyproject.toml', 'requirements-windows.lock', 'requirements-linux.lock')
 
 
 def digest(path):
@@ -46,6 +55,18 @@ def release_version(tag):
     return '.'.join(match.groups()[:3]) + 'b' + match.group(4)
 
 
+def verify_checkout(source_commit):
+    if not re.fullmatch(r'[0-9a-f]{40}', source_commit):
+        raise ValueError('Release source must be a full immutable Git SHA')
+    actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    if source_commit != actual:
+        raise ValueError('Release source must match the current committed checkpoint')
+    changed = subprocess.check_output(['git', 'diff', '--name-only', '-z', source_commit, '--', *BUILD_INPUTS], cwd=ROOT)
+    untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '-z', '--', *BUILD_INPUTS], cwd=ROOT)
+    if changed or untracked:
+        raise ValueError('Release build inputs differ from the committed checkpoint')
+
+
 def verify_source_wheel(wheel, source_commit):
     """Bind every shipped application byte to the requested Git tree."""
     archive = subprocess.check_output(['git', 'archive', '--format=tar', source_commit,
@@ -59,6 +80,9 @@ def verify_source_wheel(wheel, source_commit):
             elif not member.isdir():
                 raise ValueError('Source tree contains an unsupported package entry')
     with zipfile.ZipFile(wheel) as package:
+        names = [entry.filename for entry in package.infolist()]
+        if len(names) != len(set(names)):
+            raise ValueError('Wheel contains duplicate archive entries')
         actual = {entry.filename: package.read(entry) for entry in package.infolist()
                   if entry.filename.startswith('studycenter_public/') and not entry.is_dir()}
     if not expected or expected != actual:
@@ -200,6 +224,7 @@ def make_bootstrap(platform, manifest, output, version, iscc=None, runtime_requi
         shutil.copy2(ROOT/name, stage/name)
     shutil.copy2(ROOT/'docs/QUICKSTART.md', stage/'README.md')
     shutil.copy2(ROOT/'src/studycenter_public/platform/setup.py', stage/'setup.py')
+    shutil.copy2(ROOT/'packaging/backup_core.py', stage/'backup_core.py')
     (stage/'slim-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     if platform == 'windows':
         shutil.copy2(ROOT/'packaging/windows/launch.vbs', stage/'launch.vbs')
@@ -255,6 +280,8 @@ def main():
     parser.add_argument('--reuse-components', action='store_true')
     parser.add_argument('--proxy-wheel', type=Path)
     parser.add_argument('--source-commit')
+    parser.add_argument('--platform', choices=('windows', 'linux'), help='Build one native platform')
+    parser.add_argument('--runtime-requirements', type=Path, default=ROOT/'packaging/windows/slim-system-runtime-requirements.iss')
     args = parser.parse_args()
     global BASE
     version = tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
@@ -269,10 +296,8 @@ def main():
         if fields.get('Name') != 'studycenter-public' or fields.get('Version') != version:
             raise ValueError('Wheel metadata and project version differ')
     if args.source_commit:
-        actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-        if args.source_commit != actual:
-            raise ValueError('Release source must match the current committed checkpoint')
-        verify_source_wheel(args.wheel, actual)
+        verify_checkout(args.source_commit)
+        verify_source_wheel(args.wheel, args.source_commit)
     BASE = ORIGIN + args.release_tag + '/'
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -281,6 +306,10 @@ def main():
     if args.wheel.resolve() != wheel:
         shutil.copy2(args.wheel, wheel)
     for platform, bundle in [('windows', args.windows_bundle), ('linux', None)]:
+        if args.platform and args.platform != platform:
+            continue
+        if platform == 'windows' and args.source_commit and not args.iscc:
+            raise ValueError('A source-bound Windows build requires the Inno compiler and an installer')
         cached = output/(platform+'-components.json')
         if args.reuse_components and cached.is_file():
             optional = verify_cached_components(json.loads(cached.read_text()), platform, output)
@@ -295,6 +324,9 @@ def main():
                 continue
             optional = components(bundle, platform, output, version)
             cached.write_text(json.dumps(optional, indent=2))
+        # Download estimates belonged to an older dependency lock, not this build.
+        for definition in optional.values():
+            definition.pop('python_download_bytes', None)
         lock = output/f'requirements-{platform}.lock'
         notice_bundle = args.windows_bundle if platform == 'windows' else ROOT/'build/beta3-linux-components'
         if not optional.get('speech', {}).get('archive'):
@@ -310,22 +342,27 @@ def main():
             proxy = args.proxy_wheel or output/'proxy_tools-0.1.0-py3-none-any.whl'
             if not proxy.is_file():
                 raise ValueError('Build the audited pure-Python proxy-tools wheel first (packaging/slim-proxy-tools.json)')
+            if proxy.name != 'proxy_tools-0.1.0-py3-none-any.whl' or digest(proxy) != PROXY_WHEEL_SHA:
+                raise ValueError('Proxy wheel differs from the reviewed beta.4 asset')
             if proxy.resolve() != output/proxy.name:
                 shutil.copy2(proxy, output/proxy.name)
             manifest['extra_wheels'] = [record(output/proxy.name)]
         # Beta.3 Python size measurements omit new beta.5 dependencies.
         # Leave estimates unknown until measured for this exact candidate.
-        manifest_path = ROOT/'packaging'/('slim-'+platform+'-x86_64.json')
-        manifest_path.write_text(json.dumps(manifest, indent=2)+'\n')
+        manifest_path = output/('slim-'+platform+'-x86_64.json')
         release_manifest = dict(manifest)
         if args.source_commit:
             actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
             if args.source_commit != actual:
                 raise ValueError('Release source must match the current committed checkpoint')
             release_manifest['source_git_sha'] = actual
-        (output/manifest_path.name).write_text(json.dumps(release_manifest, indent=2)+'\n')
-        runtime = args.windows_bundle/'SYSTEM-RUNTIME-REQUIREMENTS.iss' if args.windows_bundle else None
+        manifest_path.write_text(json.dumps(release_manifest, indent=2)+'\n')
+        runtime = args.windows_bundle/'SYSTEM-RUNTIME-REQUIREMENTS.iss' if args.windows_bundle else args.runtime_requirements
+        if platform == 'windows' and (not runtime.is_file() or digest(runtime) != RUNTIME_REQUIREMENTS_SHA):
+            raise ValueError('Windows system runtime requirements differ from the reviewed beta.2 installer')
         make_bootstrap(platform, release_manifest, output, version, args.iscc, runtime)
+    if args.source_commit:
+        verify_checkout(args.source_commit)
 
 
 if __name__ == '__main__':

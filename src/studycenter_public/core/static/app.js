@@ -273,7 +273,8 @@ document.querySelectorAll('.quick-form').forEach(form => form.addEventListener('
   const button = form.querySelector('button');
   button.disabled = true;
   try {
-    await api(form.getAttribute('action'), {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}});
+    const result = await api(form.getAttribute('action'), {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}});
+    if (form.elements.expected_revision && Number.isInteger(result.revision)) form.elements.expected_revision.value=String(result.revision);
     form.dispatchEvent(new CustomEvent('quick-form-result',{detail:{ok:true}}));
     // Paginated walls must refill from the complete filtered set after a change.
     if (form.hasAttribute('data-entry-action') || ['/board','/pins'].includes(location.pathname)) { location.reload(); return; }

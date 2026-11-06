@@ -176,7 +176,7 @@ class SpeechService:
                 # The failed primary will no longer be used once fallback succeeds.
                 # Release its potentially large CPU/GPU model before loading another.
                 self.model=None
-                active=SpeechService(self.courses,engine='whisper',name=self.name,device='cpu',root=self.root,model_path=self.model_path,ensure_model=self.ensure_model)
+                active=SpeechService(self.courses,engine='whisper',name=self.name if self.device=='cuda' else 'base',device='cpu',root=self.root,model_path=self.model_path,ensure_model=self.ensure_model)
                 active.root=self.root
                 active._progress_parent=weakref.ref(self)
                 text=active.recognize(audio)

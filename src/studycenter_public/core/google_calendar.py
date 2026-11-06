@@ -9,11 +9,13 @@ import time
 import uuid
 import webbrowser
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlencode, urlsplit, parse_qs, quote
 
 import httpx
 
-from .config import VIENNA
+from .chatgpt import dpapi
+from .config import VIENNA, local_profile_path
 from .db import encode, now
 
 SCOPES = ('https://www.googleapis.com/auth/calendar.app.created',
@@ -27,8 +29,12 @@ class GoogleError(RuntimeError):
 
 
 class GoogleAuth:
-    def __init__(self, data_dir, store):
+    def __init__(self, data_dir, store=None):
         self.store = store
+        self.path = None
+        if store is None:
+            key = hashlib.sha256(str(Path(data_dir).resolve()).encode()).hexdigest()[:16]
+            self.path = local_profile_path(f'auth/google-{key}.dpapi')
         self.gate = asyncio.Lock()
         self.pending = None
         self.server = None
@@ -37,10 +43,18 @@ class GoogleAuth:
         self.callback_tasks = set()
 
     def read(self):
-        return self.store.read()
+        if self.store is not None:
+            return self.store.read()
+        return json.loads(dpapi(self.path.read_bytes(), decrypt=True)) if self.path.exists() else {}
 
     def save(self, value):
-        self.store.write(value)
+        if self.store is not None:
+            self.store.write(value)
+            return
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix('.tmp')
+        temporary.write_bytes(dpapi(encode(value).encode()))
+        temporary.replace(self.path)
 
     def import_client(self, raw):
         try:
@@ -304,7 +318,7 @@ def projection(items, events, states, options, dataset, reminder_minutes=None):
 class GoogleCalendar:
     def __init__(self, db, settings, projection_provider):
         self.db,self.settings,self.provider=db,settings,projection_provider
-        self.auth=GoogleAuth(settings.data_dir, settings.google_store)
+        self.auth=GoogleAuth(settings.data_dir, getattr(settings, 'google_store', None))
         self.gate=asyncio.Lock()
         self.stop=asyncio.Event()
         self.error=''

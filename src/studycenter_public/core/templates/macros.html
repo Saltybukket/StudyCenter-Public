@@ -13,10 +13,10 @@
   <div class="postit-top-actions">
     <details class="postit-menu"><summary class="postit-icon" aria-label="Weitere Optionen für {{ item_title(item) }}" title="Weitere Optionen"><span aria-hidden="true">⋮</span></summary><div class="postit-menu-items">
       <a href="/items/{{ item.id }}">Details & Belege</a><a href="/items/{{ item.id }}#reminders">Erinnerung</a><a href="/items/{{ item.id }}#my-work">Bearbeiten</a>
-      <form action="/items/{{ item.id }}" method="post" class="quick-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ignore"><button type="submit">{{ 'Wieder beachten' if item.ignored else 'Ausblenden' }}</button></form>
+      <form action="/items/{{ item.id }}" method="post" class="quick-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ignore"><input type="hidden" name="expected_revision" value="{{ item.visibility_revision }}"><input type="hidden" name="target" value="{{ 0 if item.ignored else 1 }}"><button type="submit">{{ 'Wieder beachten' if item.ignored else 'Ausblenden' }}</button></form>
       <div class="postit-source-tags">{{ tags(item,['open','doing','done','time']) }}</div>
     </div></details>
-    <form action="/items/{{ item.id }}" method="post" class="quick-form pin-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="pin"><button type="submit" class="postit-icon postit-pin" aria-pressed="{{ 'true' if item.pinned else 'false' }}" aria-label="{{ 'Pin lösen' if item.pinned else 'Anheften' }}: {{ item_title(item) }}" title="{{ 'Pin lösen' if item.pinned else 'Anheften' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4v2h-5v6l-1 2-1-2v-6H6v-2l4-4z" fill="currentColor"/></svg></button></form>
+    <form action="/items/{{ item.id }}" method="post" class="quick-form pin-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="pin"><input type="hidden" name="expected_revision" value="{{ item.pin_revision }}"><input type="hidden" name="target" value="{{ 0 if item.pinned else 1 }}"><button type="submit" class="postit-icon postit-pin" aria-pressed="{{ 'true' if item.pinned else 'false' }}" aria-label="{{ 'Pin lösen' if item.pinned else 'Anheften' }}: {{ item_title(item) }}" title="{{ 'Pin lösen' if item.pinned else 'Anheften' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4v2h-5v6l-1 2-1-2v-6H6v-2l4-4z" fill="currentColor"/></svg></button></form>
   </div>
   {% if item.pin_label %}<strong class="urgent-label">{{ item.pin_label }}</strong>{% elif item.pin_reason %}<span class="pin-reason">{{ item.pin_reason }}</span>{% endif %}
   {% endif %}
@@ -28,7 +28,7 @@
   {% if sticky %}
   <div class="postit-work-row">
     <form action="/items/{{ item.id }}" method="post" class="quick-form postit-status" data-postit-status>
-      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="status"><input type="hidden" name="status" value="{{ item.status }}" disabled>
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="status"><input type="hidden" name="expected_revision" value="{{ item.status_revision }}"><input type="hidden" name="status" value="{{ item.status }}" disabled>
       <button type="submit" class="postit-submit" hidden aria-hidden="true" tabindex="-1">Status speichern</button>
       <button type="submit" name="status" value="done" data-status-choice="done" class="postit-status-option postit-done" aria-label="Erledigen: {{ item_title(item) }}">✓ Erledigt</button>
       <details class="postit-status-menu"><summary aria-label="Status ändern: {{ item_title(item) }}">{{ 'In Arbeit' if item.status=='doing' else 'Offen' }} ▾</summary><div>{% for code,label in [('open','Offen'),('doing','In Arbeit')] %}<button type="submit" name="status" value="{{ code }}" data-status-choice="{{ code }}" class="postit-status-option" aria-pressed="{{ 'true' if item.status==code else 'false' }}">{{ label }}</button>{% endfor %}</div></details>
@@ -38,11 +38,11 @@
   {% else %}
   {{ tags(item,['open','doing','done','time']) }}
   <form action="/items/{{ item.id }}" method="post" class="card-action quick-form">
-    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="status">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="status"><input type="hidden" name="expected_revision" value="{{ item.status_revision }}">
     <select name="status" aria-label="Bearbeitungsstatus für {{ item_title(item) }}">
       {% for code,label in [('open','Offen'),('doing','In Arbeit'),('done','Erledigt')] %}<option value="{{ code }}" {% if item.status==code %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select><button class="small secondary" type="submit">Speichern</button><a href="/items/{{ item.id }}" class="detail-link">Belege →</a>
-  </form><form action="/items/{{ item.id }}" method="post" class="quick-form pin-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="pin"><button class="secondary small" aria-label="{{ 'Pin lösen' if item.pinned else 'Anheften' }}: {{ item_title(item) }}">{{ 'Pin lösen' if item.pinned else 'Anheften' }}</button></form>
+  </form><form action="/items/{{ item.id }}" method="post" class="quick-form pin-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="pin"><input type="hidden" name="expected_revision" value="{{ item.pin_revision }}"><input type="hidden" name="target" value="{{ 0 if item.pinned else 1 }}"><button class="secondary small" aria-label="{{ 'Pin lösen' if item.pinned else 'Anheften' }}: {{ item_title(item) }}">{{ 'Pin lösen' if item.pinned else 'Anheften' }}</button></form>
   {% endif %}
 </article>
 {% endmacro %}

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import shutil
@@ -7,7 +8,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import portalocker
 from bs4 import BeautifulSoup
-
+from .config import ROOT, local_profile_path
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -18,6 +19,14 @@ class LoginRequired(Exception):
 
 class BrowserUnavailable(Exception):
     pass
+
+
+def async_playwright():
+    try:
+        from playwright.async_api import async_playwright as factory
+    except ImportError:
+        raise BrowserUnavailable('TU-Browser-Komponente fehlt; Browserkomponente einrichten.') from None
+    return factory()
 
 
 SERVICE_URLS = {'teachcenter': 'https://tc.tugraz.at/main/my/',
@@ -127,33 +136,39 @@ class BrowserService:
         self.cleanup_task = None
         self.blocked_mail_requests = []
         self.sessions = {}
-        self.profile_dir = Path(settings.browser_dir).resolve()
+        self.session_store = getattr(settings, 'browser_store', None)
+        if self.session_store is not None and not all(callable(getattr(settings, name, None)) for name in ('configure_browser', 'system_browser')):
+            raise ValueError('Instanzgebundene Browserkonfiguration fehlt.')
+        self.profile_dir = Path(settings.browser_dir if self.session_store is not None else os.getenv('CAMPUSBOARD_BROWSER_DIR',str(settings.data_dir))).resolve()
+        self.session_path = None
+        if self.session_store is None:
+            profile_key = hashlib.sha256(str(self.profile_dir).encode()).hexdigest()[:16]
+            self.session_path = local_profile_path(f'auth/tu-session-{profile_key}.dpapi')
         self.profile_dir.mkdir(parents=True,exist_ok=True)
-        self.session_store = settings.browser_store
 
     async def _ensure(self, visible=False):
         if self.context:
             return self.context
         if self.playwright or self.profile_lock:
             await self._close()
-        self.settings.configure_browser()
+        configure_browser = getattr(self.settings, 'configure_browser', None)
+        if configure_browser:
+            configure_browser()
+        else:
+            os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(ROOT / ".local" / "browsers"))
         try:
             self.profile_lock = portalocker.Lock(str(self.profile_dir / "browser.owner.lock"), timeout=0)
             self.profile_lock.acquire()
-            try:
-                from playwright.async_api import async_playwright
-            except ImportError:
-                raise BrowserUnavailable('TU-Browser-Komponente fehlt; in Public einrichten.') from None
             self.playwright = await async_playwright().start()
             options = {}
-            system_browser = self.settings.system_browser()
+            system_browser = getattr(self.settings, 'system_browser', lambda: None)()
             if system_browser:
                 options['executable_path'] = system_browser
             # Crawls use Playwright's separate Headless Shell (no channel).
             # Branded browsers use full browser headless mode; Edge left stale
             # Windows Alt+Tab entries here even after all owned processes exited.
             # BROWSER_CHANNEL only selects the visible manual-login browser.
-            channel = ''
+            channel = os.getenv('BROWSER_CHANNEL', '') if visible and configure_browser is None else ''
             if visible and not channel and not system_browser and not Path(self.playwright.chromium.executable_path).exists():
                 chrome = Path(os.environ.get('PROGRAMFILES', 'C:/Program Files') + '/Google/Chrome/Application/chrome.exe')
                 if chrome.exists():
@@ -174,9 +189,14 @@ class BrowserService:
                         if original.is_dir():
                             shutil.copytree(original, profile / 'Default' / name)
             session = None
-            if self.session_store.read():
+            if self.session_store is not None:
+                session = self.session_store.read()
+                if isinstance(session, dict) and session.get('user_agent'):
+                    options['user_agent'] = session['user_agent']
+            elif self.session_path.exists():
                 try:
-                    session = self.session_store.read()
+                    from .chatgpt import dpapi
+                    session = json.loads(dpapi(self.session_path.read_bytes(), decrypt=True))
                     if isinstance(session, dict) and session.get('user_agent'):
                         options['user_agent'] = session['user_agent']
                 except Exception:
@@ -252,7 +272,15 @@ class BrowserService:
             if not cookies:
                 return
             agent = await context.pages[0].evaluate('navigator.userAgent') if context.pages else ''
-            self.session_store.write({'cookies':cookies,'user_agent':agent})
+            value = {'cookies':cookies,'user_agent':agent}
+            if self.session_store is not None:
+                self.session_store.write(value)
+            else:
+                from .chatgpt import dpapi
+                self.session_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = self.session_path.with_suffix('.tmp')
+                temporary.write_bytes(dpapi(json.dumps(value).encode()))
+                temporary.replace(self.session_path)
         except Exception:
             self.last_error = 'TU-Sitzungskopie nicht gespeichert; erneute manuelle Anmeldung kann nötig sein.'
 

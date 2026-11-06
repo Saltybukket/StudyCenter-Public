@@ -25,6 +25,14 @@
 </section>
 {% endfor %}
 </div>
+<section class="panel"><details><summary>ICE-Backup in eine neue Public-Instanz importieren</summary>
+<p>Wähle ein ICE-Backup als ZIP. Der Import erstellt einen neuen Ordner neben dem aktuellen Datenordner. Die laufende Instanz und ihre Verknüpfung bleiben unverändert. Zugangsdaten, Browserprofile und Anbieterzugänge werden nicht übernommen; die Google-Spiegelung bleibt deaktiviert.</p>
+<form data-ice-import class="stack">
+<label>ICE-Backup <input type="file" name="backup" accept=".zip,application/zip" required></label>
+<label>Name des neuen Ordners <input name="folder" pattern="[A-Za-z0-9_-]{1,60}" maxlength="60" value="StudyCenter-ICE-Import" required></label>
+<label class="check"><input type="checkbox" name="confirm" required>Ich möchte dieses Backup in einen neuen Ordner importieren.</label>
+<button>In neuen Ordner importieren</button><p role="status" aria-live="polite"></p><pre data-ice-command hidden></pre>
+</form></details></section>
 <section class="panel"><details><summary>Eigenes KI-Modell verbinden</summary>
 <p>Für dein ChatGPT-Konto nutze <a href="/model">Luna verbinden</a>. Hier kannst du alternativ eine eigene Chat-Completions-Verbindung einrichten.</p>
 <form action="/settings/model-api" method="post" data-model-api class="stack">

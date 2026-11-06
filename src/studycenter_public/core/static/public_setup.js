@@ -21,6 +21,20 @@
     });
   });
   const session = document.querySelector('[data-session-secrets]');
+  const ice = document.querySelector('[data-ice-import]');
+  ice?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = ice.querySelector('button'), status = ice.querySelector('[role="status"]'), command = ice.querySelector('[data-ice-command]');
+    if (button.disabled || !ice.reportValidity()) return;
+    button.disabled = true; command.hidden = true;
+    status.textContent = 'Backup wird geprüft und in einen neuen Ordner importiert …';
+    try {
+      const result = await api('/api/ice-import', {method:'POST', body:ice.elements.backup.files[0], headers:{'Content-Type':'application/zip','X-ICE-Folder':ice.elements.folder.value,'X-ICE-Confirm':'yes'}});
+      status.textContent = `Import abgeschlossen: ${result.destination}. Beende diese Instanz und starte den folgenden Befehl ${result.shell}, um den importierten Bestand zu öffnen. Die bisherige Verknüpfung öffnet weiterhin die bisherige Instanz.`;
+      command.textContent = result.command; command.hidden = false;
+    } catch (error) { status.textContent = error.message || 'Import fehlgeschlagen.'; }
+    finally { button.disabled = false; }
+  });
   const model = document.querySelector('[data-model-api]');
   model?.addEventListener('submit', async event => {
     event.preventDefault();

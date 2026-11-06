@@ -4,6 +4,8 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
+import sqlite3
 import subprocess
 import sys
 import zipfile
@@ -228,6 +230,31 @@ def test_launch_preserves_saved_data_directory(tmp_path, monkeypatch):
     assert calls[0][calls[0].index('--data-dir') + 1] == str(tmp_path / 'existing-data')
 
 
+def test_import_launch_keeps_existing_installation_selection(tmp_path, monkeypatch):
+    setup = engine()
+    receipt = {'application': 'StudyCenter.Public', 'python': str(tmp_path / 'own/python'),
+               'data_dir': str(tmp_path / 'existing-data')}
+    original = dict(receipt)
+    monkeypatch.setattr(setup, 'ensure_environment', lambda *a, **k: receipt)
+    monkeypatch.setattr(setup, 'save_installation', lambda *a: pytest.fail('import changed selected instance'))
+    monkeypatch.setenv('STUDYCENTER_PUBLIC_DATA_DIR', str(tmp_path / 'ambient-data'))
+    calls = []
+    monkeypatch.setattr(setup.subprocess, 'call', lambda command, **kwargs: calls.append(command) or 0)
+    args = ['--import-ice', '--backup', str(tmp_path / 'ice.zip'), '--destination', str(tmp_path / 'new-data')]
+    assert setup.main(['--root', str(tmp_path), '--uv', 'uv', *args]) == 0
+    assert calls[0][4:] == args
+    assert '--data-dir' not in calls[0]
+    assert receipt == original
+
+
+def test_import_rejects_current_data_argument_before_setup(tmp_path, monkeypatch):
+    setup = engine()
+    monkeypatch.setattr(setup, 'ensure_environment', lambda *a, **k: pytest.fail('setup before argument validation'))
+    with pytest.raises(SystemExit) as error:
+        setup.main(['--root', str(tmp_path), '--uv', 'uv', '--import-ice', '--data-dir', str(tmp_path / 'existing')])
+    assert error.value.code == 2
+
+
 def test_stop_legacy_environment_uses_it_without_installing(tmp_path, monkeypatch):
     setup = engine()
     monkeypatch.setattr(setup, 'environment_usable', lambda *a: True)
@@ -341,3 +368,117 @@ def test_existing_own_managed_python_avoids_install_command(tmp_path, monkeypatc
     monkeypatch.setattr(setup, 'compatible_python', lambda *a: True)
     assert setup.select_python(tmp_path, 'uv') == (managed, 'managed')
     assert not any('install' in command for command in calls)
+
+
+def test_linux_update_stops_before_environment_mutation_when_core_backup_fails(tmp_path, monkeypatch):
+    setup = engine()
+    root = tmp_path/'program'
+    source = tmp_path/'source'
+    data = tmp_path/'data'
+    (source/'packaging/windows').mkdir(parents=True)
+    (source/'packaging/backup_core.py').write_text('# synthetic helper')
+    (data/'core').mkdir(parents=True)
+    (data/'core/campusboard.sqlite3').write_bytes(b'synthetic existing database')
+    root.mkdir()
+    receipt = {'source': str(source), 'source_digest': 'same', 'data_dir': str(data)}
+    python = root/'old-python'
+    monkeypatch.setattr(setup.sys, 'platform', 'linux')
+    monkeypatch.setattr(setup, 'read_receipt', lambda *a: receipt)
+    monkeypatch.setattr(setup, 'environment_python', lambda *a: python)
+    monkeypatch.setattr(setup, 'source_digest', lambda *a: 'same')
+    calls = []
+    def fail(command, **kwargs):
+        calls.append(command)
+        raise subprocess.CalledProcessError(1, command)
+    monkeypatch.setattr(setup, 'run', fail)
+    monkeypatch.setattr(setup, 'ensure_uv', lambda *a: pytest.fail('environment mutation followed failed backup'))
+    with pytest.raises(subprocess.CalledProcessError):
+        setup.ensure_environment(root, 'uv', source=source, update=True)
+    assert calls == [[python, '-I', source/'packaging/backup_core.py', data]]
+    assert receipt == {'source': str(source), 'source_digest': 'same', 'data_dir': str(data)}
+    assert not (root/'.local').exists()
+
+
+@pytest.mark.parametrize('configured_xdg', [True, False])
+def test_linux_release_update_backs_up_implicit_data_without_selecting_it(tmp_path, monkeypatch, configured_xdg):
+    from studycenter_public.core.backup import inspect_archive
+    from studycenter_public.core.db import Database
+    setup = engine()
+    root = tmp_path/'program'
+    root.mkdir()
+    shutil.copy2(ROOT/'packaging/backup_core.py', root/'backup_core.py')
+    home = tmp_path/'home'
+    base = tmp_path/'xdg' if configured_xdg else home/'.local/share'
+    data = base/'studycenter-public'
+    (data/'core/documents').mkdir(parents=True)
+    database = data/'core/campusboard.sqlite3'
+    Database(database)
+    with sqlite3.connect(database) as con:
+        con.execute("INSERT INTO app_preferences(name,value) VALUES('synthetic','retained')")
+    receipt = {'application':'StudyCenter.Public', 'source':None, 'data_dir':None, 'manifest':str(root/'old-manifest.json')}
+    monkeypatch.setattr(setup.sys, 'platform', 'linux')
+    monkeypatch.setattr(setup, '__file__', str(root/'setup.py'))
+    monkeypatch.setattr(setup, 'read_receipt', lambda *a: receipt)
+    monkeypatch.setattr(setup, 'environment_python', lambda *a: Path(sys.executable))
+    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: home))
+    monkeypatch.delenv('STUDYCENTER_PUBLIC_DATA_DIR', raising=False)
+    if configured_xdg:
+        monkeypatch.setenv('XDG_DATA_HOME', str(base))
+    else:
+        monkeypatch.delenv('XDG_DATA_HOME', raising=False)
+    class StopAfterBackup(Exception): pass
+    def stop_after_backup(*args):
+        raise StopAfterBackup
+    monkeypatch.setattr(setup, 'load_manifest', stop_after_backup)
+    with pytest.raises(StopAfterBackup):
+        setup.ensure_environment(root, 'uv', update=True)
+    archives = list((data/'core/backups').glob('CampusBoard-*.zip'))
+    assert len(archives) == 1
+    restored = tmp_path/'restored'
+    inspect_archive(archives[0], restored)
+    with sqlite3.connect(restored/'campusboard.sqlite3') as con:
+        assert con.execute("SELECT value FROM app_preferences WHERE name='synthetic'").fetchone()[0] == 'retained'
+    assert receipt['data_dir'] is None
+    assert not (root/'.local').exists()
+
+
+def test_linux_release_default_backup_failure_preserves_environment(tmp_path, monkeypatch):
+    setup = engine()
+    root = tmp_path/'program'
+    root.mkdir()
+    (root/'backup_core.py').write_text('# synthetic helper')
+    data = tmp_path/'xdg'/'studycenter-public'
+    (data/'core').mkdir(parents=True)
+    (data/'core/campusboard.sqlite3').write_bytes(b'existing')
+    receipt = {'source':None, 'data_dir':None}
+    monkeypatch.setattr(setup.sys, 'platform', 'linux')
+    monkeypatch.setattr(setup, '__file__', str(root/'setup.py'))
+    monkeypatch.setattr(setup, 'read_receipt', lambda *a: receipt)
+    monkeypatch.setattr(setup, 'environment_python', lambda *a: root/'old-python')
+    monkeypatch.delenv('STUDYCENTER_PUBLIC_DATA_DIR', raising=False)
+    monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path/'xdg'))
+    calls = []
+    def fail(command, **kwargs):
+        calls.append(command)
+        raise subprocess.CalledProcessError(1, command)
+    monkeypatch.setattr(setup, 'run', fail)
+    monkeypatch.setattr(setup, 'ensure_uv', lambda *a: pytest.fail('environment mutation followed failed backup'))
+    with pytest.raises(subprocess.CalledProcessError):
+        setup.ensure_environment(root, 'uv', update=True)
+    assert calls == [[root/'old-python', '-I', root/'backup_core.py', data]]
+    assert receipt == {'source':None, 'data_dir':None}
+    assert not (root/'.local').exists()
+
+
+def test_linux_release_launch_keeps_default_data_implicit(tmp_path, monkeypatch):
+    setup = engine()
+    receipt = {'application':'StudyCenter.Public', 'python':str(tmp_path/'own-python'), 'data_dir':None}
+    monkeypatch.setattr(setup.sys, 'platform', 'linux')
+    monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path/'xdg'))
+    monkeypatch.delenv('STUDYCENTER_PUBLIC_DATA_DIR', raising=False)
+    monkeypatch.setattr(setup, 'ensure_environment', lambda *a, **k: receipt)
+    calls = []
+    monkeypatch.setattr(setup.subprocess, 'call', lambda command, **kwargs: calls.append(command) or 0)
+    assert setup.main(['--root', str(tmp_path), '--uv', 'uv']) == 0
+    assert '--data-dir' not in calls[0]
+    assert receipt['data_dir'] is None

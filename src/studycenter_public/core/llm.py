@@ -214,7 +214,7 @@ class ModelAdapter:
         body = {"model": self.settings.llm_model,
                 "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": payload}],
                 "response_format": {"type": "json_object"}}
-        async with httpx.AsyncClient(timeout=120, trust_env=False) as client:
+        async with httpx.AsyncClient(timeout=120, trust_env=getattr(self.settings, 'llm_trust_env', False)) as client:
             response = await client.post(self.settings.llm_base_url + "/chat/completions", headers=headers, json=body)
             response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]

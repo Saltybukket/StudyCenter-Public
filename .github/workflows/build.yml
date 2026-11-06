@@ -1,4 +1,4 @@
-name: Public tests and native build
+name: Public tests and slim native build
 on:
   push:
   pull_request:
@@ -10,133 +10,91 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        include:
+          - os: ubuntu-24.04
+            platform: linux
+          - os: windows-2022
+            platform: windows
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     env:
       PIP_NO_CACHE_DIR: '1'
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/build/browser-runtime
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      PLATFORM: ${{ matrix.platform }}
     steps:
+      - name: Preserve committed source bytes on checkout
+        shell: bash
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Isolated Python environment
-        shell: bash
+      - name: Isolated locked controller and tests
+        shell: pwsh
         run: |
           python -m venv .venv
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "TASK_PYTHON=$GITHUB_WORKSPACE/.venv/Scripts/python.exe" >> "$GITHUB_ENV"
-          else
-            echo "TASK_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
-          fi
-      - name: Install locked public dependencies in own environment
-        shell: bash
+          $python = if ($env:RUNNER_OS -eq 'Windows') { "$pwd/.venv/Scripts/python.exe" } else { "$pwd/.venv/bin/python" }
+          "TASK_PYTHON=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & $python -m pip install -r "requirements-$env:PLATFORM.lock"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $python -m pip install --no-deps --no-build-isolation -e .
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $python -m pytest -q
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify pinned product source inventory
+        shell: pwsh
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$TASK_PYTHON" -m pip install -r requirements-windows.lock
-          else
-            "$TASK_PYTHON" -m pip install -r requirements-linux.lock
-          fi
-          "$TASK_PYTHON" -m pip install --no-deps -e .
-      - name: Unit and local protocol tests
-        shell: bash
-        run: '"$TASK_PYTHON" -m pytest -q'
-      - name: Download own official browser components
-        shell: bash
+          & $env:TASK_PYTHON scripts/sync_product.py verify
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $env:TASK_PYTHON scripts/check_product_architecture.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build exact source wheel and seed pinned components
+        shell: pwsh
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$TASK_PYTHON" -m playwright install chromium --no-shell
-          else
-            "$TASK_PYTHON" -m playwright install chromium
-          fi
-      - name: Extract fresh portable Windows OCR
-        if: runner.os == 'Windows'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/build_windows_ocr.py --output build/windows-ocr'
-      - name: Extract portable Linux OCR
-        if: runner.os == 'Linux'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/build_linux_ocr.py --output build/linux-ocr'
-      - name: Stage pinned unbranded Windows Chromium
-        if: runner.os == 'Windows'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/build_browser_runtime.py --platform windows --original build/browser-runtime --output build/unbranded-browser-runtime'
-      - name: Stage pinned unbranded Linux Chromium and licensed headless shell
-        if: runner.os == 'Linux'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/build_browser_runtime.py --platform linux --original build/browser-runtime --output build/unbranded-browser-runtime'
-      - name: Validate own Windows browser stage before freezing
-        if: runner.os == 'Windows'
-        shell: bash
+          $assets = "$pwd/.local/build/slim"
+          & $env:TASK_PYTHON -m pip wheel --no-deps --no-build-isolation --wheel-dir "$pwd/.local/build/wheels" .
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $env:TASK_PYTHON scripts/prepare_slim_assets.py --platform $env:PLATFORM --output $assets --previous-output "$pwd/.local/build/previous"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $version = & $env:TASK_PYTHON -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          if ($version -cnotmatch '^(\d+\.\d+\.\d+)b([1-9][0-9]*)$') { throw 'Expected explicit beta version' }
+          $tag = "v$($Matches[1])-beta.$($Matches[2])"
+          $wheel = "$pwd/.local/build/wheels/studycenter_public-$version-py3-none-any.whl"
+          $arguments = @('scripts/build_slim.py','--platform',$env:PLATFORM,'--reuse-components','--release-tag',$tag,'--wheel',$wheel,'--source-commit',$env:GITHUB_SHA,'--output',$assets)
+          if ($env:PLATFORM -eq 'windows') {
+            $compiler = & $env:TASK_PYTHON -c "from scripts.smoke_installer_vm import compiler; print(compiler())"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            $arguments += @('--iscc', $compiler)
+          }
+          & $env:TASK_PYTHON @arguments
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "CANDIDATE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Scan application wheel and unpacked bootstrap
+        shell: pwsh
         run: |
-          "$TASK_PYTHON" - <<'PY'
-          import json, os, pathlib, subprocess, playwright
-          root=pathlib.Path.cwd().resolve()
-          runtime=(root/'build/unbranded-browser-runtime/runtime').resolve(strict=True)
-          if not runtime.is_relative_to(root/'build') or os.environ.get('PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'):
-              raise ValueError('Own browser stage and active dependency validation are required')
-          driver=pathlib.Path(playwright.__file__).resolve().parent/'driver'
-          script=root/'build/validate-own-windows-browser-stage.js'
-          script.write_text('const {registry}=require('+json.dumps(str(driver/'package/lib/coreBundle.js'))+').registry;(async()=>{await registry.validateHostRequirementsForExecutablesIfNeeded([registry.findExecutable("chromium")],"javascript");console.log("Own Windows browser dependency validation finished before freeze");})().catch(error=>{console.error(error);process.exitCode=1;});',encoding='utf-8')
-          child=dict(os.environ,PLAYWRIGHT_BROWSERS_PATH=str(runtime))
-          subprocess.run([str(driver/'node.exe'),str(script)],env=child,check=True,timeout=90)
-          PY
-      - name: Freeze Windows bundle
-        if: runner.os == 'Windows'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/windows-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
-      - name: Freeze Linux bundle
-        if: runner.os == 'Linux'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/build_release.py --ocr-dir build/linux-ocr/runtime --browsers-dir build/unbranded-browser-runtime/runtime --source-commit "$GITHUB_SHA" --allow-missing-component-notices'
-      - name: Read-only Linux sandbox prerequisites
-        if: runner.os == 'Linux'
-        shell: bash
+          $assets = "$pwd/.local/build/slim"
+          & $env:TASK_PYTHON scripts/check_public.py --artifact "$assets/studycenter_public-$env:CANDIDATE_VERSION-py3-none-any.whl"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & $env:TASK_PYTHON scripts/check_public.py --artifact "$assets/$env:PLATFORM-bootstrap"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ($env:PLATFORM -eq 'windows') {
+            & $env:TASK_PYTHON scripts/scan_slim_installer.py --installer "$assets/studycenter-public-$env:CANDIDATE_VERSION-windows-x86_64-setup.exe" --bootstrap "$assets/windows-bootstrap" --output "$pwd/.local/build/installer-scan"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & $env:TASK_PYTHON scripts/scan_slim_components.py --platform $env:PLATFORM --assets $assets --output "$pwd/.local/build/component-scan"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Synthetic installer and isolated package lifecycle
+        shell: pwsh
         run: |
-          for parameter in kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone user.max_user_namespaces; do
-            sysctl "$parameter" || true
-          done
-          unshare --user --map-root-user /usr/bin/true && echo 'Own user namespace probe: allowed' || echo 'Own user namespace probe: refused'
-          sudo -n journalctl -k --no-pager -n 100 | grep -E 'apparmor|userns' || true
-      - name: Synthetic Windows package smoke
-        if: runner.os == 'Windows'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/smoke_release.py dist/windows/StudyCenter-Public/StudyCenter-Public.exe --output build/smoke'
-      - name: Independent Linux core package smoke
-        if: runner.os == 'Linux'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/smoke_release.py dist/linux/StudyCenter-Public/StudyCenter-Public --core-only --output build/core-smoke'
-      - name: Separate bundled Linux browser probe
-        id: linux-bundled-browser
-        if: runner.os == 'Linux'
-        continue-on-error: true
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/smoke_release.py dist/linux/StudyCenter-Public/StudyCenter-Public --output build/browser-smoke'
-      - name: Report separate Linux acceptance scopes
-        if: always() && runner.os == 'Linux'
-        shell: bash
-        env:
-          BUNDLED_BROWSER_OUTCOME: ${{ steps.linux-bundled-browser.outcome }}
-        run: |
-          if [ "$BUNDLED_BROWSER_OUTCOME" = "success" ]; then
-            echo 'Bundled Linux browser probe: PASS for this VM.' >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'Bundled Linux browser probe: BLOCKED or not run. Core/UI and source-browser acceptance are separate; a green job is not full Linux acceptance.' >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Installer lifecycle in disposable Windows runner only
-        if: runner.os == 'Windows'
-        shell: bash
-        run: '"$TASK_PYTHON" scripts/smoke_installer_vm.py'
-      - name: Inspect unpacked bundle
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$TASK_PYTHON" scripts/package_audit.py dist/windows/StudyCenter-Public/StudyCenter-Public.exe
-            "$TASK_PYTHON" scripts/check_public.py --artifact dist/windows/StudyCenter-Public --artifact-reviews scripts/artifact_reviews.json
-          else
-            "$TASK_PYTHON" scripts/package_audit.py dist/linux/StudyCenter-Public/StudyCenter-Public
-            "$TASK_PYTHON" scripts/check_public.py --artifact dist/linux/StudyCenter-Public --artifact-reviews scripts/artifact_reviews.json
-          fi
-      # Deliberately no Actions cache, artifact storage, release or upload steps.
+          $assets = "$pwd/.local/build/slim"
+          $smokeArguments = @('scripts/smoke_slim.py','--assets',$assets,'--expected-source',$env:GITHUB_SHA)
+          if ($env:PLATFORM -eq 'windows') {
+            $smokeArguments += @('--installer', "$assets/studycenter-public-$env:CANDIDATE_VERSION-windows-x86_64-setup.exe", '--previous-installer', "$pwd/.local/build/previous/studycenter-public-0.1.0b5-windows-x86_64-setup.exe")
+          } else {
+            $smokeArguments += @('--archive', "$assets/studycenter-public-$env:CANDIDATE_VERSION-linux-x86_64-slim.tar.gz", '--previous-archive', "$pwd/.local/build/previous/studycenter-public-0.1.0b5-linux-x86_64-slim.tar.gz")
+          }
+          & $env:TASK_PYTHON @smokeArguments
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # No Actions cache, stored artifacts, release creation, or publication.

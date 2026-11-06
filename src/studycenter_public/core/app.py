@@ -3,7 +3,6 @@ import time as monotonic_clock
 import hashlib
 import json
 import logging
-import math
 import re
 import secrets
 import shutil
@@ -45,92 +44,14 @@ from .tunnel import TunnelService
 from .mcp import MCPGateway,issue_credential
 from .page_images import PageImages
 from .quests import QuestService, QuestError
+from .action_state import (KINDS, COURSE_COLORS, course_color, item_timing, action_state, pin_state,
+                           available_later, view_action_state, view_pin_state)
 
-KINDS = {"task": "Aufgabe / Abgabe", "exam": "Prüfung", "event": "Veranstaltung", "registration": "Anmeldefenster", "notice": "Hinweis"}
 STATES = {"new": "Noch nicht abgerufen", "running": "Abruf läuft", "success": "Abruf vollständig", "partial": "Abruf unvollständig", "failed": "Abruf fehlgeschlagen", "login_required": "Anmeldung nötig"}
 ANALYSIS = {"pending": "Auswertung ausstehend", "failed": "Auswertung fehlgeschlagen", "partial": "Text ausgewertet · Leselücken", "success": "Ausgewertet", "archived": "Archiv"}
 OBLIGATIONS = {'required':'Verpflichtend','recommended':'Empfohlen','optional':'Optional','unclear':'Verpflichtung unklar'}
 ITEM_STATES = {'active':'Aktive Quellenangabe','cancelled':'Abgesagt / aufgehoben','unclear':'Quellenangabe unklar'}
 WORK_STATES = {'open':'Offen','doing':'In Arbeit','done':'Erledigt'}
-COURSE_COLORS = ('#247b79', '#3c72b4', '#7954b2', '#ba4b80', '#288599', '#4c72bf', '#96559f', '#2f8b68')
-
-
-def course_color(course_id):
-    return COURSE_COLORS[int(course_id or 0) % len(COURSE_COLORS)]
-
-
-def item_timing(value):
-    """Display the closing date separately from the original, retained work window."""
-    closing = (value['kind'] == 'task' and value.get('date_meaning') in ('deadline', 'window')
-               or value['kind'] in ('registration', 'exam') and value.get('date_meaning') == 'window')
-    if closing and value.get('end_date'):
-        return value['end_date'], value.get('end_time'), True
-    # A single registration date may be an opening, not a deadline.
-    if value['kind'] == 'registration':
-        context = ' '.join(value.get(k) or '' for k in ('quote', 'anchor'))
-        closing = bool(re.search(r'schließt|schliesst|schliess|schließzeitpunkt|(?:an|ab)meldeschluss|closes|ends|until|deadline|frist|endet|bis zum|spätestens|\bmust\b.{0,60}\bbefore\b', context, re.I)) and not bool(re.search(r'öffnet|oeffnet|opens|opening',context,re.I))
-    if value.get('date_meaning') == 'window' and not value.get('end_date') and value['kind'] != 'registration':
-        closing = False
-    return value.get('date'), value.get('time'), closing
-
-
-def action_state(item, local_now):
-    value = item['data']
-    when, clock, closing = item_timing(value)
-    today = local_now.date() if isinstance(local_now, datetime) else local_now
-    remaining = (date.fromisoformat(when) - today).days if when else None
-    if clock and isinstance(local_now, datetime):
-        due = datetime.combine(date.fromisoformat(when), time.fromisoformat(clock), tzinfo=VIENNA)
-        remaining = (due.timestamp()-local_now.timestamp())/86400
-    # Never infer a personal booking from enrollment, a group name or a public offering.
-    choice = personal_state(item)
-    personal = choice['personal']
-    mismatched_group = bool(value.get('group') and item.get('course_group') and value['group'] != item['course_group'])
-    active = not item['ignored'] and value.get('source_state') == 'active' and not mismatched_group and not item.get('calendar_duplicate_of')
-    required = value.get('obligation') == 'required'
-    relevant = active and (required or personal or item.get('pinned') or item.get('identity','').startswith('note:'))
-    actionable = relevant and item['status'] != 'done'
-    offered = choice['offered']
-    appointment = active and value['kind'] in ('event','exam') and value.get('date_meaning') == 'start' and not offered and (required or personal)
-    planned_task = active and value['kind']=='task' and value.get('date_meaning')=='start' and item.get('identity','').startswith('note:')
-    deadline = closing and value['kind'] in ('task','registration','exam')
-    urgent = actionable and remaining is not None and remaining < 2 and (deadline or remaining >= 0 and (appointment or planned_task))
-    if remaining is None:
-        relative = 'Datum offen'
-    elif remaining < 0:
-        if value['kind']=='registration':
-            relative = 'Anmeldefrist abgelaufen'
-        elif deadline:
-            relative = 'Frist abgelaufen' if clock and when == today.isoformat() else f'Seit {abs((date.fromisoformat(when)-today).days)} Tagen überfällig'
-        elif planned_task and when == today.isoformat():
-            relative = 'Für heute geplant'
-        else:
-            relative = 'Vergangen'
-    elif clock and remaining < 1:
-        hours = remaining * 24
-        relative = 'In weniger als 1 Stunde' if hours < 1 else f'In {math.ceil(hours)} Stunden'
-    else:
-        days = (date.fromisoformat(when)-today).days
-        relative = 'Heute' if days == 0 else 'Morgen' if days == 1 else f'In {days} Tagen'
-    label = KINDS[value['kind']]
-    if planned_task:
-        label = 'Geplante Aufgabe'
-    if closing:
-        label = {'registration':'Anmeldeschluss','task':'Abgabe'}.get(value['kind'],'Fensterschluss')
-        if value['kind']=='registration':
-            context=' '.join(value.get(k) or '' for k in ('title','anchor'))
-            if re.search(r'abmeldung|abmeldeschluss',context,re.I):
-                both=re.search(r'\banmeldung|\banmeldeschluss|\ban[-/]\s*abmeldung',context,re.I)
-                label='An-/Abmeldeschluss' if both else 'Abmeldeschluss'
-    elif value['kind']=='registration':
-        quote = value.get('quote') or ''
-        opening = re.search(r'öffnet|oeffnet|opens|opening',quote,re.I) and not re.search(r'schließt|schliesst|schliess|closes|ends|until|deadline|frist|endet|bis zum|spätestens',quote,re.I)
-        label = 'Anmeldeöffnung' if opening else 'Anmeldung · Datum unklar'
-    return {'action_date':when, 'action_time':clock, 'closing':closing, 'remaining':remaining,
-            'relative':relative, 'actionable':actionable, 'appointment':appointment, 'planned_task':planned_task,
-            'action_deadline':deadline, 'relevant':relevant, 'offered':offered, 'personal':personal,
-            'urgent':urgent, 'course_color':course_color(item.get('course_id')),
-            'action_label':label, 'booking_proven':choice['booking_proven'], 'personally_planned':choice['personally_planned']}
 
 
 def item_title(item):
@@ -139,36 +60,6 @@ def item_title(item):
 
 def item_summary(item):
     return item.get('item_display',item.get('task_display',{})).get('summary',item['data'].get('description') or '')
-
-
-def available_later(item, local_now=None):
-    local_now=local_now or datetime.now(VIENNA)
-    display=item.get('task_display',{})
-    day=display.get('available_from');clock=display.get('available_time')
-    return bool(day and (day>local_now.date().isoformat() or day==local_now.date().isoformat() and clock and clock>local_now.strftime('%H:%M:%S')))
-
-
-def view_action_state(item, local_now):
-    display=item.get('task_display',{})
-    if display.get('deadline_date'):
-        value=item['data'] | {'date':display['deadline_date'],'time':display['deadline_time'],
-                              'end_date':None,'end_time':None,'date_meaning':'deadline'}
-        state=action_state(item | {'data':value},local_now)
-        state['action_label']=display['deadline_label']
-    else:
-        state=action_state(item,local_now)
-    state['available_later']=available_later(item,local_now)
-    if state['available_later']:state['actionable']=False
-    return state
-
-
-def view_pin_state(item, local_now):
-    display=item.get('task_display',{})
-    if display.get('deadline_date'):
-        value=item['data'] | {'date':display['deadline_date'],'time':display['deadline_time'],
-                              'end_date':None,'end_time':None,'date_meaning':'deadline'}
-        return pin_state(item | {'data':value},local_now)
-    return pin_state(item,local_now)
 
 
 def change_values(history):
@@ -267,33 +158,6 @@ def calendar_events(items, *, present=False):
     return events
 
 
-def pin_state(item, local_now):
-    value = item['data']
-    choice = personal_state(item)
-    if isinstance(local_now, datetime):
-        local_now = local_now.astimezone(VIENNA)
-    today = local_now.date() if isinstance(local_now, datetime) else local_now
-    actionable = item['status'] != 'done' and not item['ignored'] and value.get('source_state') == 'active'
-    due_date, due_time, closing = item_timing(value)
-    deadline = value['kind'] in ('task','registration','exam') and closing and not choice['offered']
-    remaining = (date.fromisoformat(due_date) - today).days if due_date else None
-    if due_time and isinstance(local_now, datetime):
-        due = datetime.combine(date.fromisoformat(due_date),time.fromisoformat(due_time),tzinfo=VIENNA)
-        remaining = (due.timestamp()-local_now.timestamp())/86400
-    exam = actionable and value['kind'] == 'exam' and value.get('date_meaning')=='start' and (value.get('obligation') not in ('optional','recommended') or choice['personal']) and not choice['offered'] and remaining is not None and remaining >= 0 and not item.get('date_conflict',item['conflict'])
-    reliable_date = not item.get('date_conflict', item.get('conflict', False))
-    soon = actionable and deadline and reliable_date and remaining is not None and remaining < 4
-    expired = actionable and deadline and reliable_date and remaining is not None and remaining < 0
-    imminent = actionable and deadline and reliable_date and bool(due_time) and isinstance(local_now, datetime) and remaining is not None and 0 <= remaining <= .25
-    urgent = actionable and reliable_date and remaining is not None and 0 <= remaining < 2 and (deadline or exam)
-    color = 'orange' if expired else 'red' if imminent else 'yellow' if urgent else 'blue' if value['kind'] in ('exam','notice') else 'green'
-    return {'auto_pin': exam or soon, 'urgent': urgent,
-            'expired': expired, 'imminent': imminent,
-            'pin_label': 'Frist abgelaufen' if expired else 'Schluss in höchstens 6 Stunden' if imminent else 'Fällig in weniger als 2 Tagen' if urgent and deadline else 'Termin in weniger als 2 Tagen' if urgent else '',
-            'pin_reason': ('Persönlich geplante Prüfung' if choice['personally_planned'] and not choice['booking_proven'] else 'Fixierter Prüfungstermin') if exam else 'Frist abgelaufen' if expired else 'In weniger als 4 Tagen fällig' if soon else '',
-            'note_color': color}
-
-
 def create_app(settings=None):
     settings = settings or load_settings()
     db = Database(settings.data_dir / "campusboard.sqlite3")
@@ -301,7 +165,7 @@ def create_app(settings=None):
     browser = BrowserService(settings)
     sync = SyncService(db, settings, browser)
     search = SearchIndex(db)
-    assistant = Assistant(db, settings, sync.model, search, action_state)
+    assistant = Assistant(db, settings, sync.model, search, view_action_state)
     quests = QuestService(db, settings, sync.model)
     speech = SpeechService(lambda: assistant.questions.courses(),engine=settings.stt_engine,name=settings.stt_model,device=settings.stt_device,root=settings.speech_dir,model_path=settings.speech_model_path,ensure_model=settings.ensure_speech_model)
     speech_gate = asyncio.Lock()
@@ -453,7 +317,8 @@ def create_app(settings=None):
                 length = int(request.headers.get("content-length", "0"))
             except ValueError:
                 return JSONResponse({"detail": "Ungültige Anfrage"}, status_code=400)
-            maximum = MAX_ARCHIVE if request.url.path == '/settings/backups/check' else MAX_BYTES
+            maximum = getattr(app.state, 'upload_limits', {}).get(
+                request.url.path, MAX_ARCHIVE if request.url.path == '/settings/backups/check' else MAX_BYTES)
             if length > maximum + 65536:
                 return JSONResponse({"detail": "Dateigrenze überschritten"}, status_code=413)
             token = request.headers.get("x-csrf-token")
@@ -1221,7 +1086,10 @@ def create_app(settings=None):
         week_end = (local_now.date()+timedelta(days=7)).isoformat()
         for i in filtered:
             if not i['relevant'] or i['offered'] or i['status']=='done': continue
-            if not (i['appointment'] or i['action_deadline'] or i['planned_task']): continue
+            # Keep conflicting dated claims visible in the agenda for comparison,
+            # without treating them as reliable deadlines or urgent actions.
+            if not (i['appointment'] or i['action_deadline'] or i['planned_task']
+                    or i['closing'] and i.get('date_conflict')): continue
             if i['action_date'] and today<=i['action_date']<=week_end:
                 week.append(i)
         week.sort(key=due_key)
@@ -1438,37 +1306,51 @@ def create_app(settings=None):
 
     @app.post("/items/{item_id}")
     async def update_item(item_id: int, request: Request):
-        if not db.one("SELECT id FROM items WHERE id=?", (item_id,)):
-            raise HTTPException(404)
+        from .item_state import REVISIONS, StaleItem, revision, set_correction, set_personal_field
         form = await request.form()
         action = form.get("action", "status")
-        if action == "status":
-            status = form.get("status")
-            if status not in ("open", "doing", "done"):
-                raise HTTPException(400, "Ungültiger Status")
-            db.execute("UPDATE items SET status=? WHERE id=?", (status, item_id))
-        elif action in ("pin", "ignore"):
-            field = "pinned" if action == "pin" else "ignored"
-            db.execute(f"UPDATE items SET {field}=1-{field} WHERE id=?", (item_id,))
-        elif action == "seen":
-            db.execute("UPDATE items SET seen=1 WHERE id=?", (item_id,))
-        elif action == "correct":
-            from .models import Candidate
-            row = db.one("SELECT * FROM items WHERE id=?", (item_id,))
-            overrides = {"title": str(form.get("title", "")), "date": str(form.get("date", "")) or None, "time": str(form.get("time", "")) or None,
-                         "end_date": str(form.get("end_date", "")) or None, "end_time": str(form.get("end_time", "")) or None,
-                         "description": str(form.get("description", ""))}
-            try:
-                Candidate.model_validate(json.loads(row["payload"]) | overrides)
-            except ValueError:
-                raise HTTPException(400, "Korrektur ungültig: Datum, Uhrzeit und Zeitraum prüfen") from None
-            db.execute("UPDATE items SET overrides=? WHERE id=?", (encode(overrides), item_id))
-        elif action == "reset":
-            db.execute("UPDATE items SET overrides='{}' WHERE id=?", (item_id,))
-        else:
-            raise HTTPException(400)
+        try:
+            if len(form.getlist('expected_revision')) > 1:
+                raise ValueError('Ungültiger Bearbeitungsstand.')
+            expected = revision(form.get('expected_revision'))
+            with db.connection() as con:
+                con.execute('BEGIN IMMEDIATE')
+                row = con.execute('SELECT * FROM items WHERE id=?', (item_id,)).fetchone()
+                if row is None:
+                    raise LookupError('Eintrag nicht gefunden.')
+                current_revision = None
+                if action == 'status':
+                    field = 'status'
+                    row = set_personal_field(con, item_id, field, form.get('status'), expected_revision=expected)
+                    current_revision = row[REVISIONS[field]]
+                elif action in ('pin', 'ignore'):
+                    field = 'pinned' if action == 'pin' else 'ignored'
+                    target = form.get('target')
+                    if target is None and expected is None:  # Old clients used a toggle.
+                        target = 1 - row[field]
+                    elif target not in ('0', '1'):
+                        raise ValueError('Ungültiges Ziel für die Einstellung.')
+                    row = set_personal_field(con, item_id, field, int(target), expected_revision=expected)
+                    current_revision = row[REVISIONS[field]]
+                elif action == 'seen':
+                    con.execute('UPDATE items SET seen=1 WHERE id=?', (item_id,))
+                elif action in ('correct', 'reset'):
+                    overrides = ({'title': str(form.get('title', '')), 'date': str(form.get('date', '')) or None,
+                                  'time': str(form.get('time', '')) or None, 'end_date': str(form.get('end_date', '')) or None,
+                                  'end_time': str(form.get('end_time', '')) or None, 'description': str(form.get('description', ''))}
+                                 if action == 'correct' else {})
+                    row = set_correction(con, item_id, overrides, expected_revision=expected)
+                    current_revision = row['content_revision']
+                else:
+                    raise ValueError('Ungültige Aktion.')
+        except StaleItem as error:
+            raise HTTPException(409, str(error)) from None
+        except LookupError as error:
+            raise HTTPException(404, str(error)) from None
+        except ValueError as error:
+            raise HTTPException(400, 'Korrektur ungültig: Datum, Uhrzeit und Zeitraum prüfen' if action == 'correct' else str(error)) from None
         if request.headers.get("x-requested-with") == "fetch":
-            return {"ok": True}
+            return {"ok": True, "revision": current_revision}
         return RedirectResponse(f"/items/{item_id}", status_code=303)
 
     @app.get("/sources")

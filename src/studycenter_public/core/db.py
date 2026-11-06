@@ -276,7 +276,9 @@ CREATE TABLE IF NOT EXISTS items (
  payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', ignored INTEGER NOT NULL DEFAULT 0,
  pinned INTEGER NOT NULL DEFAULT 0, overrides TEXT NOT NULL DEFAULT '{}',
  conflict INTEGER NOT NULL DEFAULT 0, history TEXT NOT NULL DEFAULT '[]',
- created_at TEXT NOT NULL, changed_at TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0);
+ created_at TEXT NOT NULL, changed_at TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0,
+ status_revision INTEGER NOT NULL DEFAULT 0, pin_revision INTEGER NOT NULL DEFAULT 0,
+ visibility_revision INTEGER NOT NULL DEFAULT 0, content_revision INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS item_evidence (
  id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES items(id),
  document_id INTEGER NOT NULL REFERENCES documents(id), page INTEGER NOT NULL,
@@ -343,6 +345,27 @@ class Database:
                 con.execute("ALTER TABLE documents ADD COLUMN mail_metadata TEXT NOT NULL DEFAULT '{}'")
             if 'planning' not in {r['name'] for r in con.execute('PRAGMA table_info(quests)')}:
                 con.execute("ALTER TABLE quests ADD COLUMN planning TEXT NOT NULL DEFAULT 'paced'")
+            item_columns = {r['name'] for r in con.execute('PRAGMA table_info(items)')}
+            for name in ('status_revision', 'pin_revision', 'visibility_revision', 'content_revision'):
+                if name not in item_columns:
+                    con.execute(f'ALTER TABLE items ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0')
+            # Independent counters make an old form detectable even after a value
+            # changes back. Source refreshes and reading state never change the
+            # personal status counter.
+            con.execute('''CREATE TRIGGER IF NOT EXISTS item_revisions
+                AFTER UPDATE OF status,pinned,ignored,payload,overrides,conflict ON items
+                WHEN NEW.status IS NOT OLD.status OR NEW.pinned IS NOT OLD.pinned
+                  OR NEW.ignored IS NOT OLD.ignored OR NEW.payload IS NOT OLD.payload
+                  OR NEW.overrides IS NOT OLD.overrides OR NEW.conflict IS NOT OLD.conflict
+                BEGIN
+                  UPDATE items SET
+                    status_revision=OLD.status_revision+(NEW.status IS NOT OLD.status),
+                    pin_revision=OLD.pin_revision+(NEW.pinned IS NOT OLD.pinned),
+                    visibility_revision=OLD.visibility_revision+(NEW.ignored IS NOT OLD.ignored),
+                    content_revision=OLD.content_revision+(NEW.payload IS NOT OLD.payload
+                        OR NEW.overrides IS NOT OLD.overrides OR NEW.conflict IS NOT OLD.conflict)
+                  WHERE id=NEW.id;
+                END''')
 
     @contextmanager
     def connection(self):

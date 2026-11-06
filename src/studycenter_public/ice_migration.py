@@ -28,6 +28,7 @@ ORDER = ('courses', 'sources', 'documents', 'items', 'item_evidence', 'sync_runs
          'assistant_requests', 'course_aliases', 'personal_reminders', 'app_preferences',
          'item_preferences', 'reminder_jobs', 'notification_reads', 'google_events',
          'class_completions', 'quests')
+ITEM_REVISIONS = {'status_revision', 'pin_revision', 'visibility_revision', 'content_revision'}
 MAX_SIZE = 2 * 1024**3
 SECRET = re.compile(r'password|passwd|secret|token|cookie|credential|authorization|api[_-]?key', re.I)
 SECRET_URL = re.compile(r'(?:[?&](?:token|password|api_key)=|://[^/]+:[^/]+@)', re.I)
@@ -166,11 +167,11 @@ def _copy(extracted, manifest, output, target_core):
         old.execute('PRAGMA trusted_schema=OFF')
         if old.execute('PRAGMA integrity_check').fetchone()[0] != 'ok' or old.execute('PRAGMA foreign_key_check').fetchone():
             raise IceImportError('Integritätsprüfung der ICE-Datenbank fehlgeschlagen.')
-        objects = old.execute("SELECT name,type,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
+        objects = old.execute("SELECT name,type,sql,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
         tables = {r['name'] for r in objects if r['type'] == 'table'}
         if (old.execute('PRAGMA user_version').fetchone()[0] != 1 or not REQUIRED <= tables or
             not tables <= REQUIRED | OPTIONAL or
-            any(r['type'] not in ('table', 'index') or 'VIRTUAL' in (r['sql'] or '').upper() for r in objects)):
+            any(r['type'] not in ('table', 'index', 'trigger') or 'VIRTUAL' in (r['sql'] or '').upper() for r in objects)):
             raise IceImportError('Nicht unterstütztes ICE-Datenbankschema.')
         counts = {t: old.execute(f'SELECT count(*) FROM "{t}"').fetchone()[0] for t in tables}
         if counts != manifest.get('counts'):
@@ -179,9 +180,18 @@ def _copy(extracted, manifest, output, target_core):
             if _contains_secret(json.loads(row['config'])) or _contains_secret(row['url']):
                 raise IceImportError('Quellenkonfiguration enthält mögliche Zugangsdaten.')
         with output.connection() as new:
+            expected_triggers = {r['name']: (r['sql'], r['tbl_name']) for r in new.execute(
+                "SELECT name,sql,tbl_name FROM sqlite_master WHERE type='trigger'")}
+            if any((r['sql'], r['tbl_name']) != expected_triggers.get(r['name'])
+                   for r in objects if r['type'] == 'trigger'):
+                raise IceImportError('Nicht unterstützter ICE-Datenbanktrigger.')
             for table in tables:
                 cols = lambda con: [tuple(r[1:]) for r in con.execute(f'PRAGMA table_xinfo("{table}")')]
-                if cols(old) != cols(new):
+                actual, expected = cols(old), cols(new)
+                # Earlier format-1 backups predate all four revision counters.
+                # Only the complete known old schema or the complete new schema is valid.
+                legacy_items = table == 'items' and actual == [c for c in expected if c[0] not in ITEM_REVISIONS]
+                if actual != expected and not legacy_items:
                     raise IceImportError('Nicht unterstützte ICE-Tabellenspalten: ' + table)
             doc_dir = Path(output.path).parent / 'documents'
             doc_dir.mkdir()

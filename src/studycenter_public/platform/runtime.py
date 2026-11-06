@@ -4,9 +4,17 @@ import threading
 import time
 import os
 import portalocker
+import uvicorn
 from .paths import atomic_json, owned_path
 
 class AlreadyRunning(RuntimeError): pass
+
+
+class OwnedServer(uvicorn.Server):
+    async def shutdown(self, sockets=None):
+        # This runs on the server loop before Uvicorn waits for HTTP requests.
+        self.config.app.state.begin_stop(system=True)
+        await super().shutdown(sockets)
 
 class Runtime:
     def __init__(self,paths,preferred_port=8767):
@@ -31,10 +39,9 @@ class Runtime:
         return self.url
 
     def start(self,app):
-        import uvicorn
         app.state.endpoint=self.url
         self.app=app
-        self.server=uvicorn.Server(uvicorn.Config(app,log_level='warning',access_log=False,log_config=None))
+        self.server=OwnedServer(uvicorn.Config(app,log_level='warning',access_log=False,log_config=None,timeout_graceful_shutdown=5))
         self.thread=threading.Thread(target=self.server.run,kwargs={'sockets':[self.sock]},daemon=False)
         self.thread.start()
         for _ in range(200):

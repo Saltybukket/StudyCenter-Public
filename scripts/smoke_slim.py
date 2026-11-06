@@ -1,6 +1,7 @@
 """Bounded synthetic slim-package probe; installers only in hosted Windows CI."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -11,8 +12,10 @@ import sys
 import tarfile
 import time
 import urllib.request
+import urllib.parse
 from uuid import uuid4
 
+ROOT = Path(__file__).resolve().parents[1]
 
 def run_command(command, env, timeout=300):
     print('Run:', ' '.join(map(str, command[:4])), flush=True)
@@ -67,7 +70,7 @@ def wait_http(process, data, expected_version):
     raise RuntimeError('Slim application readiness timed out')
 
 
-def probe_app(program, data, env, result, expect_legacy_note=False):
+def probe_app(program, data, env, result, expect_legacy_note=False, *, create_note=False, expect_manual_note=False):
     log = (program/'.local/app-smoke.log').open('w', encoding='utf-8')
     process = subprocess.Popen(starter(program, '--no-browser', '--port', '0', '--data-dir', str(data)), env=env, stdout=log, stderr=subprocess.STDOUT,
                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
@@ -77,6 +80,16 @@ def probe_app(program, data, env, result, expect_legacy_note=False):
         for path in ('/board', '/settings', '/overview'):
             with urllib.request.urlopen(url+path) as response:
                 assert response.status == 200
+        if create_note:
+            req = urllib.request.Request(url+'/api/session', headers={'X-Requested-With': 'fetch'})
+            with urllib.request.urlopen(req) as response:
+                csrf = json.load(response)['csrf']
+            body = urllib.parse.urlencode({'title':'Synthetic installation check', 'request_id':'a'*32}).encode()
+            req = urllib.request.Request(url+'/notes', data=body, headers={
+                'X-CSRF-Token':csrf, 'X-Requested-With':'fetch', 'Origin':url,
+                'Content-Type':'application/x-www-form-urlencoded'})
+            with urllib.request.urlopen(req) as response:
+                assert response.status == 200 and json.load(response)['url'].startswith('/items/')
         if expect_legacy_note:
             with urllib.request.urlopen(url+'/entries?view=all') as response:
                 assert b'Synthetic installation check' in response.read(), 'Migrated note is absent from the installed shared UI'
@@ -85,6 +98,13 @@ def probe_app(program, data, env, result, expect_legacy_note=False):
             assert any(identity.startswith('note:beta4:') and json.loads(payload).get('title') == 'Synthetic installation check'
                        for identity, payload in rows), 'Migrated note is absent from the shared database'
             result['legacy_synthetic_note_visible_in_shared_ui_and_database'] = True
+        if expect_manual_note:
+            with urllib.request.urlopen(url+'/entries?view=all') as response:
+                assert b'Synthetic installation check' in response.read()
+            with sqlite3.connect(data/'core'/'campusboard.sqlite3') as connection:
+                row = connection.execute('SELECT payload FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
+            assert row and json.loads(row[0])['title'] == 'Synthetic installation check'
+            result['previous_synthetic_note_visible_in_shared_ui_and_database'] = True
         result['real_http_core'] = True
     finally:
         run_command(starter(program, '--data-dir', str(data), '--stop'), env)
@@ -113,11 +133,66 @@ finally:
 '''
 
 
+def probe_ice_import(program, root, env, result):
+    """Exercise the installed launcher with the shared synthetic format-1 fixture."""
+    fixture_dir = root/'ice-fixture'
+    fixture_dir.mkdir()
+    spec = importlib.util.spec_from_file_location('synthetic_ice_fixture', ROOT/'tests/test_ice_migration.py')
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    backup = fixture.backup(fixture_dir)
+    original = hashlib.sha256(backup.read_bytes()).hexdigest()
+    destination = root/'ice-import'
+    command = starter(program, '--import-ice', '--backup', str(backup), '--destination', str(destination))
+    run_command(command, env)
+    assert hashlib.sha256(backup.read_bytes()).hexdigest() == original
+    with sqlite3.connect((destination/'core/campusboard.sqlite3').resolve().as_uri()+'?mode=ro', uri=True) as con:
+        assert con.execute("SELECT count(*) FROM items WHERE identity='note:manual:123'").fetchone()[0] == 1
+    marker = destination/'synthetic-retain.txt'
+    marker.write_text('keep', encoding='utf-8')
+    refused = subprocess.run(list(map(str, command)), env=env, timeout=300,
+                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    assert refused.returncode != 0 and marker.read_text(encoding='utf-8') == 'keep'
+    result['installed_ice_import_and_existing_destination_refusal'] = True
+
+
+def seed_upgrade_evidence(data):
+    """Add one bounded synthetic original and evidence link to the old instance."""
+    content = b'Synthetic pre-update original evidence'
+    digest = hashlib.sha256(content).hexdigest()
+    documents = data/'core/documents'
+    documents.mkdir(exist_ok=True)
+    original = documents/(digest+'.txt')
+    original.write_bytes(content)
+    with sqlite3.connect(data/'core/campusboard.sqlite3') as con:
+        item = con.execute('SELECT id FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()[0]
+        source = con.execute("INSERT INTO sources(kind,title,url) VALUES('manual','Synthetic source','import:package-smoke')").lastrowid
+        doc = con.execute("INSERT INTO documents(source_id,url,title,mime,hash,fetched_at,original_path) VALUES(?,'import:package-smoke','Synthetic original','text/plain',?,'2026-01-01',?)", (source,digest,str(original))).lastrowid
+        con.execute("INSERT INTO item_evidence(item_id,document_id,page,anchor,quote,payload) VALUES(?,?,1,'p1','synthetic','{}')", (item,doc))
+    return digest, content
+
+
+def verify_upgrade_backup(data, root, expected):
+    from studycenter_public.core.backup import inspect_archive
+    archives = sorted((data/'core/backups').glob('CampusBoard-*.zip'), key=lambda path: path.stat().st_mtime_ns)
+    assert archives, 'Core backup was not created before update'
+    destination = root/('inspected-core-backup-'+uuid4().hex)
+    manifest = inspect_archive(archives[-1], destination)
+    digest, content = expected
+    assert manifest['counts']['documents'] >= 1 and manifest['counts']['item_evidence'] >= 1
+    assert (destination/'documents'/(digest+'.txt')).read_bytes() == content
+    with sqlite3.connect(destination/'campusboard.sqlite3') as con:
+        assert con.execute('SELECT count(*) FROM item_evidence').fetchone()[0] >= 1
+        row = con.execute('SELECT payload FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
+        assert row and json.loads(row[0])['title'] == 'Synthetic installation check'
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--assets', required=True, type=Path)
     parser.add_argument('--installer', type=Path)
     parser.add_argument('--previous-installer', type=Path)
+    parser.add_argument('--previous-archive', type=Path)
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--expected-source', required=True)
     args = parser.parse_args()
@@ -135,6 +210,11 @@ def main():
     assert source_manifest.get('source_git_sha') == args.expected_source
     result = {'source_git_sha': args.expected_source, 'asset_manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(), 'environment': os.environ.get('RUNNER_OS'),
               'real_tu_accounts': False, 'models_downloaded': False, 'windows11_native': False}
+    def persisted_bytes():
+        return tuple(path.read_bytes() if path.exists() else None for path in
+                     (data/'instance.json', data/'studycenter-public.sqlite3', data/'core/campusboard.sqlite3'))
+    previous_version = None
+    upgrade_evidence = None
     if os.name == 'nt':
         if not args.installer:
             parser.error('--installer is required on Windows')
@@ -143,7 +223,13 @@ def main():
             previous_env = dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(args.previous_installer.parent))
             run_command([args.previous_installer, '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR='+str(program), '/DATADIR='+str(data)], previous_env)
             run_command(starter(program, '--self-test', '--no-browser', '--data-dir', str(data)), previous_env)
-            before = (data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()
+            previous_version = json.loads((program/'slim-manifest.json').read_text())['version']
+            if previous_version == '0.1.0b5':
+                probe_app(program, data, previous_env, {}, create_note=True, expect_manual_note=True)
+                upgrade_evidence = seed_upgrade_evidence(data)
+            elif previous_version != '0.1.0b4':
+                raise ValueError('Unreviewed previous version')
+            before = persisted_bytes()
         else:
             before = None
         # A missing Microsoft prerequisite aborts silent mode. This probe never
@@ -168,21 +254,54 @@ def main():
             print((root/'failed-update.log').read_text(errors='replace'), flush=True)
             assert failed.returncode != 0, 'Corrupt release wheel was accepted'
             assert hashlib.sha256((program/'start.cmd').read_bytes()).hexdigest() == old_hash
-            assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == before
+            assert persisted_bytes() == before
+            if upgrade_evidence:
+                verify_upgrade_backup(data, root, upgrade_evidence)
+                result['failed_update_retains_restorable_core_backup'] = True
             run_command(starter(program, '--self-test', '--no-browser', '--data-dir', str(root/'old-after-failed-update')), previous_env)
             result['failed_installer_update_retains_old_functioning_core'] = True
         run_command(install+['/LOG='+str(root/'first-install.log')], env)
         if before:
-            assert ((data/'instance.json').read_bytes(), (data/'studycenter-public.sqlite3').read_bytes()) == before
+            assert persisted_bytes() == before
             assert (program/'start.cmd').is_file()
-            result['beta4_transition_preserves_identity_and_database'] = True
+            if upgrade_evidence:
+                verify_upgrade_backup(data, root, upgrade_evidence)
+                result['successful_update_retains_restorable_core_backup'] = True
+            result['previous_transition_preserves_identity_and_database'] = previous_version
     else:
         if not args.archive:
             parser.error('--archive is required on Linux')
-        with tarfile.open(args.archive) as archive:
-            archive.extractall(root, filter='data')
-        program = root/'StudyCenter-Public'
-        run_command(starter(program, '--setup-only', '--data-dir', str(data)), env)
+        if args.previous_archive:
+            result['previous_archive_sha256'] = hashlib.sha256(args.previous_archive.read_bytes()).hexdigest()
+            previous_env = dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(args.previous_archive.parent))
+            with tarfile.open(args.previous_archive) as archive:
+                archive.extractall(root, filter='data')
+            program = root/'StudyCenter-Public'
+            previous_version = json.loads((program/'slim-manifest.json').read_text())['version']
+            if previous_version != '0.1.0b5':
+                raise ValueError('Unreviewed previous Linux version')
+            run_command(starter(program, '--setup-only', '--data-dir', str(data)), previous_env)
+            probe_app(program, data, previous_env, {}, create_note=True, expect_manual_note=True)
+            upgrade_evidence = seed_upgrade_evidence(data)
+            before = persisted_bytes()
+            candidate = root/'candidate'
+            candidate.mkdir()
+            with tarfile.open(args.archive) as archive:
+                archive.extractall(candidate, filter='data')
+            for path in (candidate/'StudyCenter-Public').iterdir():
+                if not path.is_file() or path.is_symlink():
+                    raise ValueError('Unexpected candidate bootstrap entry')
+                shutil.copy2(path, program/path.name)
+            run_command(starter(program, '--setup-only', '--update', '--data-dir', str(data)), env)
+            assert persisted_bytes() == before
+            verify_upgrade_backup(data, root, upgrade_evidence)
+            result['successful_update_retains_restorable_core_backup'] = True
+            result['previous_transition_preserves_identity_and_database'] = previous_version
+        else:
+            with tarfile.open(args.archive) as archive:
+                archive.extractall(root, filter='data')
+            program = root/'StudyCenter-Public'
+            run_command(starter(program, '--setup-only', '--data-dir', str(data)), env)
     receipt = json.loads((program/'.local/installation.json').read_text())
     manifest = json.loads((program/'slim-manifest.json').read_text())
     assert manifest['source_git_sha'] == args.expected_source
@@ -197,8 +316,9 @@ def main():
     code = pdf_probe_code()
     run_command([python, '-I', '-c', code, data], env)
     result['native_pdf_without_ocr'] = True
+    probe_ice_import(program, root, env, result)
     offline = dict(env, UV_OFFLINE='1')
-    probe_app(program, data, offline, result, expect_legacy_note=bool(args.previous_installer))
+    probe_app(program, data, offline, result, expect_legacy_note=previous_version == '0.1.0b4', expect_manual_note=previous_version == '0.1.0b5')
     # Isolated child PATH hides discoverable system Python on the hosted runner;
     # it never uninstalls or edits an existing interpreter. Record actual choice.
     private_program = root/'private-runtime-program'
@@ -229,8 +349,6 @@ def main():
     identity_file = data/'instance.json'
     legacy_file = data/'studycenter-public.sqlite3'
     core_file = data/'core'/'campusboard.sqlite3'
-    def persisted_bytes():
-        return tuple(path.read_bytes() if path.exists() else None for path in (identity_file, legacy_file, core_file))
     baseline = persisted_bytes()
     if os.name == 'nt':
         run_command(install+['/LOG='+str(root/'update.log')], env)
@@ -247,7 +365,7 @@ def main():
     result['optional_components_real_install_and_offline_repeat'] = True
     result['all_components_installed_bytes_including_cache'] = sum(p.stat().st_size for p in program.rglob('*') if p.is_file())
     result['component_network_scope'] = 'Own draft archives fetched once by gh; verified read-only asset seed. Python extras fetched by uv. No model weights.'
-    probe_app(program, data, offline, result, expect_legacy_note=bool(args.previous_installer))
+    probe_app(program, data, offline, result, expect_legacy_note=previous_version == '0.1.0b4', expect_manual_note=previous_version == '0.1.0b5')
     if os.name == 'nt':
         preserved = persisted_bytes()
         notices = list((program/'.local/components').rglob('*COPYING.LGPL-2.1-or-later'))

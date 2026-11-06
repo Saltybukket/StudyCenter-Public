@@ -318,10 +318,3 @@ def test_browser_stage_refuses_linked_output_without_touching_target(tmp_path,mo
  monkeypatch.setattr(staging,'get_json',lambda url:pytest.fail('No network before link refusal'))
  with pytest.raises(ValueError,match='link|reparse'):staging.stage('windows',tmp_path/'original',link)
  assert marker.read_bytes()==b'unchanged' and list(foreign.iterdir())==[marker]
-
-
-def test_windows_prefreeze_validates_only_shipped_full_engine():
- workflow=(pathlib.Path(__file__).parents[1]/'.github/workflows/build.yml').read_text()
- validation=workflow.split('- name: Validate own Windows browser stage before freezing',1)[1].split('- name: Freeze Windows bundle',1)[0]
- assert 'registry.findExecutable("chromium")' in validation
- assert 'registry.findExecutable("chromium-headless-shell")' not in validation

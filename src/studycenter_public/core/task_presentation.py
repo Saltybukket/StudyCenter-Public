@@ -9,6 +9,7 @@ from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from .source_validity import in_course_period
+from .action_state import item_timing
 
 _LINK = re.compile(r'(?:Originaleintrag\s+|Abgabe\s+laut\s+)(https?://[^\s;]+)', re.I)
 _IDENTIFIER = re.compile(r'\b(arbeitsblatt|ab|quiz|einheit|lab|assignment)\s*[-–:]?\s*(\d+)\b', re.I)
@@ -113,14 +114,8 @@ def _closing(item):
     data = item.get('data', {})
     if item.get('date_conflict', item.get('conflict', False)) or data.get('source_state') in ('cancelled', 'unclear'):
         return None, None
-    meaning = data.get('date_meaning')
-    if meaning == 'window':
-        return data.get('end_date'), data.get('end_time') if data.get('end_date') else None
-    if meaning == 'deadline':
-        if data.get('end_date'):
-            return data['end_date'], data.get('end_time')
-        return data.get('date'), data.get('time') if data.get('date') else None
-    return None, None
+    day, clock, closing = item_timing(data)
+    return (day, clock if day else None) if closing else (None, None)
 
 
 def _availability(source, now):

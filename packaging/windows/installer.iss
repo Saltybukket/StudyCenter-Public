@@ -45,7 +45,12 @@ AppMutex=StudyCenterPublicInstallerOperation
 Name: "desktopicon"; Description: "Desktop shortcut"; Flags: unchecked
 Name: "startup"; Description: "Start StudyCenter-Public when I sign in"; Flags: unchecked
 [Files]
+#ifdef SlimSetup
+Source: "{#BundleDir}\*"; DestDir: "{app}"; Excludes: "backup_core.py"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BundleDir}\backup_core.py"; Flags: dontcopy
+#else
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#endif
 [UninstallDelete]
 Type: files; Name: "{app}\installation-files.txt"
 Type: files; Name: "{app}\installation-marker.ini"
@@ -388,6 +393,8 @@ begin
   end else if DirExists(DataDirectory) and FolderHasEntries(DataDirectory) then begin Result := 'The selected data folder contains unrelated files. Choose an empty folder or a valid Public instance.'; exit; end;
   if not NoReparseAncestors(AddBackslash(DataDirectory) + 'runtime.json') or
      not NoReparseAncestors(AddBackslash(DataDirectory) + 'studycenter-public.sqlite3') or
+     not NoReparseAncestors(AddBackslash(DataDirectory) + 'core\campusboard.sqlite3') or
+     not NoReparseAncestors(AddBackslash(DataDirectory) + 'core\backups') or
      not NoReparseAncestors(AddBackslash(DataDirectory) + 'backups') then begin Result := 'The selected data folder contains redirected application files.'; exit; end;
   if not ProbeAccess then exit;
   if not ForceDirectories(DataDirectory) then begin Result := 'The selected data folder cannot be created.'; exit; end;
@@ -413,6 +420,8 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: String;
 #ifdef SlimSetup
   OldSetupLog: TArrayOfString;
+  PythonBytes: AnsiString;
+  OldPython, ProgramRoot: String;
 #endif
 begin
   DataDirectory := GetDataDirectory('');
@@ -454,6 +463,20 @@ begin
       if FileExists(DatabaseFile) then begin
         BackupDirectory := AddBackslash(DataDirectory) + 'backups\before-update-' + GetDateTimeString('yyyymmddhhnnsszzz', #0, #0);
         if not NoReparseAncestors(BackupDirectory) or not ForceDirectories(BackupDirectory) or not FileCopy(DatabaseFile, AddBackslash(BackupDirectory) + 'studycenter-public.sqlite3', True) then begin Result := 'Public database backup failed. Update cancelled.'; exit; end;
+      end;
+      DatabaseFile := AddBackslash(DataDirectory) + 'core\campusboard.sqlite3';
+      if FileExists(DatabaseFile) then begin
+        { Use the still-installed environment and its version's backup format.
+          sqlite3.backup captures WAL and includes verified document originals. }
+        OldPython := AddBackslash(ExpandConstant('{app}')) + '.local\python-path.txt';
+        if not NoReparseAncestors(OldPython) or not LoadStringFromFile(OldPython, PythonBytes) then begin Result := 'Cannot read the existing Public interpreter for the core backup.'; exit; end;
+        OldPython := ExpandFileName(Trim(UTF8Decode(PythonBytes)));
+        ProgramRoot := AddBackslash(ExpandFileName(ExpandConstant('{app}')));
+        if (CompareText(Copy(OldPython, 1, Length(ProgramRoot)), ProgramRoot) <> 0) or
+           (CompareText(ExtractFileName(OldPython), 'python.exe') <> 0) or
+           not NoReparseAncestors(OldPython) or not FileExists(OldPython) then begin Result := 'The existing Public interpreter is not an owned regular file.'; exit; end;
+        ExtractTemporaryFile('backup_core.py');
+        if not Exec(OldPython, '-I "' + ExpandConstant('{tmp}\backup_core.py') + '" "' + DataDirectory + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then begin Result := 'Core database and document backup failed. Update cancelled; existing data was retained.'; exit; end;
       end;
     end;
     if FileExists(ExpandConstant('{app}\installation-files.txt')) then
