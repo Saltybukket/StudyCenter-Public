@@ -1,48 +1,32 @@
 # StudyCenter Public
 
-StudyCenter bündelt Aufgaben, Notizen, Termine und Originalquellen in einer lokalen Anwendung. Für Studierende der TU Graz entwickelt, funktioniert es auch ohne TU-Konto und ohne KI.
+Aufgaben, Notizen, Termine und Kursunterlagen an einem Ort. Für Studierende der TU Graz entwickelt – auch ohne TU-Konto und ohne KI nutzbar.
 
-**Windows 10/11 x64:** [beta.5-Setup herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/studycenter-public-0.1.0b5-windows-x86_64-setup.exe), öffnen und einrichten.
+## Herunterladen
 
-**Linux x64:** [beta.5-Slim-Archiv herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/studycenter-public-0.1.0b5-linux-x86_64-slim.tar.gz), entpacken und `sh start.sh` ausführen.
+**Aktuelle Version: beta.5**
 
-[SHA-256-Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/SHA256SUMS) · [Release mit Größenangaben](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.5)
+| System | Download | Starten |
+| --- | --- | --- |
+| **Windows 10/11 · x64** | **[Installer herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/studycenter-public-0.1.0b5-windows-x86_64-setup.exe)** | Setup öffnen und der Einrichtung folgen. |
+| **Linux · x64** | **[Linux-Paket herunterladen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/studycenter-public-0.1.0b5-linux-x86_64-slim.tar.gz)** | Entpacken und im Ordner `sh start.sh` ausführen. |
 
-Bei einem Update den bisherigen Public-Datenordner beibehalten. Die [beta.2-Komplettpakete](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.2) bleiben unverändert verfügbar; ein bereits eingerichteter lokaler Datenbestand wird weiterverwendet.
+Die erste Einrichtung benötigt Internet. Danach sind die lokalen Funktionen auch offline nutzbar.
 
-## Benutzen
+[Versionshinweise](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.5) · [Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases/download/v0.1.0-beta.5/SHA256SUMS)
 
-1. Windows-Setup öffnen oder das Linux-Archiv entpacken und starten.
-2. Programm- und eigenen Datenordner bestätigen. Eine fehlende Microsoft-Laufzeit wird über den offiziellen Download mit sichtbarer Bestätigung eingerichtet.
-3. Den ersten Download abschließen; danach dieselbe Verknüpfung beziehungsweise denselben Starter verwenden.
-4. Eine Aufgabe oder Notiz anlegen oder ein PDF importieren. PDF-Anzeige und Text-PDF-Verarbeitung gehören zur Basis.
-5. Bei Bedarf TU-Quellenbrowser, OCR oder Sprache ausdrücklich einrichten. Sprachmodellgewichte werden nach Größenanzeige separat bestätigt.
+## Loslegen
 
-Die Slim-Basis nutzt eine eigene Python-Umgebung: geeignetes CPython 3.12 x64 wird wiederverwendet, andernfalls eine eigene Laufzeit geladen. Git und vorinstalliertes Python sind für den Release-Download nicht nötig. Der erste Aufbau braucht Internet; vorbereitete lokale Funktionen laufen anschließend offline.
+1. **Kurz kennenlernen:** Die freiwillige Einführung zeigt dir die wichtigsten Bereiche. Du kannst sie später erneut öffnen.
+2. **Deinen Überblick aufbauen:** Eigene Aufgaben und Notizen anlegen, PDFs importieren oder deine TU-Kurse verbinden.
+3. **Nach Bedarf erweitern:** Luna und Quests helfen beim Planen und Lernen. TU-Browser, Texterkennung für Scans und Sprache lassen sich separat einrichten.
 
-## Aus Git starten
+Dein Datenbestand bleibt auf deinem Rechner. TU-Quellen werden auf deinen Klick aktualisiert. KI ist freiwillig; dabei können ausgewählte Inhalte an deinen Anbieter gesendet werden und Kosten entstehen. Prüfe KI-Vorschläge vor dem Übernehmen.
 
-Repository klonen und im Checkout `start.cmd` unter Windows beziehungsweise `sh start.sh` unter Linux ausführen. [Befehle und Voraussetzungen](docs/DEVELOPMENT.md).
+**Schon installiert?** Behalte beim Update deinen bisherigen Public-Datenordner. Falls die Datenübernahme stoppt, verwende die bisherige Version weiter und lösche keine Daten. [Hinweise zur Übernahme](docs/UI-PARITY.md).
 
-Beta.5 verwendet den aktuellen StudyCenter-Produktkern direkt, einschließlich
-seiner Oberfläche, Luna, Quests, Quellenverwaltung, GitLab und Google-Kalender.
-Public ergänzt eine überspringbare Einführung mit echten Formularen und getrennte
-Einrichtung eigener Konten und optionaler Komponenten. Der Quellstand samt
-begründeten Anpassungen ist prüfbar erfasst; zukünftige Übernahmen erkennen
-Abweichungen statt die Funktionen unabhängig nachzubauen.
+## Hilfe & Entwicklung
 
-Bestehende Beta4-Daten werden vor der Umstellung kopiert und geprüft. Originale
-bleiben erhalten; frühere Belege und Aktionsverläufe sind im lokalen Archiv lesbar.
-Nicht eindeutig übertragbare Bestände stoppen die Umstellung mit einer konkreten
-Meldung. In diesem Fall die bisherige Version weiterverwenden; keine Daten löschen.
-[Quellgleichheit, Anpassungen und Prüfgrenzen](docs/UI-PARITY.md).
+[Kurzanleitung](docs/QUICKSTART.md) · [Optionale Funktionen](docs/OPTIONAL.md) · [Prüfstand & bekannte Grenzen](docs/RELEASE-VERIFICATION.md) · [Aus dem Quellcode starten](docs/DEVELOPMENT.md)
 
-## Entwickeln
-
-[Entwicklung](docs/DEVELOPMENT.md) · [Quickstart](docs/QUICKSTART.md) · [Optionale Funktionen](docs/OPTIONAL.md) · [Drittanbieter-Lizenzen](docs/THIRD_PARTY.md)
-
-Plane Fristen im Kalender, vergleiche Originalbelege und prüfe KI-Vorschläge vor dem Übernehmen. Daten bleiben im eigenen lokalen Bestand. TU-Abgleich erfolgt auf deinen Klick; Cloud-KI ist freiwillig und kann Kosten verursachen. Es gibt keinen automatischen Modell- oder Anbieterwechsel.
-
-Unter Linux öffnet sich die Oberfläche im Systembrowser. Der getrennte TU-Quellenbrowser kann durch AppArmor eingeschränkt sein; lokale Funktionen bleiben nutzbar. [Prüfstand und Grenzen](docs/RELEASE-VERIFICATION.md).
-
-Lizenz: [AGPL-3.0-only](LICENSE).
+[AGPL-3.0-only](LICENSE) · [Drittanbieter-Lizenzen](docs/THIRD_PARTY.md)
