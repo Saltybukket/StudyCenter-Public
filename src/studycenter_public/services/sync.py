@@ -1,6 +1,5 @@
 """Explicit manual sync with persistent progress, gaps and retry cursors."""
 import asyncio
-import hashlib
 from dataclasses import fields
 from datetime import datetime, timezone
 

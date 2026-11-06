@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from bs4 import BeautifulSoup
 
 from ..platform.paths import restrict_permissions, owned_path, reject_links
-from .web import LoginRequired, UnsafeURL, mutating_url, resolve_public, validate_addresses, safe_url
+from .web import UnsafeURL, mutating_url, resolve_public, validate_addresses, safe_url
 
 SERVICE_URLS = {'teachcenter': 'https://tc.tugraz.at/main/my/',
                 'tugrazonline': 'https://online.tugraz.at/tug_online/',

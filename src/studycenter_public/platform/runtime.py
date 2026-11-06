@@ -1,6 +1,4 @@
 """Single owned process, reserved loopback socket and cooperative shutdown."""
-import json
-from pathlib import Path
 import socket
 import threading
 import time

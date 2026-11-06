@@ -1,10 +1,9 @@
 """Small HTTP adapters. The same services power UI, assistant and MCP."""
 import asyncio
-from dataclasses import asdict
 import json
 from pathlib import Path
 from uuid import uuid4
-from fastapi import APIRouter,Request,UploadFile,File,HTTPException
+from fastapi import APIRouter,Request,UploadFile,File
 from fastapi.responses import FileResponse,Response
 from .. import __version__
 from ..platform.secrets import SecretStore

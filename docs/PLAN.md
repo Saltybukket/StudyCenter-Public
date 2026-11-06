@@ -1,5 +1,28 @@
 # Delivery plan
 
+## Orientierung im Repository
+
+| Bereich | Zweck |
+| --- | --- |
+| `src/studycenter_public/core/` | Gemeinsamer Produktkern einschließlich Oberfläche |
+| `product.py`, `onboarding.py`, `migration.py`, `ice_migration.py` im Paket | Public-Einrichtung und Datenübernahme |
+| `platform/`, `desktop/` im Paket | Eigene Datenpfade, Betriebssystem und Start |
+| `collectors/`, `providers/`, `services/` im Paket | Wiederverwendete Infrastruktur und ältere Serviceverträge |
+| `tests/`, `tests/product_reference/` | Public-Verträge und Verhalten des gemeinsamen Kerns |
+| `scripts/`, `packaging/`, `.github/workflows/` | Prüfung, Quellabgleich und Auslieferung |
+| `.local/`, `build/`, `dist/`, `reports-local/` | Lokale Daten, erzeugte Artefakte und Prüfbelege; nicht einchecken |
+
+Der normale Einstieg ist `studycenter_public.product.create_app`. Die ältere
+`web`-Anwendung und ihre Datenverträge werden noch von Kompatibilitätsprüfungen
+und bestehenden Setup-Prüfungen verwendet; sie sind kein zweiter aktiver Produktkern.
+Diese Module nicht allein wegen ihres Alters entfernen. Der Abgleich mit der privaten
+Quelle bleibt über `scripts/sync_product.py verify` und das Quellmanifest prüfbar.
+
+Pytest schreibt den Cache nach `.local/pytest-cache`. Zusätzliche Testausgaben gehören
+in getrennte Verzeichnisse unter `.local/test-runs`, nicht neben den Quellcode.
+Abgeschlossene Worktrees und Testserien werden nach Sicherung außerhalb des Repositories
+archiviert. Offene Pull Requests und nicht übernommene Branches bleiben erhalten.
+
 ## Wechsel von ICE zu Public
 
 Der Public-Quellstand bietet einen expliziten Offline-Import eines nativen

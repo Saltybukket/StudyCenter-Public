@@ -1,6 +1,5 @@
 """Windows WebView2 with an owned tray and browser fallback."""
 import ctypes
-from pathlib import Path
 import threading
 import webbrowser
 

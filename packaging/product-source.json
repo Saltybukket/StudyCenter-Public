@@ -12,8 +12,8 @@
       "adaptation": "Route package entry to the Public-owned launcher."
     },
     "app.py": {
-      "upstream_sha256": "1c80dcd4e28cf01a8829018f21764ff482498a6dbd59b7a9609b90e7c5413d4b",
-      "shipped_sha256": "674220ff7efbf6981f3f9e8feafea2bca72bd3fd052b38095b482f20148df785",
+      "upstream_sha256": "2b71a2a2a8a61dfabcab22019fd6060c697454b25580bb9a620c6dea90c5dea1",
+      "shipped_sha256": "cbae0339ac38bdc21b7a93a6626e752b683f8b31fe6296e441732df7d3f83af6",
       "adaptation": "Inject isolated Public runtime, credentials, service paths and instance endpoint; support user-owned tunnel configuration."
     },
     "assistant.py": {
@@ -33,7 +33,7 @@
     },
     "browser.py": {
       "upstream_sha256": "c804c6345bfb0e5c10d081278bdd46038897529e15ea3a952f791128bb19dff8",
-      "shipped_sha256": "e770b5f8ca0abaa3218ade3139f421a9ce08256534ef88a9febd697ebdf09101",
+      "shipped_sha256": "de03299854a95fa4a2db10c54abc0dd9a5448e4ba036ecbfb0ca30a9e25043b3",
       "adaptation": "Use Public profile and credential stores and optional browser installation."
     },
     "chatgpt.py": {
@@ -58,7 +58,7 @@
     },
     "config.py": {
       "upstream_sha256": "b7e24cdb09fa2ddd715e14d950d2cf02022aa6ac05c65e23d8b60c030ae37997",
-      "shipped_sha256": "3165e3c68dc30c832bc4cc799d8d7976003909a8217806afa29b1f2299d17169",
+      "shipped_sha256": "487c0b94e897b8cd08c891d0a3e801cada415eb515cc1fbf8f8ee3c9cfd46794",
       "adaptation": "Require explicit instance-bound Public settings instead of private default paths and configuration."
     },
     "db.py": {
@@ -88,7 +88,7 @@
     },
     "google_calendar.py": {
       "upstream_sha256": "1b80503123a356bd4681672bca49080297db1fb67b3b2b1289aa25fe2db12acc",
-      "shipped_sha256": "15c21c40dbe10a8f13606b5bbefe2fa51b89d00f023dffe3f4f45675034fc629",
+      "shipped_sha256": "89d1ae39f7b6038fb75e47689048bf912afd7bbfc0ea9188805fa1f51f8e5081",
       "adaptation": "Use the Public instance credential store for Google authentication."
     },
     "gotchas.py": {
@@ -448,7 +448,7 @@
     },
     "tunnel.py": {
       "upstream_sha256": "dab6036a4db852d0d7a003469336cb5a25d9f3774277b59689ff6bd184906340",
-      "shipped_sha256": "99fa4388d4e2397a3397fcba3ba52339e1c49188f6d6e693622798c7ec087fb7",
+      "shipped_sha256": "20b21e1207eaa97934859b0b5f8daf8e950aa840ae99cc9eb9bb86703da61a9d",
       "adaptation": "Use user-configured tunnel identity and isolated stores; avoid inspecting other applications processes."
     }
   },

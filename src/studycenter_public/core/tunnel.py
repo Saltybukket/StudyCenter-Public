@@ -11,20 +11,11 @@ from urllib.parse import urlsplit
 import httpx
 import portalocker
 
-from .chatgpt import dpapi
-from .config import ROOT, local_profile_path
-from .mcp import credentials
+from .config import ROOT
 
 # The user configures their own tunnel; no pre-existing identity is bundled.
 ALIAS = 'studycenter-public'
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-
-
-def local_directory():
-    path = local_profile_path('tunnel', markers=('settings.json', 'runtime-key.dpapi'))
-    if path.is_relative_to(ROOT):
-        raise ValueError('Tunnel-Zugang muss außerhalb des Repository liegen.')
-    return path
 
 
 def atomic_write(path, data):

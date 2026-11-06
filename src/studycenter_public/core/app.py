@@ -1,7 +1,6 @@
 import asyncio
 import time as monotonic_clock
 import hashlib
-import io
 import json
 import logging
 import math
@@ -15,10 +14,9 @@ import webbrowser
 from contextlib import asynccontextmanager
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from urllib.parse import urlsplit, urljoin
+from urllib.parse import urlsplit
 
 import portalocker
-import pymupdf
 from fastapi import FastAPI, HTTPException, Request, Form, Query
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -28,12 +26,12 @@ from starlette.middleware.gzip import GZipMiddleware, DEFAULT_EXCLUDED_CONTENT_T
 
 from .browser import BrowserService, BrowserUnavailable, LoginRequired
 from .collectors import MAX_BYTES, safe_url
-from .config import ROOT, PACKAGE, VIENNA, load_settings
+from .config import PACKAGE, VIENNA, load_settings
 from .db import Database, encode, now
 from .sync import SyncService
 from .chatgpt import ChatGPTError
 from .gitlab import project_url, remote_url, wsl_ssh_from_form
-from .mail import MailCredentials, MailError, probe as probe_mail
+from .mail import MailError, probe as probe_mail
 from .backup import MAX_ARCHIVE, create_backup, inspect_archive, apply_pending
 from .async_utils import finish_thread, settle_cancelled
 from .ical import export_calendar
@@ -43,7 +41,7 @@ from .speech import SpeechService, SpeechError, MAX_AUDIO
 from .presentation import TAGS, item_tags, personal_state
 from .reminders import ReminderService, ReminderSettings, ItemPreferences,rule_label
 from .google_calendar import GoogleCalendar, GoogleError, projection
-from .tunnel import TunnelService, local_directory
+from .tunnel import TunnelService
 from .mcp import MCPGateway,issue_credential
 from .page_images import PageImages
 from .quests import QuestService, QuestError

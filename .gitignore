@@ -19,3 +19,4 @@ browser-profiles/
 node_modules/
 .coverage
 .test-tmp*/
+/own-browser-temp/

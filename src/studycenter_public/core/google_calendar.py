@@ -9,13 +9,11 @@ import time
 import uuid
 import webbrowser
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from urllib.parse import urlencode, urlsplit, parse_qs, quote
 
 import httpx
 
-from .chatgpt import dpapi
-from .config import VIENNA, local_profile_path
+from .config import VIENNA
 from .db import encode, now
 
 SCOPES = ('https://www.googleapis.com/auth/calendar.app.created',

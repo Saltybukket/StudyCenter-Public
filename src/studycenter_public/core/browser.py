@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import json
 import os
 import shutil
@@ -9,7 +8,6 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 import portalocker
 from bs4 import BeautifulSoup
 
-from .config import ROOT, local_profile_path
 from pathlib import Path
 from datetime import datetime, timezone
 

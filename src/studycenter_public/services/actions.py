@@ -4,7 +4,7 @@ import json
 from uuid import UUID, uuid4
 
 from ..storage.db import encode, now
-from ..domain.validation import FIELDS as DOMAIN_FIELDS, validate_values
+from ..domain.validation import validate_values
 from .reminders import validate_personal_reminder, personal_reminder_state, write_personal_reminder
 
 FIELDS = {'title','body','description','date','time','end_date','end_time','due_at','date_meaning','obligation','source_state','pinned','ignored'}
