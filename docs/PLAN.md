@@ -1,5 +1,46 @@
 # Delivery plan
 
+## Wechsel von ICE zu Public
+
+Der Public-Quellstand bietet einen expliziten Offline-Import eines nativen
+ICE-Format-1-Backups mit dem Datenbankschema von ICE beta.3. Der Import ist noch
+nicht Bestandteil der veröffentlichten beta.5-Installer. Es gibt keine automatische
+Suche nach ICE-Daten und keine Übernahme in einen bereits vorhandenen Public-Bestand.
+
+1. In ICE eine aktuelle Sicherung erstellen. Zusätzlich das vollständige eigene
+   ICE-Datenverzeichnis außerhalb des ICE-Programmordners aufbewahren. Die native
+   ZIP-Sicherung enthält keine Einstellungen, Browserprofile oder Anmeldungen.
+2. Im eingerichteten Public-Quellcheckout importieren; der Zielordner darf noch
+   nicht existieren:
+
+   ```text
+   python scripts/import_ice.py --backup "ICE-Backup.zip" --destination "../public-from-ice"
+   python -m studycenter_public --data-dir "../public-from-ice" --browser
+   ```
+
+3. Aufgaben, Status, Notizen, Belege und Originale im neuen Bestand prüfen.
+   TU-, Mail-, KI- und andere Konten bei Bedarf neu verbinden. Google-Spiegelung
+   ist nach dem Import ausgeschaltet und braucht eine erneute Freigabe.
+
+Der Import prüft Archivpfade, Schema, Datensatzanzahlen, Datenbankintegrität und
+Dokument-Prüfsummen, bevor er den neuen Ordner atomar veröffentlicht. IDs,
+persönliche Entscheidungen, Historien, Belege und Erinnerungszustände bleiben
+erhalten. Das Quell-Backup bleibt unverändert. Der Beleg im neuen `core`-Ordner
+enthält dessen SHA-256, Originalmanifest und die absichtlichen Transformationen.
+Unbekannte Schemata, beschädigte oder zusätzliche nicht zugeordnete Originale,
+mögliche Zugangsdaten und vorhandene Ziele führen zum Abbruch. Bei einem alten,
+nicht unterstützten Schema zuerst mit der bisherigen ICE-Version eine neue
+Sicherung erstellen; Original und Installation bis zum geprüften Umstieg behalten.
+
+Vor einer Stilllegung außerdem Git-Historie einschließlich weiterer Branches,
+Tags und offener PRs, Release-Dateien, Lizenzen und Prüfberichte außerhalb des
+Repositories sichern und eine Wiederherstellung prüfen. Eine GitHub-Löschung
+bricht bestehende ICE-Download- und Update-Links; Archivieren bewahrt sie.
+Der offene ICE-PR #1 zu Abhängigkeiten ist nicht automatisch in Public enthalten
+und bleibt separat zu bewerten. Eine Sicherung ist keine Freigabe zur Löschung.
+
+## Historischer Auslieferungsplan
+
 Target: v0.1.0-beta.2, AGPL-3.0-only, Windows x64 setup and Ubuntu 24.04 x64 package.
 
 beta.2 simplifies the existing installation paths: official Microsoft prerequisite
