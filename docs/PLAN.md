@@ -14,7 +14,7 @@ Neugestaltung der Oberflaeche oder Aenderung des Luna-Dialogverhaltens in diesem
 - [x] Zusammenhaengende Aufgaben-/Statusaenderungen aus grossen Modulen in einen gemeinsamen Dienst auslagern; HTTP und Assistent nutzen dieselben Regeln.
 - [x] Reihenfolge von Erledigen/Konfliktloesen, veraltete Aenderungen, Wiederholungen sowie Abgabe/Verfuegbarkeit/Bearbeitungstag gezielt pruefen.
 - [x] Verbleibende Altmodule anhand echter Nutzer untersuchen; nur belegbar unbenutzten Code entfernen, kleine Architekturpruefung ergaenzen.
-- [ ] Gemeinsame Verhaltenstests, Public-Datenschutzpruefung, Quellabgleich und tatsaechliche Paketpruefungen durchfuehren; Grenzen getrennt dokumentieren.
+- [x] Gemeinsame Verhaltenstests, Public-Datenschutzpruefung, Quellabgleich und tatsaechliche Paketpruefungen durchfuehren; Grenzen getrennt dokumentieren.
 
 Arbeitsteilung: getrennte Eigentumsbereiche fuer Quellabgleich, Release-Skripte,
 ICE-Integration und private Zustandslogik. Integration und PLAN liegen beim Orchestrator.
@@ -41,12 +41,27 @@ Die private CI prueft bei Produktaenderungen den aktuellen Arbeitsstand gegen de
 Public-Export und meldet ein Auseinanderlaufen. Die Public-CI prueft den fest gebundenen
 Export ohne Zugang zum privaten Repository. Beide Pruefungen lesen nur Code.
 
-Der abschliessende GitHub-Build-/Installer-Lifecycle fuer diesen Commit steht noch aus.
-Lokale Diagnose-Installer und deren erfolgreiche Scans sind kein Nachweis fuer den
-finalen Release. beta.6 ist ein Kandidat; die Downloadlinks bleiben bei beta.5, bis
-konkrete neue Release-Artefakte geprueft und veroeffentlicht sind. Live-TU-Konten,
-native Windows-11-Bedienung und das bisher separat blockierte Linux-Browser-GUI-Gate
-sind durch diese Quell-/Protokolltests nicht nachgewiesen.
+Der abschliessende [GitHub-Paketlauf](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42222723656)
+fuer `5d7b76f8d2451fc48c9c50effc0d630a85a0cab9` bestand auf Windows Server 2022
+(940 Tests, 30 uebersprungen) und Ubuntu 24.04 (947 Tests, 23 uebersprungen).
+Beide prueften das exakte Quell-Wheel, entpackte Komponenten, Upgrade von beta.5,
+wiederherstellbare Sicherung mit Original/Beleg, installierten ICE-Import,
+HTTP-Oberflaeche, PDF-Verarbeitung und optionale Komponenten mit Offline-Wiederholung.
+Windows pruefte ausserdem unterbrochene Installation, fehlgeschlagenes Update,
+Reparatur und datenbewahrende Deinstallation. Linux pruefte die private Python-Runtime;
+unter Windows blieb System-Python ueber die Registry auffindbar, daher ist dort der
+Fall ohne vorhandenes Python nur durch isolierte Auswahltests abgedeckt.
+
+Der erste Lauf scheiterte an einer offenen SQLite-Verbindung der synthetischen
+Fixture: spaeteres Schliessen checkpointete das WAL und aenderte die Hauptdateibytes.
+Der Test schliesst Verbindungen nun deterministisch; alle strikten Bytevergleiche
+bleiben erhalten. Regression und Nachreview bestaetigten die Gegenprobe mit echter
+Datenaenderung. Der [private Quellabgleich](https://github.com/Saltybukket/CampusBoard/actions/runs/42221055708)
+bestand ebenfalls. Keine Produktdatei wurde nach diesen Checks geaendert.
+
+beta.6 bleibt ein Kandidat; der Workflow veroeffentlicht keine Artefakte und die
+Downloadlinks bleiben bei beta.5. Live-TU-Konten, native Windows-11-Bedienung und
+das bisher separat blockierte Linux-Browser-GUI-Gate wurden hier nicht geprueft.
 
 ## Gemeinsamer Produktstand und Auslieferung
 
@@ -114,7 +129,8 @@ Pruefung ersetzt keine Pruefung dynamischer Imports oder echter Kontenanbindung.
 
 Der normale Einstieg ist `studycenter_public.product.create_app`. Die ältere
 `web`-Anwendung und ihre Datenverträge werden noch von Kompatibilitätsprüfungen
-und bestehenden Setup-Prüfungen verwendet; sie sind kein zweiter aktiver Produktkern.
+verwendet; aktuelle Setup-Prüfungen verwenden den gemeinsamen Produkteinstieg.
+Die Altmodule sind kein zweiter aktiver Produktkern.
 Diese Module nicht allein wegen ihres Alters entfernen. Der Abgleich mit der privaten
 Quelle bleibt über `scripts/sync_product.py verify` und das Quellmanifest prüfbar.
 
