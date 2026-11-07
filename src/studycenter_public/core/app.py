@@ -534,7 +534,7 @@ def create_app(settings=None):
         error = ''
         try:
             if q:
-                results, total, page = await asyncio.to_thread(search.search, q, course, content, history, page)
+                results, total, page = await asyncio.to_thread(search.search, q, course, content, history, page, prioritize_current=True)
         except (sqlite3.Error, ValueError, OSError) as exception:
             error = search.error or f'Suche nicht verfügbar: {exception}'
         if any(r['kind']=='item' for r in results):

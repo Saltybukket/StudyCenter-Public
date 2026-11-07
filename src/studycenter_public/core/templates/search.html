@@ -17,9 +17,7 @@
 {% elif not results %}<div class="empty"><h2>Keine passenden Fundstellen</h2><p>Versuche einen kürzeren Wortanfang oder einen anderen Begriff. Für alte Unterlagen historische Inhalte einblenden; Kurs und Inhalt können die Auswahl weiter einschränken.</p></div>
 {% else %}
 <div class="section-heading"><h2>{{ total }} Treffer</h2><span>Seite {{ page }} von {{ pages }} · höchstens 20 pro Seite</span></div>
-{% set state=namespace(kind='') %}
 {% for r in results %}
-{% if state.kind!=r.kind %}<h3 class="search-group">{{ 'Aufgaben, Termine & Notizen' if r.kind=='item' else 'Dokument- & Mailfundstellen' }}</h3>{% set state.kind=r.kind %}{% endif %}
 <article class="search-result" data-kind="{{ r.kind }}" style="--course-color:{{ course_color(r.course_id) }}">
 <div class="search-result-top"><div><p class="search-category">{{ r.meta.label }}{% if not r.active %} · historisch / ausgeblendet{% endif %}{% if r.meta.source_state=='cancelled' %} · abgesagt{% endif %}</p>{% if r.kind=='document' %}<h3><a href="{{ r.url }}{% if '?' in r.url %}&amp;{% else %}?{% endif %}back={{ return_target|urlencode }}">{{ r.heading }}</a></h3>{% else %}<h3><a href="{{ r.url }}">{{ item_title(r.entry) if r.entry else r.heading }}</a></h3>{% endif %}</div>
 {% if r.entry and r.entry.task_display %}<small class="search-date">{{ item_when(r.entry) }}</small>{% elif r.meta.date %}<small class="search-date">{{ r.meta.date_label }}<br>{{ r.meta.date|localdate }}</small>{% endif %}</div>

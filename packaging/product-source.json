@@ -1,8 +1,8 @@
 {
   "format": 2,
   "source": {
-    "commit": "f7f538137eabcbfbe800bfa2f136e23b89a43249",
-    "tree": "e9f0a5738e9076104401dc7aeffb82ea2da43e0b",
+    "commit": "08ec7f5c753f43e0528149e21433a7d34e32683a",
+    "tree": "5b2e9f611a4cdd1e4baaeb2e65502ce35f29e9a1",
     "object_format": "sha1",
     "path": "campusboard"
   },
@@ -24,9 +24,9 @@
       "shipped_sha256": "0c3baac01a8f409a19cf6edd46c42d70fbb95c51e14f2f30563dd43323975452"
     },
     "app.py": {
-      "git_blob": "a89ff32919e8c37520136f1190ac8a8608b5038b",
+      "git_blob": "15a6a60a7ad9c40656e9709a07e7bde9592a338f",
       "mode": "100644",
-      "shipped_sha256": "bc15971e5a52759ad05a2e4ce57c263b76c975801a4a9e2797d900d42769f0e9"
+      "shipped_sha256": "daa92526686ea4456adcaf3eeae4bbaaf792c48de82967559f519456ed048459"
     },
     "assistant.py": {
       "git_blob": "9e169dac452d87b1eade46363a60dee6b01c4435",
@@ -179,9 +179,9 @@
       "shipped_sha256": "503631e389bad5f4d79292e590e376900cf42c80531dc0163d3e9840ce9f889b"
     },
     "search.py": {
-      "git_blob": "73ecc37e4bd11520a387884dabd70fdf91db6631",
+      "git_blob": "2c6c7ca17d95bd6d68e3e6e684838403a5117a4c",
       "mode": "100644",
-      "shipped_sha256": "d6e20ba0e37b6992b67a74d0126f3960b3694ca58be1c9934fd4444a94a48aca"
+      "shipped_sha256": "4cc8052853f9a4a7eb88ba990b869854a19a0742c77473f7f8ac60042ba04055"
     },
     "source_validity.py": {
       "git_blob": "8e22b9591f84de93273e86b290894006c194b280",
@@ -444,9 +444,9 @@
       "shipped_sha256": "31e91c96bcd3474b6efbf57f5f751e921ba3318e401d32be32cd260125f94192"
     },
     "templates/search.html": {
-      "git_blob": "2d77b93a336c341971afefecc6acbdd4d7845817",
+      "git_blob": "d15aacb72f0b22c8aee5203c858fa2b6011e9752",
       "mode": "100644",
-      "shipped_sha256": "11802d8606cb942a62fe41f48960bc3c8556537c74fc3a3dad398854597ae060"
+      "shipped_sha256": "4d94ef5e1d81774c402846cea264170714f44318db7169509946c65aab0e623e"
     },
     "templates/settings.html": {
       "git_blob": "2ef3c5953907e1083a2c4fe868503eaea1a01219",

@@ -5,7 +5,9 @@ import re
 import sqlite3
 import threading
 from contextlib import closing
-from datetime import date
+from datetime import date, datetime, timedelta
+
+from .config import VIENNA
 from pathlib import Path
 
 from markupsafe import Markup, escape
@@ -60,6 +62,31 @@ def marked(text, pattern=None, full_text=None):
     return Markup(str(escape(text)).replace('\x01', '<mark>').replace('\x02', '</mark>'))
 
 
+def result_rank(result, today):
+    """Rank only matching records; urgency never turns an unrelated row into a hit."""
+    meta=result['meta']
+    kind=meta.get('item_kind')
+    when=meta.get('date') if result['kind']=='item' else None
+    try: day=date.fromisoformat(when) if when else None
+    except ValueError: day=None
+    past=bool(day and day<today)
+    inactive=not result['active']
+    finished=meta.get('status')=='done' or meta.get('source_state')=='cancelled'
+    elapsed=kind in ('event','exam','registration') and past
+    bucket=2 if inactive else 1 if finished or elapsed else 0
+    # Direct title/body matches beat incidental course/URL metadata matches.
+    relevance=0 if '\x01' in result['heading'] or '\x01' in result['excerpt'] else 1
+    if kind=='task' and meta.get('status') in ('open','doing'):
+        role=0 if not day or day<=today+timedelta(days=14) else 2
+    elif result['kind']=='document': role=1
+    elif kind in ('event','exam','registration') and day and day<=today+timedelta(days=14): role=1
+    else: role=2
+    # Sort current work by useful dates only after topical relevance/type.
+    # Stored/published document timestamps are not evidence of semester validity.
+    due=day.toordinal() if day and not finished and result['kind']=='item' else date.max.toordinal()
+    return bucket,relevance,role,result['score'],due,result['entity_id'],result['page']
+
+
 class SearchIndex:
     def __init__(self, db):
         self.db = db
@@ -104,7 +131,7 @@ class SearchIndex:
                 details += ' ' + ' '.join(document_map[p['document_id']]['title'] + ' ' + p['anchor'] for p in proofs)
                 meta = {'course': course.get('title', 'Eigene Notiz' if own else 'TU-Mail / Dokument'),
                         'label': 'Persönliche Notiz' if own else {'task': 'Aufgabe', 'exam': 'Prüfung', 'event': 'Termin', 'registration': 'Anmeldung', 'notice': 'Hinweis'}[value['kind']],
-                        'date': when, 'date_label': 'Datum', 'status': row['status'], 'ignored': bool(row['ignored']),
+                        'date': when, 'date_label': 'Datum', 'item_kind':value['kind'], 'status': row['status'], 'ignored': bool(row['ignored']),
                         'source_state': value['source_state'], 'proofs': len(proofs)}
                 yield 'item:' + str(row['id']), [('item', row['id'], 0, 'note' if own else 'item', row['course_id'], int(active), value['title'], body, details + ' ' + meta['course'], meta)]
             page_proofs = {}
@@ -175,7 +202,7 @@ class SearchIndex:
                 self.message = self.error
                 raise
 
-    def search(self, query, course='', content='', history=False, page=1, documents_only=False):
+    def search(self, query, course='', content='', history=False, page=1, documents_only=False, prioritize_current=False):
         self.refresh()
         match = expression(query)
         if not match:
@@ -216,7 +243,8 @@ class SearchIndex:
                     link = {'page': row['page'], 'url': f"/documents/{row['entity_id']}?page={row['page']}"}
                     if link not in result['pages']:
                         result['pages'].append(link)
-            found = list(groups.values())
+            today=datetime.now(VIENNA).date()
+            found = sorted(groups.values(), key=lambda result:result_rank(result,today)) if prioritize_current else list(groups.values())
             page = max(1, min(page, max(1, (len(found)+19)//20)))
             selected = found[(page-1)*20:page*20]
             # Full text can be large. Only retrieve it for the displayed groups,
