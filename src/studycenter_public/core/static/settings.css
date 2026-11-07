@@ -93,9 +93,7 @@
 .settings-page .settings-card>button{margin-left:calc(44px + 1.25rem)}
 .settings-page code{overflow-wrap:anywhere;white-space:normal}
 .settings-page #google-preview:not(:empty),.settings-page #google-conflicts:not(:empty){border-top:1px solid var(--line);padding-top:.8rem;margin-top:1rem;margin-left:calc(44px + 1.25rem)}
-.compact .settings-page .settings-card{padding:1rem 1.2rem}
-.compact .settings-page .settings-card-heading{margin-bottom:.6rem}
-.compact .settings-page .settings-group{padding-top:.65rem}
+
 @media(max-width:1000px){
   .settings-page .settings-nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:.8rem}
   .settings-page .settings-nav a{flex-shrink:0}
@@ -106,7 +104,7 @@
   .settings-page .settings-alias-form button{justify-self:start}
 }
 @media(max-width:700px){
-  .settings-page .settings-card,.compact .settings-page .settings-card{padding:1rem}
+  .settings-page .settings-card{padding:1rem}
   .settings-page .settings-card-heading{gap:.75rem}
   .settings-page .settings-card-icon{flex-basis:30px}
   .settings-page .settings-card-icon .settings-icon{width:28px;height:28px}

@@ -134,9 +134,123 @@ def project_value(data,fact,value):
     return data
 
 
+def task_opening_roles(item, proofs, lookup):
+    """Separate an explicitly labelled release from an activity's opening.
+
+    Extraction currently represents both as an opening. Only resolve that
+    collision when a literal opening field states its date and every other
+    opening assertion either agrees or is explicitly labelled as a release.
+    This does not turn a release date into an availability date, or select a
+    closing deadline from competing assertions.
+    """
+    detail = item.get('evidence_resolution', {})
+    unresolved = detail.get('unresolved_fields', [])
+    if (item['source_payload'].get('kind') != 'task' or 'opening_date' not in unresolved
+            or any(f in unresolved for f in ('closing_date', 'closing_time'))):
+        return
+    semester = item.get('course_semester') or ''
+    if not re.fullmatch(r'20\d{2}[WS]', semester):
+        return
+    closing = claim_facts(item['source_payload'])
+    if 'closing_date' not in closing:
+        return
+    entries, releases, explicit = [], [], []
+    for proof in proofs:
+        claim = json.loads(proof['payload'])
+        facts = claim_facts(claim)
+        day = facts.get('opening_date')
+        if not day:
+            continue
+        if claim.get('semester') and claim['semester'] != semester:
+            return
+        quote = proof['quote'].replace('\\n', '\n')
+        # Only quoted text present on this exact saved page can support an
+        # automatic semantic distinction. No network or model call is made.
+        source_text = normalized(lookup(proof['document_id'], proof['page']))
+        bound = bool(normalized(quote) and normalized(quote) in source_text)
+        # A bare calendar-cell label is a release, not the opening of a
+        # particular submission activity. Do not interpret general prose.
+        if bound and re.fullmatch(r'\s*(?:Ausgabe|Veröffentlichung)\s+[^\n]{1,100}\s*', quote, re.I):
+            releases.append(card(proof, 'opening', {'date': day, 'time': facts.get('opening_time', (None, None))[1]}, proof['quote'], 'Ausgabe'))
+            continue
+        entries.append((proof, facts))
+        markers = list(re.finditer(r'\b(?:Geöffnet|Öffnet)\s*:', quote, re.I))
+        if not markers or not bound:
+            continue
+        from .source_validity import explicit_dates
+        for index, marker in enumerate(markers):
+            end = markers[index+1].start() if index+1 < len(markers) else len(quote)
+            field = re.match(r'\s*([^\n]+)', quote[marker.end():end])
+            if (not field or re.match(r'\s*(?:Schließt|Fällig|Abgabe|Deadline|Ende|Geschlossen)\s*:', field[1], re.I)
+                    or len(explicit_dates(field[1])) != 1):
+                return
+            clocks_in_field = re.findall(r'\b\d{1,2}:\d{2}\b|\b\d{1,2}\s+Uhr\b', field[1], re.I)
+            value = dated(field[1])
+            if len(clocks_in_field) > 1 or not value or value['date'] != day:
+                return
+            claimed_time = facts.get('opening_time')
+            if claimed_time and value['time'] and claimed_time[1] != value['time']:
+                return
+            explicit.append((proof, value))
+    if not releases or not explicit:
+        return
+    days = {value['date'] for _, value in explicit}
+    clocks = {value['time'] for _, value in explicit if value['time']}
+    clocks.update(facts['opening_time'][1] for _, facts in entries if 'opening_time' in facts)
+    if (len(days) != 1 or len(clocks) > 1
+            or any(facts['opening_date'] not in days for _, facts in entries)):
+        return
+    day = next(iter(days))
+    # A reused course page can still contain an earlier semester's field.
+    # This conservative period does not establish freshness by fetch time.
+    year, month = int(semester[:4]), 8 if semester.endswith('W') else 2
+    if not date(year, month, 1) <= date.fromisoformat(day) < date(year+1, month, 1):
+        return
+    clock = next(iter(clocks)) if clocks else None
+    # Do not infer a clock merely because an extraction included one elsewhere.
+    if clock and not any(value['time'] == clock for _, value in explicit):
+        clock = None
+    if day > closing['closing_date'] or (day == closing['closing_date'] and clock
+            and closing.get('closing_time') and clock > closing['closing_time'][1]):
+        return
+    value = {'date': day, 'time': clock}
+    selected = [card(p, 'opening', v, p['quote'], 'Freischaltung') for p, v in explicit]
+    reason = ('Die Ausgabe im Kalender und die Freischaltung der Abgabe bezeichnen unterschiedliche Zeitpunkte. '
+              'Der Freischaltzeitpunkt steht ausdrücklich im Beleg; die Abgabefrist wird getrennt betrachtet.')
+    detail.setdefault('auto_resolutions', []).append(
+        {'fact': 'opening', 'value': value, 'reason': reason, 'proofs': selected, 'other_roles': releases})
+    detail['unresolved_fields'] = [f for f in unresolved if f not in ('opening_date', 'opening_time')]
+    detail.setdefault('facts', {})['opening_date'] = [
+        {k: c[k] for k in ('document_id', 'page', 'quote', 'published_at')} for c in selected]
+    if clock:
+        detail['facts']['opening_time'] = [
+            {k: c[k] for k in ('document_id', 'page', 'quote', 'published_at')}
+            for c in selected if c['value']['time'] == clock]
+    else:
+        detail['facts'].pop('opening_time', None)
+    source = item['source_payload']
+    source.update(date=day, time=clock, end_date=closing['closing_date'],
+                  end_time=closing.get('closing_time', (None, None))[1], date_meaning='window')
+    overrides = json.loads(item['overrides'])
+    fields = ('date', 'time', 'end_date', 'end_time', 'date_meaning')
+    if not set(fields) & overrides.keys():
+        for field in fields:
+            item['data'][field] = source[field]
+    remaining = detail['unresolved_fields'] + detail.get('internal_unresolved_fields', [])
+    item['date_conflict'] = any(f.endswith(('_date', '_time')) for f in remaining) or bool(
+        detail.get('internal_conflict') and not detail.get('internal_unresolved_fields') and item['date_conflict'])
+    item['conflict'] = bool(detail['unresolved_fields'] or detail.get('internal_conflict')
+                            or item.get('personal_resolution', {}).get('issues'))
+
+
 def project(item,proofs,lookup,profile):
     decisions=profile.get('source_decisions',{})
     detail=item.setdefault('evidence_resolution',{})
+    task_opening_roles(item, proofs, lookup)
+    overrides=json.loads(item['overrides'])
+    for automatic in detail.get('auto_resolutions', []):
+        automatic['effective'] = (automatic['fact'] not in decisions
+                                  and not {'date', 'time', 'end_date', 'end_time', 'date_meaning'} & overrides.keys())
     needs_registration=bool(detail.get('internal_conflict') and item['data'].get('kind')=='registration')
     if not decisions and not needs_registration: return
     cards=options(item,proofs,lookup)
@@ -172,7 +286,7 @@ def project(item,proofs,lookup,profile):
             item['data']['source_state']='active'
         if not item['conflict']: item['data']['uncertainty']=None
     # Later manual edits always win. Resetting a decision cannot remove those edits.
-    item['data'].update(json.loads(item['overrides']))
+    item['data'].update(overrides)
 
 
 def comparison(db,item_id,fact=None,connection=None):
@@ -192,15 +306,42 @@ def comparison(db,item_id,fact=None,connection=None):
     detail=item.get('evidence_resolution',{})
     unresolved=detail.get('unresolved_fields',[])+detail.get('internal_unresolved_fields',[])
     default=next((f for f in FACTS if f in unresolved or any(x.startswith(f+'_') for x in unresolved)),None)
-    fact=fact or default or ('closing' if item['data']['kind']=='registration' else 'start')
+    automatic_facts = [a['fact'] for a in detail.get('auto_resolutions', [])]
+    fact=fact or default or next((f for f in automatic_facts if f in available),None) or ('closing' if 'closing' in available else available[0] if available else 'start')
     if fact not in FACTS: raise ValueError('Ungültiger Sachverhalt')
-    selected=[c | {'context':page_context(lookup(c['document_id'],c['page']),c['quote'])}
-              for c in cards if c['fact']==fact]
+    automatic=next((a for a in detail.get('auto_resolutions',[]) if a['fact']==fact),None)
+    candidates=[c | {'context':page_context(lookup(c['document_id'],c['page']),c['quote'])}
+                for c in cards if c['fact']==fact]
+    other_roles = []
+    if fact == 'opening' and item['data'].get('kind') == 'task':
+        other_roles = [c for c in candidates if
+            re.fullmatch(r'\s*(?:Ausgabe|Veröffentlichung)\s+[^\n]{1,100}\s*', c['quote'].replace('\\n','\n'), re.I)
+            and normalized(c['quote']) in normalized(c['context']['text'])]
+    selected = [c for c in candidates if c not in other_roles]
+    # Present one option per distinct value while retaining all its evidence.
+    # More matching extractions do not by themselves prove higher authority.
+    from .source_validity import explicit_dates
+    grouped={}
+    for c in selected:
+        group=grouped.setdefault(encode(c['value']),[])
+        group.append(c)
+    groups=[]
+    for values in grouped.values():
+        def direct(c):
+            day=c['value'].get('date')
+            return bool(day and date.fromisoformat(day) in explicit_dates(normalized(c['quote']))
+                        and normalized(c['quote']) in normalized(c['context']['text']))
+        values=sorted(values,key=direct,reverse=True)
+        groups.append({'card':values[0], 'support':values[1:], 'direct':direct(values[0])})
     decision=next((d for d in item.get('personal_decisions',[]) if d['fact']==fact),None)
-    return {'item':item,'fact':fact,'question':FACTS[fact],'available':available,'cards':selected,
+    question=FACTS[fact]
+    if item['data'].get('kind')=='task':
+        question={'opening':'Ab wann ist die Abgabe geöffnet?', 'closing':'Wann ist die Abgabe fällig?'}.get(fact,question)
+    return {'item':item,'fact':fact,'question':question,'available':available,'cards':selected,
             'same_document':len({c['document_id'] for c in selected})==1,'basis':basis(cards,fact),
             'token':digest([basis(cards,fact),item['overrides'],decision]),
-            'decision':decision}
+            'decision':decision,'groups':groups,'automatic':automatic,'other_roles':other_roles,
+            'unresolved':fact in unresolved or any(x.startswith(fact+'_') for x in unresolved)}
 
 
 def save(db,item_id,fact,token,choice=None,manual=None,reason='',reset=False):

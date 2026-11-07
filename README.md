@@ -27,6 +27,8 @@ Dein Datenbestand bleibt auf deinem Rechner. TU-Quellen werden auf deinen Klick 
 
 **Wechsel von ICE?** Der aktuelle Quellstand bietet unter Einrichtung einen getrennten, lokalen [Backup-Import in eine neue Instanz](docs/PLAN.md#wechsel-von-ice-zu-public). Im veröffentlichten beta.5-Installer ist dieser Import noch nicht enthalten.
 
+Im aktuellen Quellstand bündelt **Aufgaben & Notizen** Filter und persönliche Einträge auf der Aufgabenwand. Beim Quellenklären kann ein eindeutig belegter Freischaltzeitpunkt von einer Ausgabe unterschieden werden; offene Widersprüche bleiben sichtbar. Deine persönlichen Entscheidungen und Korrekturen behalten Vorrang. Diese Änderungen sind noch nicht im oben verlinkten beta.5-Installer enthalten.
+
 ## Hilfe & Entwicklung
 
 [Kurzanleitung](docs/QUICKSTART.md) · [Optionale Funktionen](docs/OPTIONAL.md) · [Prüfstand & bekannte Grenzen](docs/RELEASE-VERIFICATION.md) · [Aus dem Quellcode starten](docs/DEVELOPMENT.md)

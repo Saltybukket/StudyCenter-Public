@@ -36,8 +36,6 @@ if(tunnelForm){
   }));
   setTimeout(tunnelStatus,0);setInterval(tunnelStatus,10000);
 }
-const compactToggle=document.querySelector('#compact-toggle');
-const compactKey='campusboard.compact';
 let appRestarting=false;
 document.querySelectorAll('[data-app-restart]').forEach(form=>form.addEventListener('submit',async event=>{
   event.preventDefault();if(appRestarting)return;appRestarting=true;
@@ -62,9 +60,6 @@ document.querySelectorAll('[data-app-restart]').forEach(form=>form.addEventListe
 }));
 document.querySelector('#app-stop-form')?.addEventListener('submit',async event=>{event.preventDefault();try{const result=await api(event.currentTarget.action,{method:'POST',body:new FormData(event.currentTarget)});tell(result.message);}catch(error){tell(error.message,true);}});
 document.querySelector('#mcp-credential-form')?.addEventListener('submit',async event=>{event.preventDefault();try{const result=await api(event.currentTarget.action,{method:'POST',body:new FormData(event.currentTarget)});document.querySelector('#mcp-credential-value').textContent=result.credential;document.querySelector('#mcp-credential-message').textContent=result.message;}catch(error){tell(error.message,true);}});
-function compact(value){document.body.classList.toggle('compact',value);if(compactToggle)compactToggle.checked=value;}
-try{const saved=localStorage.getItem(compactKey);compact(saved===null?(localStorage.getItem('campusboard.compact.'+document.body.dataset.page)==='true'||localStorage.getItem('campusboard.compact.default')==='true'):saved==='true');}catch(_){}
-compactToggle?.addEventListener('change',()=>{compact(compactToggle.checked);try{localStorage.setItem(compactKey,String(compactToggle.checked));}catch(_){}});
 function revealSection() {
   const section = document.getElementById(location.hash.slice(1));
   if(!section)return;
@@ -353,8 +348,6 @@ setInterval(()=>poll(false), 2500);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)poll();});
 
 document.querySelectorAll('[data-native-test]').forEach(button=>button.addEventListener('click',async()=>{button.disabled=true;try{const result=await api('/settings/notifications/test',{method:'POST'});tell(result.message);const label=document.querySelector('#voice-notification-state');if(label)label.textContent=result.message;}catch(error){tell(error.message,true);}finally{button.disabled=false;}}));
-document.querySelector('#display-default')?.addEventListener('change',event=>{compact(event.target.checked);try{localStorage.setItem('campusboard.compact.default',String(event.target.checked));localStorage.setItem(compactKey,String(event.target.checked));}catch(_){}});
-try{const display=document.querySelector('#display-default');if(display)display.checked=(localStorage.getItem(compactKey)??localStorage.getItem('campusboard.compact.default'))==='true';}catch(_){}
 
 document.querySelectorAll('[data-open-voice]').forEach(button=>button.addEventListener('click',()=>document.querySelector('#voice-open')?.click()));
 

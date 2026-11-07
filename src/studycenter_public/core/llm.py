@@ -47,6 +47,13 @@ die Öffnung ist die Verfügbarkeit, keine Abgabefrist. Die Datumsfelder nicht v
 Eine Quelle mit ausschließlich einer Abgabefrist bleibt date_meaning=deadline.
 Fensteröffnung, Fensterschluss, Prüfung und individuelle Bearbeitungsdauer sind
 verschiedene Aussagen; sie sind allein durch unterschiedliche Werte kein Widerspruch.
+Ein geplanter Ausgabetag im Lehrplan und die technische Freischaltung einer
+Abgabeaktivität sind ebenfalls verschiedene Aussagen. Wenn beide im gegebenen
+Material eindeutig bezeichnet sind, die tatsächliche Freischaltung als Öffnung
+verwenden und den Ausgabetag nur bei Bedarf in der Beschreibung erhalten.
+Nicht allein deshalb einen Quellenkonflikt erzeugen. Zwei widersprüchliche
+Freischaltzeitpunkte oder Abgabefristen bleiben dagegen ungeklärt; fehlende
+Freischaltungen niemals aus einem Ausgabetag erraten.
 Für dieselbe Aussage gilt die neueste belegte Quellenfassung. Publikations-/Änderungsdatum
 und ausdrücklich benannte Nachfolgefassungen berücksichtigen; Abrufreihenfolge verschiedener
 Seiten beweist keine neuere Aussage. Verweist die aktuelle Quelle ausdrücklich auf eine

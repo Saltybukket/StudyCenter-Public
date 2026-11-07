@@ -13,8 +13,8 @@
   <div class="postit-top-actions">
     <details class="postit-menu"><summary class="postit-icon" aria-label="Weitere Optionen für {{ item_title(item) }}" title="Weitere Optionen"><span aria-hidden="true">⋮</span></summary><div class="postit-menu-items">
       <a href="/items/{{ item.id }}">Details & Belege</a><a href="/items/{{ item.id }}#reminders">Erinnerung</a><a href="/items/{{ item.id }}#my-work">Bearbeiten</a>
-      <form action="/items/{{ item.id }}" method="post" class="quick-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ignore"><input type="hidden" name="expected_revision" value="{{ item.visibility_revision }}"><input type="hidden" name="target" value="{{ 0 if item.ignored else 1 }}"><button type="submit">{{ 'Wieder beachten' if item.ignored else 'Ausblenden' }}</button></form>
       <div class="postit-source-tags">{{ tags(item,['open','doing','done','time']) }}</div>
+      <form action="/items/{{ item.id }}" method="post" class="quick-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ignore"><input type="hidden" name="expected_revision" value="{{ item.visibility_revision }}"><input type="hidden" name="target" value="{{ 0 if item.ignored else 1 }}"><button type="submit">{{ 'Wieder beachten' if item.ignored else 'Ausblenden' }}</button></form>
     </div></details>
     <form action="/items/{{ item.id }}" method="post" class="quick-form pin-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="pin"><input type="hidden" name="expected_revision" value="{{ item.pin_revision }}"><input type="hidden" name="target" value="{{ 0 if item.pinned else 1 }}"><button type="submit" class="postit-icon postit-pin" aria-pressed="{{ 'true' if item.pinned else 'false' }}" aria-label="{{ 'Pin lösen' if item.pinned else 'Anheften' }}: {{ item_title(item) }}" title="{{ 'Pin lösen' if item.pinned else 'Anheften' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4v2h-5v6l-1 2-1-2v-6H6v-2l4-4z" fill="currentColor"/></svg></button></form>
   </div>
@@ -23,6 +23,7 @@
   <div class="card-meta"><span>{{ kinds[d.kind] }}</span><span>{{ item.course_title or ('Eigene Notiz' if item.identity.startswith('note:') else 'TU-Mail / Dokument') }}</span></div>
   <h3><a href="/items/{{ item.id }}">{{ item_title(item) }}</a></h3>
   <p class="item-date">{{ item_when(item) }}</p>
+  {% if sticky %}<div class="postit-source-tags"><div class="tags">{% for tag in item_tags(item) if tag.code in ['submission','attendance','unclear','offered','unassigned','conflict','decision-stale','source','cancelled','specific'] %}<details class="tag tag-{{ tag.dimension }}"><summary title="{{ tag.help }}">{{ 'Quellenhinweis' if tag.code=='specific' else tag.label }}</summary><p>{{ tag.help }}</p></details>{% endfor %}{% if item.ignored %}<span>Ignoriert</span>{% endif %}</div></div>{% endif %}
   {% if item.available_later %}<p class="task-availability">Noch nicht verfügbar · ab {{ item.task_display.available_from|localdate }}</p>{% endif %}
   {% if item_summary(item) and item_summary(item)!=item_title(item) %}<p class="task-instructions">{{ item_summary(item) }}</p>{% endif %}
   {% if sticky %}
@@ -59,11 +60,31 @@
 <dl class="change-values">{% for c in change_values(history) if not compact or c.label!='Beschreibung' %}<div><dt>{{ c.label }}</dt><dd><span class="old-value">{{ c.before }}</span><span aria-label="geändert zu"> → </span><strong>{{ c.after }}</strong></dd></div>{% else %}<div><dt>Quellen</dt><dd>Belege oder Widerspruch aktualisiert · Details prüfen</dd></div>{% endfor %}</dl>
 {% endmacro %}
 {% macro wall_views(path,include_inactive,show_ignored,request) %}
-<nav class="overview-filters wall-views" aria-label="Aufgabenansicht">{% for url,label in [('/board','Alle Einträge'),('/pins','Fokus · Angeheftet & vorgeschlagen'),('/archive','Archiv')] %}{% set target = request.url.replace(path=url).include_query_params(page=1) %}{% if url != '/archive' and request.query_params.get('status') == 'done' %}{% set target = target.remove_query_params('status') %}{% endif %}<a href="{{ target }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+<nav class="overview-filters wall-views" aria-label="Aufgabenansicht">{% for url,label in [('/board','Alle'),('/pins','Fokus'),('/archive','Archiv')] %}{% set target = request.url.replace(path=url).include_query_params(page=1) %}{% if url != '/archive' and request.query_params.get('status') == 'done' %}{% set target = target.remove_query_params('status') %}{% endif %}<a href="{{ target }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+{% endmacro %}
+
+{% macro wall_filter(path,request,courses,course,q,status,include_inactive,show_ignored,personal,due) %}
+<div class="wall-filter-bar">
+<details class="wall-filter-disclosure"><summary>Filter <span aria-hidden="true">⌄</span></summary>
+<form class="wall-filter-form" method="get">
+<div class="wall-filter-fields"><label>Suchen<input type="search" name="q" value="{{ q }}" placeholder="Titel, Kurs oder Beschreibung" maxlength="240"></label><label>Kurs<select name="course"><option value="">Alle aktiven Kurse</option>{% for c in courses if c.active or include_inactive %}<option value="{{ c.id }}" {% if course==c.id|string %}selected{% endif %}>{{ c.title }}</option>{% endfor %}</select></label><label>Status<select name="status"><option value="">Offen & in Arbeit</option>{% for code,label in [('open','Offen'),('doing','In Arbeit')] %}<option value="{{ code }}" {% if status==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label></div>
+<fieldset class="postit-personal-filter"><legend>Einträge</legend><input type="hidden" name="personal" value="{{ 'true' if personal else 'false' }}">{% for value,label in [('false','Alle'),('true','Persönlich')] %}<button type="submit" name="personal" value="{{ value }}" class="personal-chip{% if personal==(value=='true') %} selected{% endif %}" aria-pressed="{{ 'true' if personal==(value=='true') else 'false' }}">{{ label }}</button>{% endfor %}</fieldset>
+{{ due_chips(due) }}
+<div class="filter-options"><label class="check"><input type="checkbox" name="include_inactive" value="true" {% if include_inactive %}checked{% endif %}>Historische / inaktive Kurse</label><label class="check"><input type="checkbox" name="show_ignored" value="true" {% if show_ignored %}checked{% endif %}>Ignorierte Einträge</label></div>
+<div class="wall-filter-actions"><button type="submit">Filter anwenden</button><button type="button" class="secondary" data-filter-close>Schließen</button><a href="{{ path }}">Zurücksetzen</a></div></form></details>
+<div class="active-filters" aria-label="Aktive Filter">
+{% if q %}<a href="{{ request.url.remove_query_params(['q','page']) }}">Suche: {{ q }} <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endif %}
+{% if course %}{% for c in courses if c.id|string==course %}<a href="{{ request.url.remove_query_params(['course','page']) }}">{{ c.title }} <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endfor %}{% endif %}
+{% if status %}<a href="{{ request.url.remove_query_params(['status','page']) }}">{{ 'In Arbeit' if status=='doing' else 'Offen' }} <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endif %}
+{% if personal %}<a href="{{ request.url.remove_query_params(['personal','page']) }}">Persönlich <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endif %}
+{% if due!='all' %}<a href="{{ request.url.remove_query_params(['due','page']) }}">Fällig: {{ {'1':'1 Tag','7':'1 Woche','30':'1 Monat'}.get(due,due) }} <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endif %}
+{% if include_inactive %}<a href="{{ request.url.remove_query_params(['include_inactive','page']) }}">Historische Kurse <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endif %}
+{% if show_ignored %}<a href="{{ request.url.remove_query_params(['show_ignored','page']) }}">Ignorierte Einträge <span aria-hidden="true">×</span><span class="visually-hidden"> entfernen</span></a>{% endif %}
+</div></div>
 {% endmacro %}
 
 {% macro wall_pagination(request,page,pages,total) %}
-{% if pages > 1 %}<nav class="wall-pagination" aria-label="Seiten der Einträge"><span>Seite {{ page }} von {{ pages }} · {{ total }} Einträge</span>{% if page > 1 %}<a href="{{ request.url.include_query_params(page=page-1) }}">← Zurück</a>{% endif %}{% if page < pages %}<a href="{{ request.url.include_query_params(page=page+1) }}">Weiter →</a>{% endif %}</nav>{% endif %}
+{% if pages > 1 %}<nav class="wall-pagination" aria-label="Seiten der Einträge"><span>Seite {{ page }} von {{ pages }}</span>{% if page > 1 %}<a href="{{ request.url.include_query_params(page=page-1) }}">← Zurück</a>{% endif %}{% if page < pages %}<a href="{{ request.url.include_query_params(page=page+1) }}">Weiter →</a>{% endif %}</nav>{% endif %}
 {% endmacro %}
 
 {% macro due_chips(due) %}

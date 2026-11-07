@@ -31,7 +31,7 @@
     <nav class="utility-nav" aria-label="Verwaltung"><a href="/settings" {% if path in ('/settings','/model','/mail') %}aria-current="page"{% endif %}><span aria-hidden="true">⚙</span>Einstellungen</a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Lokal auf deinem Rechner</div>
   </aside>
-  <main id="main"><div class="page-toolbar"><h1>{{ self.title() }}</h1>{% block toolbar_action %}{% endblock %}<div class="toolbar-tools"><label class="check"><input type="checkbox" id="compact-toggle">Kompakt</label></div></div><div class="sync-strip" {% if stage=='Bereit' %}hidden{% endif %}><div class="sync-copy"><span id="sync-state" role="status">{{ stage }}</span><small id="sync-progress-label" hidden></small></div><progress id="sync-progress" aria-label="Quellenprüfung im aktuellen Sync" hidden></progress></div>
+  <main id="main"><div class="page-toolbar"><h1>{{ self.title() }}</h1>{% block toolbar_action %}{% endblock %}</div><div class="sync-strip" {% if stage=='Bereit' %}hidden{% endif %}><div class="sync-copy"><span id="sync-state" role="status">{{ stage }}</span><small id="sync-progress-label" hidden></small></div><progress id="sync-progress" aria-label="Quellenprüfung im aktuellen Sync" hidden></progress></div>
     <div id="notice" role="status" hidden></div>
     {% if restore_pending and path != '/settings' %}<p class="setup-note warning">Wiederherstellung vorbereitet: Änderungen und Syncs warten auf den App-Neustart. <a href="/settings">Anleitung oder Abbrechen →</a></p>{% endif %}
     {% if not settings.model_ready %}<div class="setup-note">KI-Auswertung noch nicht bereit. Seiten und PDFs bleiben gespeichert. <a href="/model">Modell verbinden und Live-Probe starten →</a></div>{% endif %}

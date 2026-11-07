@@ -198,10 +198,8 @@ async def test_browser_can_complete_resolve_and_reopen_conflict_after_restart(tm
             await expect(page.locator(f'[data-status-choice="{code}"]')).to_have_attribute('aria-pressed','true')
             await expect(page.locator('.entry-detail')).to_be_visible()
         async def resolve():
-            await page.get_by_role('link',name='Vergleichen →',exact=True).click()
+            await page.get_by_role('link',name='Angabe klären →',exact=True).click()
             await page.get_by_role('button',name='Diese Angabe verwenden',exact=True).nth(1).click()
-            await expect(page.get_by_role('button',name='Auswahl übernehmen',exact=True)).to_be_visible()
-            await page.get_by_role('button',name='Auswahl übernehmen',exact=True).click()
             await expect(page.get_by_text('Von dir geklärt',exact=True)).to_be_visible()
             await page.locator(f'a[href="/items/{iid}"]').first.click()
         if not complete_first:await resolve()
@@ -263,7 +261,9 @@ async def test_browser_back_after_preview_and_apply_uses_get(tmp_path, monkeypat
             requests=[]
             page.on('request',lambda request: requests.append((request.method,request.url)))
             await page.goto(f'http://127.0.0.1:{port}/items/{iid}/compare')
-            await page.get_by_role('button',name='Diese Angabe verwenden',exact=True).nth(1).click()
+            choice=page.locator('.comparison-choice').nth(1)
+            await choice.get_by_text('Auswirkungen vorher ansehen').click()
+            await choice.get_by_role('button',name='Vorschau öffnen').click()
             await expect(page.get_by_role('button',name='Auswahl übernehmen',exact=True)).to_be_visible()
             await page.get_by_role('button',name='Auswahl übernehmen',exact=True).click()
             await expect(page.get_by_text('Von dir geklärt',exact=True)).to_be_visible()

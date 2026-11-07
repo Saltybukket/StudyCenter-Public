@@ -31,3 +31,16 @@ document.querySelectorAll('[data-postit-status]').forEach(form => {
     });
   });
 });
+
+// Keep the filter usable when its panel covers the summary on a small screen.
+document.querySelectorAll('.wall-filter-disclosure').forEach(disclosure => {
+  const summary = disclosure.querySelector('summary');
+  const close = () => { disclosure.open = false; summary.focus(); };
+  disclosure.querySelector('[data-filter-close]')?.addEventListener('click', close);
+  disclosure.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && disclosure.open) { event.preventDefault(); close(); }
+  });
+  document.addEventListener('click', event => {
+    if (disclosure.open && !disclosure.contains(event.target)) disclosure.open = false;
+  });
+});
