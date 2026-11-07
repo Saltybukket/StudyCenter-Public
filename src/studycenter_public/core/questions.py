@@ -100,6 +100,10 @@ Maximal fünf kurze claims; nur zur aktuellen Frage relevante Aussagen. Schema:
 INSUFFICIENT = 'Das lässt sich anhand der gespeicherten Unterlagen nicht zuverlässig beantworten.'
 
 
+def sensitive_mail_document(document):
+    return document['mime']=='message/rfc822' and bool(re.search(r'verification code|sicherheitscode|einmalpasswort|password reset|passwort zur[uü]ck|lenovo code',document['title'],re.I))
+
+
 class CourseQuestions:
     def __init__(self, db, adapter, index):
         self.db, self.adapter, self.index = db, adapter, index
@@ -170,7 +174,7 @@ class CourseQuestions:
         latest = {(d['source_id'],d['url']):d['id'] for d in docs if d['mime']!='message/rfc822'}
         def relevant(d):
             if not d['source_active'] or d['course_active']==0 or d['analysis_state']=='archived':return False
-            if d['mime']=='message/rfc822' and re.search(r'verification code|sicherheitscode|einmalpasswort|password reset|passwort zur[uü]ck|lenovo code',d['title'],re.I):return False
+            if sensitive_mail_document(d):return False
             if d['mime']!='message/rfc822' and latest[(d['source_id'],d['url'])]!=d['id']:return False
             if course_id is None and not tag:return True
             if course_id is not None and d['course_id']==course_id:return True

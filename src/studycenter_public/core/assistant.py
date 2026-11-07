@@ -835,6 +835,11 @@ class Assistant:
                 return result
 
     async def execute(self, plan, request, context):
+        if plan.action=='answer_course_question':
+            if self.settings.model_provider!='chatgpt':
+                raise ValueError('Assistant benötigt die eigene ChatGPT-OAuth-Verbindung; kein API-Key-Fallback.')
+            if not self.settings.model_ready:
+                raise ValueError('ChatGPT-Modell verbinden und vorhandene Live-Probe erfolgreich abschließen.')
         if plan.action=='answer_course_question' and context.get('focus_document'):
             document=context['focus_document']
             return await self.questions.answer(plan.model_copy(update={'course':'','course_id':document['course_id']}),request,context,document['course_id'])
@@ -1414,6 +1419,9 @@ class Assistant:
             LEFT JOIN courses c ON c.id=s.course_id WHERE d.id=?''', (identifier,))
         if not document or not document['source_active'] or document['course_active']==0 or document['analysis_state']=='archived':
             raise ValueError('Das ausgewählte Dokument ist nicht mehr aktiv. Bitte die aktuelle Unterlage öffnen.')
+        from .questions import sensitive_mail_document
+        if sensitive_mail_document(document):
+            raise ValueError('Anmelde- und Sicherheitsmails werden nicht an Studi übermittelt.')
         if document['mime']!='message/rfc822':
             latest=self.db.one('SELECT id FROM documents WHERE source_id=? AND url=? ORDER BY fetched_at DESC,id DESC LIMIT 1', (document['source_id'],document['url']))
             if latest['id']!=identifier:

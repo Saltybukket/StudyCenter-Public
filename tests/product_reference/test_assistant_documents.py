@@ -159,3 +159,23 @@ async def test_default_document_question_skips_unnecessary_intent_clarification(
     result=await service.command(Command(request_id=uuid4(),text='Was muss ich auf dieser Seite machen?',context_document_id=doc))
     assert result['message']=='Lies zuerst die Schaltung.' and not result.get('clarify')
     assert adapter.responses.await_count==1
+
+
+@pytest.mark.asyncio
+async def test_default_document_question_preserves_model_readiness_gate(env):
+    service,db,adapter,_,_=env
+    doc=document_fixture(env)
+    service.settings.oauth_probe_passed=False
+    result=await service.command(Command(request_id=uuid4(),text='Was muss ich auf dieser Seite machen?',context_document_id=doc))
+    assert result['failed'] and 'Live-Probe' in result['message']
+    adapter.responses.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_security_mail_context_never_reaches_planner(env):
+    service,db,adapter,_,_=env
+    doc=document_fixture(env)
+    db.execute("UPDATE documents SET mime='message/rfc822',title='Verification code 123456' WHERE id=?",(doc,))
+    result=await service.command(Command(request_id=uuid4(),text='Bitte beschreibe dieses Dokument',context_document_id=doc))
+    assert result['failed'] and 'Sicherheitsmails' in result['message']
+    adapter.responses.assert_not_called()

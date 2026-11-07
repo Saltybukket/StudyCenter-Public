@@ -1615,6 +1615,7 @@ def create_app(settings=None):
         selected = next((p for p in pages if p["page"] == page), None)
         from .documents import reading_id
         current_page = selected
+        from .questions import sensitive_mail_document
         if reading and selected and reading!=reading_id(selected):
             selected = next((p for p in selected.get('reading_history', []) if p['reading_id'] == reading), None)
             if not selected:
@@ -1622,7 +1623,7 @@ def create_app(settings=None):
         back_url,back_label=return_destination(back)
         page_numbers=[p['page'] for p in pages]
         index=page_numbers.index(page) if page in page_numbers else -1
-        return render(request, "document.html", document=document, pages=pages, selected=selected, page=page,
+        return render(request, "document.html", document=document, pages=pages, selected=selected, page=page, document_discussion_allowed=not sensitive_mail_document(document),
                       previous_page=page_numbers[index-1] if index>0 else None,
                       next_page=page_numbers[index+1] if index>=0 and index+1<len(page_numbers) else None,
                       back_url=back_url,back_label=back_label, current_page=current_page,
