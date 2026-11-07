@@ -382,7 +382,11 @@ async def crawl(source, collector, db, store):
         await asyncio.sleep(pause)
     remaining = list(dict.fromkeys(queue + deferred))
     complete = not remaining and not errors and not login_error
-    message = login_error or ("Abrufgrenze erreicht; nächster Sync setzt fort." if queue else "\n".join(errors)) or f"{fetched} Dokumente abgerufen."
+    message = "\n".join(filter(None, (
+        login_error,
+        "Abrufgrenze erreicht; nächster Sync setzt fort." if queue and not login_error else None,
+        "\n".join(errors),
+    ))) or f"{fetched} Dokumente abgerufen."
     db.execute("UPDATE sources SET state=?,message=?,crawl_state=? WHERE id=?", ("login_required" if login_error else "success" if complete else "partial", message, cursor(remaining) if remaining else "{}", source["id"]))
     if complete:
         db.execute("UPDATE sources SET last_success=? WHERE id=?", (now(), source["id"]))
