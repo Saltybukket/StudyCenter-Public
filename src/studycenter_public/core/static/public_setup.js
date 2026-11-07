@@ -43,7 +43,7 @@
     button.disabled = true;
     const body = new FormData(model);
     model.elements.api_key.value = '';
-    try { await api(model.action, {method:'POST',body}); model.querySelector('[role="status"]').textContent = 'Verbindung gespeichert. Unter „Luna verbinden“ kannst du sie auswählen und prüfen.'; }
+    try { await api(model.action, {method:'POST',body}); model.querySelector('[role="status"]').textContent = 'Verbindung gespeichert. Unter „Studi verbinden“ kannst du sie auswählen und prüfen.'; }
     catch (error) { model.querySelector('[role="status"]').textContent = error.message; }
     finally { body.delete('api_key'); button.disabled = false; }
   });

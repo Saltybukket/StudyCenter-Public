@@ -1,4 +1,4 @@
-/* Selected detail/reader/Luna layouts, shared light/dark semantic surfaces. */
+/* Selected detail/reader/Studi layouts, shared light/dark semantic surfaces. */
 html[data-theme=dark] .reader-tabs button{background:transparent;color:var(--muted);border-color:transparent}html[data-theme=dark] .reader-tabs button[aria-selected=true]{color:var(--green);border-bottom-color:var(--green)}
 .reader-tabs{display:flex;gap:.7rem;border-bottom:1px solid var(--line);margin:0 0 1rem}.reader-tabs button{background:transparent;color:var(--muted);border:0;border-bottom:3px solid transparent;border-radius:0;padding:.45rem .2rem;font-size:.84rem}.reader-tabs button[aria-selected=true]{color:var(--green);border-bottom-color:var(--green)}.reader-text dl{font-size:.82rem}.reader-text dd{margin:.2rem 0 .7rem}.reader-text [role=tabpanel][hidden]{display:none}
 :root{--surface:#fff;--surface-raised:#f4f7fa}

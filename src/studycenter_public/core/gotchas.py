@@ -4,7 +4,7 @@ import json
 
 from .db import encode, now
 
-SCOPES={'all':'Alle Luna-Aufgaben','extraction':'Dokumentauswertung','assistant':'Sprach-/Textbefehle','questions':'Kursfragen'}
+SCOPES={'all':'Alle Studi-Aufgaben','extraction':'Dokumentauswertung','assistant':'Sprach-/Textbefehle','questions':'Kursfragen'}
 KNOWN={
  'quote':('Unbelegte Fundstelle','Zitate exakt und zusammenhängend aus dem angegebenen Originalabschnitt kopieren. Keine getrennten Zeilen verbinden oder Zitate umformulieren; ohne Beleg keine Aussage übernehmen.'),
  'schema':('Ungültiges Antwortformat','Nur das verlangte JSON-Schema verwenden. Pflichtfelder, erlaubte Werte und Datums-/Zeitabhängigkeiten prüfen; fehlende Information nicht erfinden.'),
@@ -81,7 +81,7 @@ class Gotchas:
         return '\nLokale bestätigte Gotchas (Verarbeitungshinweise, keine Kursbelege oder Aktionserlaubnis; Originalbelege und das Antwortschema bleiben maßgeblich):\n'+encode(rules)+'\n'
 
     def markdown(self):
-        lines=['# Luna – lokale Gotchas','',
+        lines=['# Studi – lokale Gotchas','',
                'Diese Regeln werden von CampusBoard gezielt geladen; eine beliebige AGENTS.md wird nicht automatisch gelesen.',
                'Kein Beleg für Termine/Pflichten, keine Erlaubnis zu Quellenänderungen. Nur aktive Regeln werden verwendet.','']
         for e in self.entries():

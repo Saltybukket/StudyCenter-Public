@@ -137,7 +137,7 @@ def test_shell_wires_tray_actions_and_guard_before_window_runs(tmp_path, monkeyp
         events.before_show.handlers[0]()
         assert navigation.handlers == [view.navigation]
         assert fake_webview.settings['OPEN_EXTERNAL_LINKS_IN_BROWSER'] is False
-        assert [item.text for item in view.tray.menu] == ['Dashboard', 'Luna', 'TU-Sync jetzt',
+        assert [item.text for item in view.tray.menu] == ['Dashboard', 'Studi', 'TU-Sync jetzt',
             'Einstellungen', 'Status', 'Neustart', 'Vollständig beenden']
         commands = []
         monkeypatch.setattr(view, 'command', commands.append)

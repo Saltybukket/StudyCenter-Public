@@ -74,7 +74,7 @@ DESCRIPTIONS={
     'get_status':'Gespeicherter Quellenstand und persönliche Kursabdeckung; Abrufzeit ist kein letzter TU-Sync. Keine Quellenabfrage.',
     'list_courses':'Gespeicherte echte aktive Kurse und Aliase, IDs für nachfolgende Aktionen. Keine TU-Abfrage.',
     'list_upcoming':'Persönliche anstehende Fristen und Termine. Kurs, Art und Datumsbereich; keine Angebotsslots als Buchung.',
-    'search':'Lokale Volltextsuche mit Originalausschnitten und Seitenlinks; keine Luna-Anfrage.',
+    'search':'Lokale Volltextsuche mit Originalausschnitten und Seitenlinks; keine Studi-Anfrage.',
     'get_item':'Eintrag mit persönlichem Status, Quellenbelegen, Zeitpräzision und Reminder-Vorschau.',
     'get_source':'Aktuelle gespeicherte Lesefassung einer Dokumentseite, maximal 16000 Zeichen je Offset, Version und Fundstelle. Frühere Lesefassungen über den historischen Leserlink, nicht ungefragt im Antworttext.',
     'write':'Eigene Einträge erstellen, persönlichen Status / Pins / Overrides ändern oder Erinnerung setzen. Explizite UUID für Idempotenz; keine TU-Schreibaktion. task_date_role=planned für Vorbereitungstage. course_id nur nach list_courses. item_id live nachschlagen.',

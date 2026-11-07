@@ -4,10 +4,10 @@
 {% block content %}
 <section class="panel">
   <p>Starte mit dem, was du brauchst. Aufgaben, Kalender und Text-PDFs funktionieren bereits. Weitere Funktionen kannst du jederzeit ergänzen.</p>
-  <div class="actions"><a class="button" href="/introduction">Einführung ansehen →</a><a href="/sources">Eigene Kurse verbinden</a><a href="/model">Luna verbinden</a></div>
+  <div class="actions"><a class="button" href="/introduction">Einführung ansehen →</a><a href="/sources">Eigene Kurse verbinden</a><a href="/model">Studi verbinden</a></div>
 </section>
 <div class="settings-help-grid">
-{% for key,title,description in [('browser','TU-Browser','Melde dich mit deinem eigenen TU-Konto an und rufe deine Kurse ab.'),('ocr','Gescannte Unterlagen lesen','Erkennt Text auf eingescannten PDF-Seiten und in Bildern.'),('speech','Mit Luna sprechen','Wandelt deine Aufnahme auf diesem Rechner in Text um.')] %}
+{% for key,title,description in [('browser','TU-Browser','Melde dich mit deinem eigenen TU-Konto an und rufe deine Kurse ab.'),('ocr','Gescannte Unterlagen lesen','Erkennt Text auf eingescannten PDF-Seiten und in Bildern.'),('speech','Mit Studi sprechen','Wandelt deine Aufnahme auf diesem Rechner in Text um.')] %}
 {% set component=components.components[key] %}
 <section class="panel" data-component-card="{{ key }}">
   <h2>{{ title }}</h2><p>{{ description }}</p>
@@ -34,7 +34,7 @@
 <button>In neuen Ordner importieren</button><p role="status" aria-live="polite"></p><pre data-ice-command hidden></pre>
 </form></details></section>
 <section class="panel"><details><summary>Eigenes KI-Modell verbinden</summary>
-<p>Für dein ChatGPT-Konto nutze <a href="/model">Luna verbinden</a>. Hier kannst du alternativ eine eigene Chat-Completions-Verbindung einrichten.</p>
+<p>Für dein ChatGPT-Konto nutze <a href="/model">Studi verbinden</a>. Hier kannst du alternativ eine eigene Chat-Completions-Verbindung einrichten.</p>
 <form action="/settings/model-api" method="post" data-model-api class="stack">
 <input type="hidden" name="csrf" value="{{ csrf }}">
 <label>API-Adresse<input type="url" name="base_url" value="{{ settings.llm_base_url }}" placeholder="https://api.example.org/v1" required autocomplete="url"></label>

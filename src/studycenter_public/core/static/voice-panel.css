@@ -1,4 +1,4 @@
-/* Luna stays beside the current view and does not block it. */
+/* Studi stays beside the current view and does not block it. */
 #voice-panel[open]{position:fixed;z-index:90;inset:96px 12px auto auto;margin:0;box-sizing:border-box;width:min(370px,calc(100vw - 24px));max-width:none;height:auto;max-height:min(680px,calc(100dvh - 108px));padding:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px #203d3533}
 #voice-panel .voice-heading{flex:none;align-items:center;padding:.9rem 1rem;border-bottom:1px solid var(--line)}
 #voice-panel .voice-heading h2{font-size:1.2rem}

@@ -379,7 +379,7 @@ def create_app(settings=None):
 
     def activities():
         return [label for busy,label in ((sync.active,'TU-Quellen-Synchronisierung'),
-            (assistant.gate.locked(),'Luna-Anfrage'),
+            (assistant.gate.locked(),'Studi-Anfrage'),
             (quests.lock.locked(),'Quest planen'),
             (class_completion.busy,'Lehrtermine abschließen'),
             (reminders.busy,'Erinnerungen verarbeiten'),
@@ -1848,7 +1848,7 @@ def create_app(settings=None):
     @app.get('/model/gotchas.md')
     async def gotcha_markdown():
         return Response(sync.model.gotchas.markdown(),media_type='text/markdown; charset=utf-8',
-                        headers={'Content-Disposition':'attachment; filename="LUNA_AGENTS.md"','Cache-Control':'no-store'})
+                        headers={'Content-Disposition':'attachment; filename="STUDI_AGENTS.md"','Cache-Control':'no-store'})
 
     @app.post('/model/gotchas')
     async def gotcha_save(request:Request):

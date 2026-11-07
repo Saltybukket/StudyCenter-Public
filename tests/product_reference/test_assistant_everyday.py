@@ -256,7 +256,7 @@ def test_mode_setting_defaults_preview_validates_and_preserves_other_data(tmp_pa
     monkeypatch.setattr(app.state.sync.auth,'status',lambda:{'connected':False,'plan_enabled':False,'profiles':[],'models':[]})
     client=TestClient(app);before=db.rows('SELECT * FROM items')
     assert app.state.assistant.mode()=='preview'
-    assert 'Luna-Ausführungsmodus' in client.get('/model').text
+    assert 'Studi-Ausführungsmodus' in client.get('/model').text
     for mode in ('direct','preview'):
         result=client.post('/model/assistant-mode',data={'csrf':app.state.csrf,'mode':mode})
         assert result.status_code==200 and result.json()['mode']==mode and app.state.assistant.mode()==mode

@@ -19,7 +19,7 @@ Die erste Einrichtung benötigt Internet. Danach sind die lokalen Funktionen auc
 
 1. **Kurz kennenlernen:** Die freiwillige Einführung zeigt dir die wichtigsten Bereiche. Du kannst sie später erneut öffnen.
 2. **Deinen Überblick aufbauen:** Eigene Aufgaben und Notizen anlegen, PDFs importieren oder deine TU-Kurse verbinden.
-3. **Nach Bedarf erweitern:** Luna und Quests helfen beim Planen und Lernen. TU-Browser, Texterkennung für Scans und Sprache lassen sich separat einrichten.
+3. **Nach Bedarf erweitern:** Studi und Quests helfen beim Planen und Lernen. TU-Browser, Texterkennung für Scans und Sprache lassen sich separat einrichten.
 
 Dein Datenbestand bleibt auf deinem Rechner. TU-Quellen werden auf deinen Klick aktualisiert. KI ist freiwillig; dabei können ausgewählte Inhalte an deinen Anbieter gesendet werden und Kosten entstehen. Prüfe KI-Vorschläge vor dem Übernehmen.
 

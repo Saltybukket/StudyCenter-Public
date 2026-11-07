@@ -1,4 +1,4 @@
-"""A bounded personal assistant: Luna interprets, Python validates and persists."""
+"""A bounded personal assistant: Studi interprets, Python validates and persists."""
 import asyncio
 import hashlib
 import json
@@ -351,7 +351,7 @@ class Assistant:
         return result
 
     def local_plan(self,text,context):
-        """Only fully specified UI controls; keep free meaning/date interpretation with Luna."""
+        """Only fully specified UI controls; keep free meaning/date interpretation with Studi."""
         value=key(text).strip(' .!?')
         value=re.sub(r'^bitte\s+','',value)
         bulk=re.fullmatch(r'markiere alle vorlesungen bis (?:(?:zum |einschliesslich )?(\d{1,2}) (\d{1,2}) (\d{4})|heute) (?:als |alles )?erledigt',value)
@@ -428,7 +428,7 @@ class Assistant:
         return result
 
     async def followup(self, request, context, courses):
-        """Resolve offered choices and narrow field answers before asking Luna."""
+        """Resolve offered choices and narrow field answers before asking Studi."""
         dialog = OpenDialog.model_validate(context['dialog'])
         plan = dialog.action
         def updated(values):

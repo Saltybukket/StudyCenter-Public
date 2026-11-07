@@ -38,7 +38,7 @@
   panel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();panel.close();get('open').focus();}});
   function renderFocus(item){const focus=get('focus');focus.replaceChildren();focus.hidden=!item;if(item){const link=document.createElement('a');link.href=item.url||'/items/'+item.id;link.textContent=item.title;focus.append('Bezug für „diesen Eintrag“: ',link);}}
   function renderChat(){
-    get('chat').replaceChildren();turns.slice(-10).forEach(turn=>{const p=document.createElement('p'),label=document.createElement('strong'),body=document.createElement('span');p.className='voice-turn '+turn.role;label.textContent=turn.role==='user'?'Du':'Luna';body.textContent=turn.text;p.append(label,body);get('chat').append(p);});get('chat').scrollTop=get('chat').scrollHeight;get('speak').disabled=!lastReply||!synth;get('speak').closest('.voice-speaking').hidden=false;get('empty').hidden=turns.length>0;controls();
+    get('chat').replaceChildren();turns.slice(-10).forEach(turn=>{const p=document.createElement('p'),label=document.createElement('strong'),body=document.createElement('span');p.className='voice-turn '+turn.role;label.textContent=turn.role==='user'?'Du':'Studi';body.textContent=turn.text;p.append(label,body);get('chat').append(p);});get('chat').scrollTop=get('chat').scrollHeight;get('speak').disabled=!lastReply||!synth;get('speak').closest('.voice-speaking').hidden=false;get('empty').hidden=turns.length>0;controls();
   }
   function addTurn(role,message){turns.push({role,text:message});turns=turns.slice(-10);try{sessionStorage.setItem('campusboard.voice.chat',JSON.stringify({turns,previous,lastReply,lastResult}));}catch(_){}renderChat();}
   async function call(url,payload){
@@ -95,7 +95,7 @@
       (result.dialog?.options||[]).forEach(option=>{const button=document.createElement('button');button.type='button';button.className='secondary small';button.textContent=option.label;button.onclick=()=>{if(option.id==='time:input'){text.focus();return;}choose({option_id:option.id},option.label);};choices.append(button);});
       const waiting=!!result.dialog?.waiting;get('question').hidden=!waiting||!!result.preview;get('question-text').textContent=waiting?result.message:'';
       const action=result.dialog?.action||{};get('context').textContent=waiting?[action.title,action.course||((result.courses||[]).find(c=>c.id===action.course_id)?.title),action.date,action.time].filter(Boolean).join(' · '):'';
-      send.textContent=waiting?'Antwort an Luna senden':'Mit Luna senden';
+      send.textContent=waiting?'Antwort an Studi senden':'Mit Studi senden';
   }
   async function command(payload){
     // A restored pre-preview request keeps its old semantics and request identity.
@@ -159,7 +159,7 @@
           if(attempt!==generation||!panel.open)return;if(!response.ok)throw new Error(result.detail||'Spracherkennung fehlgeschlagen.');
           if(editVersion!==originalEdit||text.value!==originalText||originalText.trim()){showDraft(result.text);}else{text.value=result.text;saveDraft();showDraft('');}
           status('course-hints',(result.course_suggestions?.length?'Kurskandidaten: '+result.course_suggestions.map(c=>c.title).join(' · ')+'. Transkript unverändert. ':'')+(result.warning||''));
-          status('process',`Transkript bereit · ${result.engine}/${result.model} · ${result.device} · ${result.latency}s. Prüfen und mit Luna senden.`);
+          status('process',`Transkript bereit · ${result.engine}/${result.model} · ${result.device} · ${result.latency}s. Prüfen und mit Studi senden.`);
         }catch(error){if(attempt===generation&&panel.open)status('process',error.name==='AbortError'?'Spracherkennung dauert zu lange. Texteingabe bleibt verfügbar.':error.message+' Texteingabe bleibt verfügbar.');}
         finally{clearInterval(progress);clearInterval(phasePoll);statusController.abort();clearTimeout(timeout);if(attempt===generation){transcribing=false;abort=null;controls();}}
       };
@@ -171,13 +171,13 @@
   };
   get('open').onclick=async()=>{if(!selectedItem&&!turns.length&&!suppressPageContext&&/^\/items\/\d+\/?$/.test(location.pathname)){const button=document.querySelector('[data-voice-item]');const id=Number(button?.dataset.voiceItem);if(Number.isSafeInteger(id)&&id>0){selectedItem={id,title:button.dataset.voiceTitle||'Eintrag'};renderFocus(selectedItem);}}if(!panel.open)panel.show();get('open').setAttribute('aria-expanded','true');document.body.classList.add('voice-open');renderChat();if(lastResult)renderResult(lastResult);text.focus({preventScroll:true});panel.scrollTop=0;populateVoices();try{const response=await fetch('/api/voice/status'),state=await response.json();status('connection',`${state.engine} ${state.model} · ${state.device}${state.local_model?' · lokal bereit':' · Modelldateien noch nicht bereit'} · ${state.connected?state.llm_model+' verbunden':'ChatGPT-Verbindung/Live-Probe erforderlich'}${state.stt_warning?' · '+state.stt_warning:''}`);}catch(_){status('process','Verbindungsstatus nicht verfügbar.');}};
   get('close').onclick=()=>{panel.close();get('open').focus();};panel.onclose=()=>{if(!panel.open){get('open').setAttribute('aria-expanded','false');document.body.classList.remove('voice-open');}generation++;abort?.abort();abort=null;transcribing=false;if(recorder?.state==='recording')recorder.stop();release();stopSpeaking();if(modified)location.reload();};
-  get('new-chat').onclick=async()=>{if(busy||transcribing||stream||requestingMicrophone)return;if(lastResult?.dialog?.waiting){busy=true;controls();try{await call('/api/voice/command',{request_id:crypto.randomUUID(),text:'Abbrechen',previous_id:previous,cancel:true});}catch(error){status('process',error.message);busy=false;controls();return;}busy=false;}stopSpeaking();selectedItem=null;suppressPageContext=true;turns=[];previous=null;lastResult=null;lastReply='';if(get('focus')){get('focus').hidden=true;get('focus').replaceChildren();}get('question').hidden=true;send.textContent='Mit Luna senden';pending=null;savePending();choices.replaceChildren();get('alias-choice').hidden=true;showDraft('');status('course-hints','');try{sessionStorage.removeItem('campusboard.voice.chat');}catch(_){}renderChat();status('process','Neue Unterhaltung. Deine gespeicherten Einträge bleiben erhalten.');text.focus();};
+  get('new-chat').onclick=async()=>{if(busy||transcribing||stream||requestingMicrophone)return;if(lastResult?.dialog?.waiting){busy=true;controls();try{await call('/api/voice/command',{request_id:crypto.randomUUID(),text:'Abbrechen',previous_id:previous,cancel:true});}catch(error){status('process',error.message);busy=false;controls();return;}busy=false;}stopSpeaking();selectedItem=null;suppressPageContext=true;turns=[];previous=null;lastResult=null;lastReply='';if(get('focus')){get('focus').hidden=true;get('focus').replaceChildren();}get('question').hidden=true;send.textContent='Mit Studi senden';pending=null;savePending();choices.replaceChildren();get('alias-choice').hidden=true;showDraft('');status('course-hints','');try{sessionStorage.removeItem('campusboard.voice.chat');}catch(_){}renderChat();status('process','Neue Unterhaltung. Deine gespeicherten Einträge bleiben erhalten.');text.focus();};
   document.querySelectorAll('[data-voice-item]').forEach(button=>button.addEventListener('click',()=>{
     if(busy||transcribing||stream||requestingMicrophone){status('process','Bitte die laufende Eingabe zuerst abschließen.');return;}
     const id=Number(button.dataset.voiceItem);if(!Number.isSafeInteger(id)||id<=0)return;
     // Switching the card starts a fresh conversation; no old proposal is applied.
     stopSpeaking();turns=[];previous=null;lastResult=null;lastReply='';pending=null;savePending();selectedItem={id,title:button.dataset.voiceTitle||'Eintrag'};
-    get('question').hidden=true;send.textContent='Mit Luna senden';choices.replaceChildren();get('alias-choice').hidden=true;showDraft('');status('course-hints','');
+    get('question').hidden=true;send.textContent='Mit Studi senden';choices.replaceChildren();get('alias-choice').hidden=true;showDraft('');status('course-hints','');
     text.value='';editVersion++;saveDraft();try{sessionStorage.removeItem('campusboard.voice.chat');}catch(_){}
     get('open').click();
     renderFocus(selectedItem);

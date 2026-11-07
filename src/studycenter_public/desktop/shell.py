@@ -157,7 +157,7 @@ class Desktop:
         for y in (23, 32, 41): drawing.line((20, y, 44, y), fill='#16655b', width=3)
         self.tray = pystray.Icon('StudyCenter.Public', icon_image, 'StudyCenter Public', menu=pystray.Menu(
             pystray.MenuItem('Dashboard', lambda icon, item: self.show(), default=True),
-            pystray.MenuItem('Luna', lambda icon, item: self.show('/overview#voice')),
+            pystray.MenuItem('Studi', lambda icon, item: self.show('/overview#voice')),
             pystray.MenuItem('TU-Sync jetzt', lambda icon, item: self.command('/api/sync')),
             pystray.MenuItem('Einstellungen', lambda icon, item: self.show('/settings')),
             pystray.MenuItem('Status', lambda icon, item: self.show('/settings#background')),

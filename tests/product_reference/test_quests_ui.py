@@ -184,11 +184,11 @@ async def test_quests_render_toggle_failure_and_mobile(tmp_path, monkeypatch):
         await page.locator('#quest-item-results [data-item="7"]').click()
         await page.get_by_role('button', name='Weiter', exact=True).click()
         assert await page.locator('input[name=planning][value=checklist]').is_checked()
-        await page.get_by_role('button', name='Mit Luna planen').click()
+        await page.get_by_role('button', name='Mit Studi planen').click()
         await page.locator('#quest-form-message').get_by_text('erneut versuchen', exact=False).wait_for()
         await page.locator('#quest-dialog [data-close-dialog]').click()
         await page.get_by_role('button', name='+ Neue Quest', exact=True).click()
-        await page.get_by_role('button', name='Mit Luna planen').click()
+        await page.get_by_role('button', name='Mit Studi planen').click()
         await page.wait_for_function('document.querySelector("#quest-plan").disabled === false')
         assert len(attempts) == 2 and attempts[0] == attempts[1]
         assert attempts[0]['request_id'] and attempts[0]['item_id'] == 7 and attempts[0]['goal'] == '' and attempts[0]['planning'] == 'checklist'

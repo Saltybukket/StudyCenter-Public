@@ -274,7 +274,7 @@ async def test_followup_chips_reload_capture_and_cancel_share_context(voice_page
     await page.route('**/api/voice/command',command)
     await page.locator('#voice-transcript').fill('Lerntermin morgen')
     await page.locator('#voice-send').click()
-    await expect(page.locator('#voice-send')).to_have_text('Antwort an Luna senden')
+    await expect(page.locator('#voice-send')).to_have_text('Antwort an Studi senden')
     await expect(page.locator('#voice-context')).to_contain_text('2030-10-14')
     await expect(page.locator('#voice-transcript')).to_have_value('')
     await page.reload();await page.locator('#voice-open').click()
@@ -291,7 +291,7 @@ async def test_followup_chips_reload_capture_and_cancel_share_context(voice_page
     assert requests[2]['option_id']=='time:none' and requests[2]['previous_id']==requests[1]['request_id']
     await page.locator('#voice-cancel').click()
     await expect(page.locator('#voice-question')).to_be_hidden()
-    await expect(page.locator('#voice-send')).to_have_text('Mit Luna senden')
+    await expect(page.locator('#voice-send')).to_have_text('Mit Studi senden')
     assert requests[3]['cancel'] and requests[3]['previous_id']==requests[2]['request_id']
     await page.locator('#voice-transcript').fill('Neuer eigener Termin')
     await page.locator('#voice-send').click()
