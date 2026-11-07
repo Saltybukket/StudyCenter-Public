@@ -1,0 +1,85 @@
+/* Shared reading scale. This stylesheet is never loaded by the post-it views. */
+body{--text-body:1rem;--text-secondary:.9rem;--text-caption:.85rem}
+body[data-page] main :is(p,label,summary){line-height:1.55}
+body[data-page] main :is(small,.muted,.search-context,.search-proofs,.search-date,.course-material,.reader-intro p,.reader-status,.document-format,.today-action-details,.quest-caption,.quest-step-body small){font-size:var(--text-secondary);line-height:1.5}
+body[data-page] main :is(input,select,textarea,button){font-size:.95rem}
+body[data-page] main :is(.card-meta,.search-category,.source-state,.settings-caption,.section-heading>span){font-size:var(--text-caption)}
+body[data-page] .page-toolbar{min-height:42px;gap:.5rem;margin-bottom:.75rem}
+body[data-page] .page-toolbar h1{font-size:1.15rem}
+body[data-page] .context-nav a{font-size:.9rem}
+body[data-page] main :is(h2){line-height:1.35}
+.mobile-search-toggle,.mobile-settings-link{display:none}
+/* Settings: stable category rail, one working area, details on demand. */
+.settings-ready .settings-page{display:grid;grid-template-columns:190px minmax(0,1fr);gap:1.25rem;align-items:start}
+.settings-ready .settings-page>.settings-nav{grid-column:1;grid-row:1 / span 12;display:flex;flex-direction:column;align-items:stretch;gap:.25rem;padding:0;border:0;margin:0;overflow:visible;position:sticky;top:1rem}
+.settings-page .settings-nav a{border:0;border-radius:9px;background:transparent;font-size:.95rem;white-space:normal;padding:.75rem;min-height:44px}
+.settings-ready .settings-page>:not(.settings-nav){grid-column:2;min-width:0}
+.settings-page .settings-card{padding:1.25rem;border-radius:14px}
+.settings-page .settings-card-heading{gap:.75rem;align-items:center}
+.settings-page .settings-card-icon{flex-basis:28px}.settings-page .settings-card-icon .settings-icon{width:26px;height:26px}
+.settings-page .settings-card>:is(p,form,details,.tunnel-settings,.settings-group,.settings-help-grid,.speech-probe,.settings-action-row,.actions,button),.settings-page #google-preview:not(:empty),.settings-page #google-conflicts:not(:empty){margin-left:0}
+.settings-page :is(p,label,.check,.settings-caption,.settings-status,.settings-group p,.settings-group legend,.settings-group h3,details p,details li,details>summary,.settings-nav a,.connection-row strong){font-size:.95rem;line-height:1.55}
+.settings-page .settings-card-heading h2{font-size:1.15rem}.settings-page .settings-card-heading p{font-size:.9rem}
+.settings-page input:not([type=checkbox]):not([type=radio]),.settings-page select,.settings-page button{font-size:.95rem;min-height:42px}
+.settings-page details>summary>span{font-size:.85rem;line-height:1.5}
+.settings-page .settings-disclosure{background:var(--paper);padding:.8rem;border-radius:9px}
+.settings-page .settings-extra>summary{font-size:1rem}
+.settings-page .form-row{gap:.6rem 1rem;align-items:center}
+.settings-page .settings-group>.form-row{padding:.5rem 0;border-bottom:1px solid var(--line)}
+.settings-page .reminder-preset{flex:1 1 230px}.settings-page .form-row>.check{flex:1 1 210px!important}
+.settings-page .reminder-custom{border:0;padding:0;margin:.3rem 0}
+.settings-page .settings-status{border-radius:8px;font-weight:500}
+.settings-page .theme-choices small{font-size:.9rem}.settings-page .theme-choices strong{font-size:1rem}
+/* Existing quests keep their illustration but give the working steps more space. */
+.quests-page.has-active-quests .quest-hero{min-height:0;margin-bottom:1.25rem;padding:1rem 1.25rem;gap:1rem}
+.quests-page.has-active-quests .quest-hero h2{font-size:1.45rem;margin:0 0 .6rem;max-width:none}
+.quests-page.has-active-quests .quest-hero-copy>p{display:none}
+.quests-page.has-active-quests .quest-hero-art{flex:0 0 150px;width:150px;min-width:0;max-height:110px;object-fit:contain}
+.quests-page.has-active-quests .quest-level{margin:0;padding:.6rem .8rem}
+.quests-page.has-active-quests .quest-level small{font-size:.85rem}
+.quest-today-section > .quest-section-head .quest-kicker,.quest-collection > .quest-section-head .quest-kicker{display:none}
+@media(max-width:1000px){
+ .settings-ready .settings-page{display:block}
+ .settings-ready .settings-page>.settings-nav{position:static;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:.35rem;margin-bottom:1rem;padding-bottom:.4rem;scrollbar-width:thin}
+ .settings-page .settings-nav a{flex:none;white-space:nowrap;border:1px solid var(--line);padding:.6rem .8rem}
+ .settings-page .settings-nav .settings-icon{display:none}
+}
+@media(max-width:700px){
+ body[data-page] .masthead{padding:8px 12px;gap:6px;min-height:60px;grid-template-columns:minmax(0,1fr) auto}
+ .masthead .brand{font-size:.95rem;gap:.4rem}.masthead .brand-mark{width:26px;height:26px;font-size:.8rem}
+ .masthead .actions{width:auto;flex-wrap:nowrap;gap:4px}
+ .masthead .actions button,.masthead .login-menu>summary{white-space:nowrap;min-height:40px;padding:.4rem .5rem;font-size:.85rem}
+ .masthead #voice-open svg{display:none}
+ .polish-ready .mobile-search-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:36px;font-size:1.3rem}
+ .polish-ready .masthead .header-search{display:none}
+ .polish-ready.global-search-open .masthead .header-search{display:flex}
+ .mobile-settings-link{display:block;padding:.5rem;font-weight:600}
+ .layout>aside{padding:4px 8px}
+ .layout>aside>nav[aria-label="Hauptnavigation"] a{font-size:.82rem;min-height:46px;padding:5px 2px;line-height:1.25}
+ .layout>aside .utility-nav{display:none}
+ body[data-page] main{padding:12px 12px 28px}
+ body[data-page] .page-toolbar{min-height:38px;margin-bottom:.65rem;flex-wrap:wrap}
+ body[data-page] .page-toolbar>.context-nav{margin:0;gap:.1rem}
+ body[data-page] .context-nav a{font-size:.9rem;padding:.4rem .55rem}
+ body[data-page] main :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-size:16px}
+ .settings-page .settings-card{padding:1rem}.settings-page .settings-card-heading{gap:.6rem}
+ .settings-page .theme-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem}
+ .settings-page .theme-choices label{padding:.7rem .4rem;gap:.3rem;flex-wrap:wrap}
+ .settings-page .theme-choices label>span{display:block}.settings-page .theme-choices .settings-icon{display:none}
+ .settings-page .theme-choices small{display:block;font-size:.85rem}
+ .quests-page.has-active-quests .quest-hero{padding:.85rem 1rem;position:relative;border-radius:16px}
+ .quests-page.has-active-quests .quest-hero-art{position:static;flex:0 0 75px;width:75px;max-height:85px;opacity:1}
+ .quests-page.has-active-quests .quest-hero-copy{width:auto;flex:1}.quests-page.has-active-quests .quest-level{display:flex;flex-wrap:wrap;gap:.35rem;padding:.5rem}
+ .quests-page.has-active-quests .quest-level .quest-progress{width:100%}
+ .quests-page.has-active-quests .quest-level small{font-size:.85rem}
+ .today-quest{padding:.85rem!important;gap:.55rem!important;border-radius:16px}
+ .today-quest-icon{display:none}.today-quest-name{grid-column:1/-1}.today-quest-name>small{display:none}
+ .today-quest-name h2{font-size:1.05rem}.today-quest-next{font-size:.95rem}
+ .today-quest-progress{flex-wrap:nowrap;align-items:center;font-size:.85rem}.today-quest-progress progress{width:auto;min-width:60px;flex:1}
+ .today-quest-progress span{white-space:nowrap}.today-quest-warnings p{font-size:.9rem;margin:.2rem 0}
+}
+@media(max-width:360px){.masthead .brand{font-size:0}.masthead .brand-mark{font-size:.8rem}.masthead #voice-open{font-size:.85rem}}
+
+.google-more-actions{flex-basis:100%;padding:.4rem 0}.google-more-actions[open]{display:flex;flex-wrap:wrap;gap:.5rem}.google-more-actions summary{font-size:.9rem;cursor:pointer}.google-more-actions button{margin-top:.5rem}
+
+[data-settings-advanced]:not(.disclosure-ready)>summary{display:none}

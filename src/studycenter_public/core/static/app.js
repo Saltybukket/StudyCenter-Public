@@ -75,10 +75,7 @@ const settingsNav=document.querySelector('[data-settings-nav]');
 if(settingsNav){
   const panes=[...document.querySelectorAll('[data-settings-pane]')];
   const links=[...settingsNav.querySelectorAll('a[href^="#"]')];
-  const sectionLabel=document.createElement('label');sectionLabel.className='settings-section-select';sectionLabel.textContent='Einstellungsbereich';
-  const sectionSelect=document.createElement('select');sectionSelect.setAttribute('aria-label','Einstellungsbereich');
-  links.forEach(link=>sectionSelect.add(new Option(link.textContent.trim(),link.hash.slice(1))));
-  sectionLabel.append(sectionSelect);settingsNav.before(sectionLabel);document.documentElement.classList.add('settings-ready');
+  document.documentElement.classList.add('settings-ready');
   function settingsURL(section){
     const url=new URL(location.href);url.searchParams.set('section',section);url.hash='';return url;
   }
@@ -93,7 +90,6 @@ if(settingsNav){
       if(!selected)try{selected=localStorage.getItem('campusboard.settings.section');}catch(_){}
     }
     if(!panes.some(p=>p.dataset.settingsPane===selected))selected='notifications';
-    sectionSelect.value=selected;
     panes.forEach(p=>p.hidden=p.dataset.settingsPane!==selected);
     links.forEach(link=>{
       if(link.hash==='#'+selected)link.setAttribute('aria-current','page');
@@ -119,7 +115,6 @@ if(settingsNav){
     if(url.href!==location.href)history.pushState(history.state,'',url);
     selectSettings();
   }
-  sectionSelect.addEventListener('change',()=>navigateSettings(sectionSelect.value));
   links.forEach(link=>link.addEventListener('click',event=>{
     event.preventDefault();navigateSettings(link.hash.slice(1));
   }));
@@ -366,9 +361,16 @@ if(sourceKind){
 const googlePanel=document.querySelector('#google');
 if(googlePanel){
   const status=document.querySelector('#google-status'), error=document.querySelector('#google-error');
-  function showGoogle(value){
+  let googleConflictsKey;
+  function showGoogle(value, resetConsent=false){
+    if(resetConsent){for(const name of ['enabled','consent']){const input=googlePanel.parentElement.querySelector(`[data-google-form] [name="${name}"]`);if(input)input.checked=Boolean(value[name]);}}
     status.textContent=`${value.connected?'Verbunden':'Nicht verbunden'} · ${value.enabled?'Automatischer Abgleich aktiv':'Pausiert'}${value.account?' · '+value.account:''}${value.calendar_id?' · Ziel: StudyCenter':''}${value.last_success?' · zuletzt '+new Date(value.last_success).toLocaleString('de-AT'):''}`;
     error.textContent=value.error||'';
+    googlePanel.querySelector('[data-google-action=connect]').textContent=value.connected?'Erneut anmelden':'Google verbinden';
+    googlePanel.querySelector('[data-google-action=sync]').hidden=!value.connected;
+    const conflictsKey=JSON.stringify(value.conflicts||[]);
+    if(conflictsKey===googleConflictsKey)return;
+    googleConflictsKey=conflictsKey;
     const conflicts=document.querySelector('#google-conflicts');conflicts.replaceChildren();
     for(const conflict of value.conflicts||[]){
       const row=document.createElement('div');row.className='card';
@@ -381,9 +383,17 @@ if(googlePanel){
       }conflicts.append(row);
     }
   }
-  async function previewGoogle(){
-    const result=await api('/settings/google/preview');showGoogle(result.status);
-    const root=document.querySelector('#google-preview');root.replaceChildren();
+  let googleStatusPending=false;
+  async function refreshGoogleStatus(){
+    if(document.hidden||googlePanel.closest('[data-settings-pane]')?.hidden||googleStatusPending)return;
+    googleStatusPending=true;
+    try{const value=await api('/api/desktop/status');showGoogle(value.google);}catch(_){tell('Google-Verbindungsstatus konnte nicht aktualisiert werden. Bitte Vorschau erneut laden.',true);}finally{googleStatusPending=false;}
+  }
+  addEventListener('focus',refreshGoogleStatus);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleStatus();});
+  async function previewGoogle(resetConsent=false){
+    const result=await api('/settings/google/preview');showGoogle(result.status,resetConsent);
+    const root=document.querySelector('#google-preview');root.closest('details')?.setAttribute('open','');root.replaceChildren();
     const heading=document.createElement('h3');heading.textContent=`Vorschau: ${result.selected.length} enthalten · ${result.skipped.length} ausgelassen`;root.append(heading);
     const search=document.createElement('input');search.placeholder='Vorschau nach Titel / Grund filtern';search.setAttribute('aria-label','Kalendervorschau filtern');root.append(search);
     const rows=document.createElement('div');root.append(rows);
@@ -406,10 +416,10 @@ if(googlePanel){
   document.querySelector('#google-preview-button').onclick=()=>previewGoogle().catch(e=>tell(e.message,true));
   document.querySelectorAll('[data-google-form]').forEach(form=>form.addEventListener('submit',async e=>{
     e.preventDefault();const button=form.querySelector('button');button.disabled=true;
-    try{const value=await api(form.action,{method:'POST',body:new FormData(form)});tell(value.message);await previewGoogle();}catch(e){tell(e.message,true);}finally{button.disabled=false;}
+    try{const value=await api(form.action,{method:'POST',body:new FormData(form)});tell(value.message);await previewGoogle(true);}catch(e){tell(e.message,true);}finally{button.disabled=false;}
   }));
   document.querySelectorAll('[data-google-action]').forEach(button=>button.onclick=async()=>{
-    button.disabled=true;try{const value=await api('/settings/google/'+button.dataset.googleAction,{method:'POST'});if(value.message)tell(value.message);await previewGoogle();}catch(e){tell(e.message,true);}finally{button.disabled=false;}
+    button.disabled=true;try{const value=await api('/settings/google/'+button.dataset.googleAction,{method:'POST'});if(value.message)tell(value.message);await previewGoogle(['connect','disconnect'].includes(button.dataset.googleAction));}catch(e){tell(e.message,true);}finally{button.disabled=false;}
   });
 }
 document.querySelector('#desktop-install')?.addEventListener('click',async()=>{try{const value=await api('/settings/desktop/install',{method:'POST'});tell(value.message);}catch(e){tell(e.message,true);}});

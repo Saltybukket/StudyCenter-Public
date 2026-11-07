@@ -1,4 +1,9 @@
 (() => {
+  document.addEventListener('invalid',event=>{
+    let parent=event.target.parentElement;
+    while(parent){if(parent.tagName==='DETAILS')parent.open=true;parent=parent.parentElement;}
+  },true);
+  document.querySelectorAll('[data-settings-advanced]').forEach(details=>{details.classList.add('disclosure-ready');details.open=false;});
   const presets = [
     ['1440, 120', '1 Tag und 2 Stunden vorher'],
     ['1440', '1 Tag vorher'],

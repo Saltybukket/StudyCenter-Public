@@ -60,6 +60,7 @@
   function render(){
     if(!dashboard)return;const savedFocus=pendingFocus||checkboxFocus();pendingFocus=null;const level=document.querySelector('#quest-level');level.replaceChildren(el('strong','',`✦  Level ${dashboard.level||1} · ${dashboard.xp||0} XP`),progress(dashboard.level_progress,'Fortschritt zum nächsten Level'),el('small','',`${dashboard.level_progress||0} / 100 XP zum nächsten Level`));todayBox.replaceChildren();overdueBox.replaceChildren();list.replaceChildren();
     const active=dashboard.quests.filter(q=>q.state==='active'),upcoming=[],overdue=[];
+    root.classList.toggle('has-active-quests',active.length>0);
     const endDate=new Date(`${dashboard.today}T00:00:00Z`);endDate.setUTCDate(endDate.getUTCDate()+6);const endDay=endDate.toISOString().slice(0,10);
     active.forEach(q=>{if(isChecklist(q)){const next=(q.steps||[]).find(s=>!s.done);if(next)upcoming.push({q,s:next});}else (q.steps||[]).forEach(s=>{if(!s.done&&s.scheduled_date&&s.scheduled_date<dashboard.today)overdue.push({q,s});else if((!s.done&&s.scheduled_date&&s.scheduled_date<=endDay)||(s.done&&localDay(s.completed_at)===dashboard.today))upcoming.push({q,s});});});
     const byDate=(a,b)=>(a.s.scheduled_date||'9999').localeCompare(b.s.scheduled_date||'9999');upcoming.sort(byDate);overdue.sort(byDate);
