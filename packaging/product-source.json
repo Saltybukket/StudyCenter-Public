@@ -1,8 +1,8 @@
 {
   "format": 2,
   "source": {
-    "commit": "e78cfbbb00fb3d19b97abb1e3da78f5a60d9ce80",
-    "tree": "d5a87ff2c98f9c8e07e9fca46a98178064c4104b",
+    "commit": "71e4be71fae5603c3c21f3800a47a401ad67e9a8",
+    "tree": "0517893947580a544c09b9050e2912b2ea848083",
     "object_format": "sha1",
     "path": "campusboard"
   },
@@ -24,9 +24,9 @@
       "shipped_sha256": "0c3baac01a8f409a19cf6edd46c42d70fbb95c51e14f2f30563dd43323975452"
     },
     "app.py": {
-      "git_blob": "c363a1aacd882a8ba9b0390dad77fc824ba03dd6",
+      "git_blob": "d38edec62bee64ee41e7763af89823ba795d67af",
       "mode": "100644",
-      "shipped_sha256": "7e306e0044ee6111eaff851b4148db403606b6a1fa283a257d8e60e647883afd"
+      "shipped_sha256": "9cbec9ea61b56f01ddfe99ad6806c747a8ceeac61280c935cd9fa3af92972659"
     },
     "assistant.py": {
       "git_blob": "0e4da5f472c8a8a9b97888cd66d353671bbffb2e",
@@ -224,9 +224,9 @@
       "shipped_sha256": "31c1d024f373fbfcc94c49f1b7105c055a61a7cd2926377cf656e057d54395e2"
     },
     "static/dashboard.css": {
-      "git_blob": "e696193ac90b3c9fe60e605266a04a4f8d1d206a",
+      "git_blob": "5b62c6703256a7366dff13e3fcf21179091a44d0",
       "mode": "100644",
-      "shipped_sha256": "7f9aaaffdd818a0421cd7292bbd52b3008c0ff1cfaf2a9b7d10e1d3d356e9fd3"
+      "shipped_sha256": "7e6762fcdc122e146db6ff936226199f9da4c875dc624c02d9f25cb4634fbb43"
     },
     "static/details.css": {
       "git_blob": "366c4cfbc13a337e4814ddf8f628cda3409854d8",
@@ -269,9 +269,9 @@
       "shipped_sha256": "98e546bced4f37bc73562913844b4de482b90fdb4e52e551f64f65353092db96"
     },
     "static/quests.js": {
-      "git_blob": "e99452e68966cecdeab5a61ef66d3f7b1f9eceb0",
+      "git_blob": "2a3d5eb088117c3ae7d7e9ffc9a4993d57730a83",
       "mode": "100644",
-      "shipped_sha256": "560a73aa5c3171b7ed23f223ff1d56b054c69bce4bf754b32deae0c08117538e"
+      "shipped_sha256": "e532a93171f2f6068fbc543f59362f4937699de355344527faa4210cb6ad8e9d"
     },
     "static/settings-helpers.js": {
       "git_blob": "e3de5265b8a61eef9f5a015388149841a45f43be",
@@ -419,9 +419,9 @@
       "shipped_sha256": "dbc6465c2a34f84ce5d6b2bc8f1eb5c136ab30950687d16e5b8c623b5b435598"
     },
     "templates/overview.html": {
-      "git_blob": "5da30dd1d7d47625e184e90da6712822e2dd2514",
+      "git_blob": "8aea860f9cbe7027d4fd16219333825a304c71f1",
       "mode": "100644",
-      "shipped_sha256": "72a7ecd819aafb4b3b3f25a7b5e47d3527605d4c918b370f27bfd52d4b23309d"
+      "shipped_sha256": "e5b0b19c9bbaee9ee943cee84d58c5464c4fa0ee31bd97501863cb2e8447343a"
     },
     "templates/pins.html": {
       "git_blob": "7c4482b76f260a3306eb4904dcd006b8bac51b20",

@@ -1078,6 +1078,9 @@ def create_app(settings=None):
         # A source conflict is not a reliable deadline. Keep dated conflicts visible
         # in their own section; undated source information must not displace tasks.
         focus_actions = [i for i in focus_priority if i['id'] not in check_ids][:6]
+        display_priority = [i for i in focus_priority if i['id'] not in check_ids
+                            and (not i['appointment'] or i['urgent'])]
+        focus_display = display_priority[:6]
         dated_checks = [i for i in checks if i['action_date']]
         undated_checks = [i for i in checks if not i['action_date']]
         actions = focus_actions
@@ -1093,6 +1096,24 @@ def create_app(settings=None):
             if i['action_date'] and today<=i['action_date']<=week_end:
                 week.append(i)
         week.sort(key=due_key)
+        # The compact Today view must not be limited by the weekly preview's
+        # twelve-entry cap, and deadlines are not calendar appointments.
+        today_appointments = [i for i in week if i['action_date']==today and i['appointment']]
+        upcoming_deadline = next((i for i in due if i['action_date']>=today and i['id'] not in check_ids), None)
+        undated_tasks = sorted([i for i in filtered if i['data']['kind']=='task' and i['actionable']
+                                and not i['action_date'] and i['id'] not in check_ids], key=lambda i:i['id'])
+        quest_dashboard = await asyncio.to_thread(quests.dashboard)
+        quest_candidates = []
+        for quest in quest_dashboard['quests']:
+            if quest['state'] != 'active': continue
+            open_steps = [s for s in quest['steps'] if not s['done']]
+            if not open_steps: continue
+            next_step = (open_steps[0] if quest['planning']=='checklist' else
+                         min(open_steps, key=lambda s:s['scheduled_date']))
+            scheduled = next_step['scheduled_date']
+            rank = 0 if scheduled and scheduled <= today else 1 if quest['planning']=='checklist' else 2
+            quest_candidates.append((rank, scheduled or '', {'quest':quest, 'step':next_step}))
+        next_quest = min(quest_candidates, key=lambda candidate:candidate[:2])[2] if quest_candidates else None
         # Bounded lists, no persistent merging of source records or personal states.
         run = db.one("SELECT * FROM sync_runs WHERE state!='running' AND kind='manual' ORDER BY id DESC LIMIT 1")
         since = run['started_at'] if run else None
@@ -1113,9 +1134,12 @@ def create_app(settings=None):
                 WHERE d2.source_id=d.source_id AND d2.url=d.url ORDER BY fetched_at DESC,id DESC LIMIT 1))""",
             (encode([s['id'] for s in sources]),))['n']
         return render(request, 'overview.html', kind=kind, today=today, tasks=tasks,
+                      today_appointments=today_appointments, upcoming_deadline=upcoming_deadline,
+                      undated_tasks=undated_tasks, next_quest=next_quest,
                       expired_registrations=expired_registrations[:8], expired_registration_count=len(expired_registrations),
                       actions=actions, action_ids=action_ids, action_count=len({i['id'] for i in priority+checks}),
-                      focus_actions=focus_actions, focus_action_count=len([i for i in focus_priority if i['id'] not in check_ids]),
+                      focus_actions=focus_actions, focus_display=focus_display, focus_display_count=len(display_priority),
+                      focus_action_count=len([i for i in focus_priority if i['id'] not in check_ids]),
                       dated_checks=dated_checks[:6], dated_check_count=len(dated_checks), undated_checks=undated_checks[:6], undated_check_count=len(undated_checks),
                       focus_urgent=sum(acute_focus(i) for i in focus_priority if i['id'] not in check_ids),
                       due=due[:6], due_count=len(due), week=week[:12], week_count=len(week),
