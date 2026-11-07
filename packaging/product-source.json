@@ -1,8 +1,8 @@
 {
   "format": 2,
   "source": {
-    "commit": "71e4be71fae5603c3c21f3800a47a401ad67e9a8",
-    "tree": "0517893947580a544c09b9050e2912b2ea848083",
+    "commit": "ace5106187a9e8d4bc4baaa72e7064b9fd7efaa4",
+    "tree": "71f1c7cc2fd601e9cc144e9822464d9031d1cf3c",
     "object_format": "sha1",
     "path": "campusboard"
   },
@@ -24,9 +24,9 @@
       "shipped_sha256": "0c3baac01a8f409a19cf6edd46c42d70fbb95c51e14f2f30563dd43323975452"
     },
     "app.py": {
-      "git_blob": "d38edec62bee64ee41e7763af89823ba795d67af",
+      "git_blob": "7d109dd3e803842c2e3bdd6ef13df29bf1d5f49e",
       "mode": "100644",
-      "shipped_sha256": "9cbec9ea61b56f01ddfe99ad6806c747a8ceeac61280c935cd9fa3af92972659"
+      "shipped_sha256": "953b7bf0182213a2c84947ece6a932febe09545756418c40222df9327e92fe38"
     },
     "assistant.py": {
       "git_blob": "0e4da5f472c8a8a9b97888cd66d353671bbffb2e",

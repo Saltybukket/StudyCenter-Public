@@ -1283,6 +1283,20 @@ def create_app(settings=None):
         return render(request, "item.html", item=item, evidence=evidence, related=related, own_links=own_links,
                       timing_label=action_state(item,datetime.now(VIENNA))['action_label'],reminder_plans=plans,reminder_issues=issues)
 
+    # Drafts are process-local and bounded. Only POST creates/prunes them; GET
+    # remains read-only and the opaque key keeps personal values out of URLs.
+    comparison_drafts = {}
+    def comparison_redirect(item_id, fact, *, pending=None, error=None, token=None):
+        now = monotonic_clock.monotonic()
+        expired = [key for key, draft in comparison_drafts.items() if draft['expires'] <= now]
+        for key in expired: del comparison_drafts[key]
+        while len(comparison_drafts) >= 100: del comparison_drafts[next(iter(comparison_drafts))]
+        key = secrets.token_urlsafe(24)
+        comparison_drafts[key] = {'item_id':item_id, 'fact':fact, 'token':token,
+                                  'pending':pending, 'error':error[:1000] if error else None,
+                                  'expires':now + 600}
+        return RedirectResponse(f'/items/{item_id}/compare?fact={fact}&draft={key}',status_code=303)
+
     def comparison_render(request, view, pending=None, error=None):
         from .comparison import project_value
         preview = project_value(view['item']['data'],view['fact'],pending['value']) if pending else None
@@ -1294,12 +1308,21 @@ def create_app(settings=None):
                       reminder_plans=plans,reminder_issues=issues,error=error)
 
     @app.get('/items/{item_id}/compare')
-    async def compare_item(item_id: int, request: Request, fact: str = ''):
+    async def compare_item(item_id: int, request: Request, fact: str = '', draft: str = ''):
         from .comparison import comparison
         try: view=await asyncio.to_thread(comparison,db,item_id,fact or None)
         except LookupError: raise HTTPException(404,'Eintrag nicht gefunden') from None
         except ValueError as error: raise HTTPException(400,str(error)) from None
-        return comparison_render(request,view)
+        pending = error = None
+        if draft:
+            entry = comparison_drafts.get(draft) if len(draft) <= 64 else None
+            if not entry or entry['expires'] <= monotonic_clock.monotonic() or entry['item_id'] != item_id or entry['fact'] != view['fact']:
+                error = 'Die Vorschau ist nicht mehr verfügbar. Bitte neu vergleichen.'
+            elif entry['pending'] and entry['token'] != view['token']:
+                error = 'Die Beleglage oder deine Korrektur hat sich geändert. Bitte neu vergleichen.'
+            else:
+                pending, error = entry['pending'], entry['error']
+        return comparison_render(request,view,pending,error)
 
     @app.post('/items/{item_id}/compare')
     async def compare_choice(item_id: int, request: Request):
@@ -1311,9 +1334,12 @@ def create_app(settings=None):
                 raise ValueError('Die Beleglage oder deine Korrektur hat sich geändert. Bitte neu vergleichen.')
             choice=str(form.get('choice','')); manual=None
             if form.get('mode')=='manual':
+                choice=''  # Manual drafts carry no source key or proof.
                 manual={'obligation':str(form.get('obligation',''))} if fact=='obligation' else {'date':str(form.get('date','')),'time':str(form.get('time','')) or None}
             selected=next((c for c in view['cards'] if c['key']==choice),None)
             reason=str(form.get('reason','')).strip()
+            if len(reason)>500 or (manual and any(len(str(v or ''))>100 for v in manual.values())):
+                raise ValueError('Die Eingabe ist zu lang.')
             if action in ('apply','reset'):
                 await asyncio.to_thread(save,db,item_id,fact,view['token'],choice,manual,reason,action=='reset')
                 return RedirectResponse(f'/items/{item_id}/compare?fact={fact}',status_code=303)
@@ -1322,11 +1348,12 @@ def create_app(settings=None):
             value=manual if manual is not None else selected['value']
             Candidate.model_validate(project_value(view['item']['data'],fact,value))
             pending={'value':value,'choice':choice,'mode':'manual' if manual is not None else 'source','reason':reason}
-            return comparison_render(request,view,pending)
+            return comparison_redirect(item_id,view['fact'],pending=pending,token=view['token'])
         except LookupError: raise HTTPException(404,'Eintrag nicht gefunden') from None
         except (ValueError,KeyError) as error:
-            view=await asyncio.to_thread(comparison,db,item_id,fact if fact else None)
-            return comparison_render(request,view,error='Auswahl nicht übernommen: '+str(error))
+            try: view=await asyncio.to_thread(comparison,db,item_id,fact if fact else None)
+            except ValueError: view=await asyncio.to_thread(comparison,db,item_id,None)
+            return comparison_redirect(item_id,view['fact'],error='Auswahl nicht übernommen: '+str(error))
 
     @app.post("/items/{item_id}")
     async def update_item(item_id: int, request: Request):
