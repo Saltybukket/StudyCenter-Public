@@ -23,6 +23,7 @@ async def test_quests_render_toggle_failure_and_mobile(tmp_path, monkeypatch):
                         'scheduled_date': '2026-11-02'}]}
     quest['steps'].extend(quest['steps'][0] | {'id': f'next-{i}', 'title': f'Etappe {i}'} for i in range(1, 4))
     quest['steps'][0]['topic'] = 'Grundlagen'
+    quest['steps'][0]['materials'] = [{'document_id':91,'page':2,'title':'Skript Matrizen','course':'Algebra','url':'https://untrusted.invalid'}]
     quest['steps'][1]['topic'] = 'Grundlagen'
     quest['steps'][2]['topic'] = 'Anwenden'
     quest['steps'][3]['topic'] = 'Anwenden'
@@ -115,6 +116,12 @@ async def test_quests_render_toggle_failure_and_mobile(tmp_path, monkeypatch):
         assert await page.locator('#quest-path-body a[href="/items/7"]').count() == 1
         assert await page.locator('#quest-path-body a[href="/items/8"]').count() == 1
         assert await page.locator('#quest-path-body .quest-source-links a').count() == 3
+        material=page.locator('#quest-path-body .quest-step-materials a').first
+        assert await material.get_attribute('href')=='/documents/91?page=2'
+        assert 'Skript Matrizen' in await material.inner_text()
+        body=page.locator('#quest-path-body .quest-step-body').first
+        assert (await body.bounding_box())['width']>150
+        assert (await material.bounding_box())['y']>(await body.bounding_box())['y']
         assert await page.locator('[data-quest-card="8a59a287-c741-40be-98d6-544b14aaedbb"] .quest-meta').first.text_content() == 'Algebra · Analysis · 1 weitere'
         assert await page.locator('.quest-add-card').is_visible()
         path_check = page.locator('#quest-path-body input[type=checkbox]').first

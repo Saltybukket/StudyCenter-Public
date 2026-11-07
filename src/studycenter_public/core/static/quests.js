@@ -49,9 +49,9 @@
     const q=findQuest(pathId);if(!q){pathDialog.close();return;}
     const draft=q.state==='draft'?draftFor(q):null,steps=draft?.steps||q.steps||[];
     document.querySelector('#quest-path-title').textContent=draft?.title||q.title;
-    pathBody.replaceChildren();
+    pathBody.replaceChildren();(q.warnings||[]).forEach(w=>pathBody.append(el('p','quest-warning',w)));if(q.material_note)pathBody.append(el('p','quest-caption',q.material_note));
     pathBody.append(el('p','quest-caption',draft?'Dein Lernvorschlag. Du kannst die Etappen vor dem Start anpassen.':`${q.completed_count||0} von ${q.total_count||0} Etappen geschafft`));if(isChecklist(q))pathBody.append(el('p','quest-caption',checklistMeta(q)));
-    topicSteps(pathBody,steps,(s,index)=>{const stage=el('div','quest-timeline-stage');stage.append(el('span','quest-stage-number',index+1),stepRow(q,s,false,true));return stage;});
+    topicSteps(pathBody,steps,(s,index)=>{const stage=el('div','quest-timeline-stage');stage.append(el('span','quest-stage-number',index+1),stepRow(q,s,false,true));if(s.materials?.length){const links=el('div','quest-step-materials');s.materials.forEach(ref=>{if(!Number.isSafeInteger(ref.document_id)||!Number.isSafeInteger(ref.page))return;const link=el('a','quest-link',`${ref.title} · ${ref.original_only?'Original · ':''}S. ${ref.page}`);link.href=ref.original_only?`/documents/${ref.document_id}/pages/${ref.page}.png`:`/documents/${ref.document_id}?page=${ref.page}`+(/^[a-f0-9]{64}$/.test(ref.reading_id||'')?`&reading=${ref.reading_id}`:'');link.title=ref.course||ref.title;link.target='_blank';link.rel='noopener noreferrer';links.append(link);});stage.append(links);}return stage;});
     const sources=new Map();(q.sources||[]).forEach(s=>{if(s.id!=null&&!sources.has(String(s.id)))sources.set(String(s.id),s);});steps.forEach(s=>{if(s.item_id!=null&&!sources.has(String(s.item_id)))sources.set(String(s.item_id),{id:s.item_id,title:`Aufgabe ${s.item_id}`});});
     if(sources.size){const group=el('div','quest-source-links');group.append(el('h3','','Verknüpfte Aufgaben'));sources.forEach(source=>{const link=el('a','quest-link',source.title||`Aufgabe ${source.id}`);link.href='/items/'+encodeURIComponent(source.id);group.append(link);});pathBody.append(group);}
   }

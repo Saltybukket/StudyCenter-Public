@@ -1,8 +1,8 @@
 {
   "format": 2,
   "source": {
-    "commit": "2f43ba50228e5e632fac810cf24540831e9cbaf7",
-    "tree": "be10aee78f840ad8589505d129901e727b70ce2f",
+    "commit": "c2fb1ece5ead6a4404a3b2460660e48462773273",
+    "tree": "b516f0ea35e16f2a675d5ec456bcd15c6208f95b",
     "object_format": "sha1",
     "path": "campusboard"
   },
@@ -24,9 +24,9 @@
       "shipped_sha256": "0c3baac01a8f409a19cf6edd46c42d70fbb95c51e14f2f30563dd43323975452"
     },
     "app.py": {
-      "git_blob": "15a6a60a7ad9c40656e9709a07e7bde9592a338f",
+      "git_blob": "b7dcabd50b2ff4bc72adca1fe17a249c26987e87",
       "mode": "100644",
-      "shipped_sha256": "daa92526686ea4456adcaf3eeae4bbaaf792c48de82967559f519456ed048459"
+      "shipped_sha256": "3b30c6a9f69fa36367bb8f32efb29fe81b46ec1c1e65362f5790e85685797637"
     },
     "assistant.py": {
       "git_blob": "9e169dac452d87b1eade46363a60dee6b01c4435",
@@ -89,9 +89,9 @@
       "shipped_sha256": "31f982d6754a6894744b86ebc0d88a227bcbacee039fc5c3d9d400765bdbb934"
     },
     "documents.py": {
-      "git_blob": "5edfc8d346193c0d6a5d25f3dfdcd4c4c6a15571",
+      "git_blob": "94c15dbe0b2c3a1f79ebd8fe512b76a38c228a55",
       "mode": "100644",
-      "shipped_sha256": "7401d60ee1cdeb2c3145827f51ab6be769a5b77b7f1395ff9ae5e64152c71677"
+      "shipped_sha256": "2e57dccacd5fa47bc95e5cb6323c513ee023db03cd89663882d7799a45d218eb"
     },
     "gitlab.py": {
       "git_blob": "b982d853a725fa814dba93b81bf8ea5e7cb5c54c",
@@ -158,15 +158,20 @@
       "mode": "100644",
       "shipped_sha256": "577ef34b4c452a6c4533b2b3947b07e22e292911a021071d02675fc1b3d356e0"
     },
+    "quest_materials.py": {
+      "git_blob": "a68acff7b7a7cae8e5fd0d0a0fae77a5c8d1537c",
+      "mode": "100644",
+      "shipped_sha256": "5274fc0aaaf1b2554e642d1ed2f84245664589c7b9bc64d934890a8f45f32894"
+    },
     "questions.py": {
       "git_blob": "94d65856a8b2d11b972375cc2c9db30ddc948887",
       "mode": "100644",
       "shipped_sha256": "6795328d04a70c20b74048623de696da4131f9f45ca94be55fe84b74a1a9461c"
     },
     "quests.py": {
-      "git_blob": "834de2cfe43abdf5074e304621c69725f4e19635",
+      "git_blob": "a1bbae72c496ad6b509e49d5f21f8e14349e3946",
       "mode": "100644",
-      "shipped_sha256": "da7498a03f760631fe09eac1863a1301d2c7b46e47adbe13e0e2989df440eff7"
+      "shipped_sha256": "8bcde66a0952acb46129baf2cc5be44ef0b8d0f9ee121709ecc1c294dd4fb64e"
     },
     "reminders.py": {
       "git_blob": "e9e2bfe1c9d9d39a7fe77c20a50c112a3cafedbf",
@@ -279,14 +284,14 @@
       "shipped_sha256": "f28dcdfca027dd5304a433b0956699e948ed6458bac4e4d0346831775266e6b7"
     },
     "static/quests.css": {
-      "git_blob": "61692b0e77bae5898d83c1cf10a03768330ab710",
+      "git_blob": "dbe0b7d7409d578b468dd344ee2c9e505773611e",
       "mode": "100644",
-      "shipped_sha256": "e72cbd357742e6bd8426267175711be05ded78a5449b8ae9a6d5fe53c27830b5"
+      "shipped_sha256": "d6c5c10081c91771db629c0c45ecf3a060a288dbc113e5939f49f5bc770fcd4d"
     },
     "static/quests.js": {
-      "git_blob": "d0b98c7e66d43b49fd8b8dfc40b1df43800c2cc6",
+      "git_blob": "be80a72faa0019ffca85336731d75b1c56a29a5e",
       "mode": "100644",
-      "shipped_sha256": "d1e6f3b19f4518c1d57b82c9a508a8555a20183285eaad36c72efe7a53ca4f5d"
+      "shipped_sha256": "2bf815176c1b5d303daceb718112a2d969c4e2aef3b54f4f5b7d843bde61d225"
     },
     "static/settings-helpers.js": {
       "git_blob": "59251cc840046b0a755e11b4758be7aba759f61f",
@@ -449,9 +454,9 @@
       "shipped_sha256": "3a03cac5a65eb38aeecabab79d6ee61818a572ddd35f74bae9f738ed208600f6"
     },
     "templates/quests.html": {
-      "git_blob": "e95c315c26dbb248539fd4b6470ee813b8237e39",
+      "git_blob": "2c03cdec6f2dbbed167ab612a282d91207e385bb",
       "mode": "100644",
-      "shipped_sha256": "31e91c96bcd3474b6efbf57f5f751e921ba3318e401d32be32cd260125f94192"
+      "shipped_sha256": "30bf57be5cb6610d362e780f6831bed1c1a2a21462220b391457949340978ddb"
     },
     "templates/search.html": {
       "git_blob": "d15aacb72f0b22c8aee5203c858fa2b6011e9752",
@@ -503,7 +508,7 @@
       "shipped_sha256": "673470534f857eea33d56e2293de21e8d32c958dcf3d8bac2271bdc869527637"
     },
     "templates/public_setup.html": {
-      "shipped_sha256": "59cbc2245510f043a6933c7599ae8d560096f490432a20cb3be94fc44c01ad1f"
+      "shipped_sha256": "042d3f3bef5ec6b1cb27f866423cdfd6026db4be28189c1c30d06a7d32d2ed89"
     }
   }
 }

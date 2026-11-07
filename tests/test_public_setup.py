@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 
 from studycenter_public.platform.paths import AppPaths
@@ -26,6 +27,33 @@ def test_first_setup_is_local_and_never_displays_saved_secret(tmp_path):
             assert response.status_code == 200
             assert 'synthetic-never-render' not in response.text
         assert calls == []
+
+
+def test_ice_course_presets_add_only_the_explicitly_selected_local_course(tmp_path):
+    paths = AppPaths.create(tmp_path / 'public')
+    app = create_app(paths, SecretStore(paths.instance_id, session_only=True))
+    with TestClient(app) as client:
+        page = client.get('/setup')
+        preset = BeautifulSoup(page.text, 'html.parser').select_one('#course-presets form')
+        assert preset is not None and preset['method'] == 'post' and preset['action'] == '/courses'
+        assert preset.select_one('select[name="title"][required] option[selected]')['value'] == ''
+        assert app.state.db.rows('SELECT * FROM courses') == []
+
+        title = 'Entwurf von Echtzeitsystemen, UE'
+        assert title in [option.get_text(strip=True) for option in preset.select('optgroup option')]
+        csrf = preset.select_one('input[name="csrf"]')['value']
+        assert client.post(preset['action'], data={'title': title}).status_code == 403
+        assert client.post(preset['action'], data={'csrf': csrf, 'title': ''}).status_code == 400
+        assert app.state.db.rows('SELECT * FROM courses') == []
+
+        result = client.post(preset['action'], data={'csrf': csrf, 'title': title}, follow_redirects=False)
+        assert result.status_code == 303 and result.headers['location'] == '/sources'
+        assert title in client.get('/sources').text
+        assert app.state.db.rows('SELECT title, semester, group_name, external_id FROM courses') == [
+            {'title': title, 'semester': '', 'group_name': '', 'external_id': None},
+        ]
+        for table in ('sources', 'items', 'sync_runs'):
+            assert app.state.db.one(f'SELECT count(*) AS total FROM {table}')['total'] == 0
 
 
 def test_session_storage_form_has_explicit_consent_and_csrf(tmp_path):

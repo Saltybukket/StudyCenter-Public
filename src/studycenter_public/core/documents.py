@@ -341,10 +341,21 @@ class DocumentStore:
                 if page['page'] in verified:
                     page['visual_transcription'] = verified[page['page']]
                     page['text'] += '\n' + verified[page['page']]['text']
+            old_readings = {p['page']:p for p in json.loads(document['pages'])}
+            for page in pages:
+                previous_page = old_readings.get(page['page'])
+                if not previous_page: continue
+                history = list(previous_page.get('reading_history', []))
+                previous_id = reading_id(previous_page)
+                if previous_id != reading_id(page) and not any(p['reading_id']==previous_id for p in history):
+                    history.append({k:v for k,v in previous_page.items() if k!='reading_history'} |
+                                   {'reading_id':previous_id,'saved_at':now()})
+                if history: page['reading_history'] = history
             gaps = [f"Seite {p['page']}: {g}" for p in pages for g in p["gaps"]]
             # A changed OCR result invalidates previously completed chunks.
+            new_progress = None
             if encode(pages) != document["pages"]:
-                self.db.execute("UPDATE documents SET progress='{}',analysis_state='pending' WHERE id=?", (doc_id,))
+                new_progress = '{}'
                 if document['mime'] == 'text/html' and not gaps:
                     # Moodle changes runtime element IDs on every render. Keep each original
                     # version, but replay validated results when all extracted content is identical.
@@ -354,8 +365,15 @@ class DocumentStore:
                         ORDER BY fetched_at DESC,id DESC LIMIT 1""",
                         (document['source_id'],document['url'],doc_id,encode(pages),title,published))
                     if previous:
-                        self.db.execute('UPDATE documents SET progress=? WHERE id=?', (previous['progress'],doc_id))
-            self.db.execute("UPDATE documents SET pages=?,title=?,published_at=?,processing_state=?,error=? WHERE id=?", (encode(pages), title, published, "partial" if gaps else "success", "\n".join(gaps), doc_id))
+                        new_progress = previous['progress']
+            with self.db.connection() as con:
+                con.execute('BEGIN IMMEDIATE')
+                current = con.execute('SELECT * FROM documents WHERE id=?',(doc_id,)).fetchone()
+                if current['pages'] != document['pages']:
+                    return dict(current)  # A concurrent reread wins; keep its text/history/progress.
+                con.execute("""UPDATE documents SET pages=?,title=?,published_at=?,processing_state=?,error=?,
+                    progress=COALESCE(?,progress),analysis_state=CASE WHEN ? IS NOT NULL THEN 'pending' ELSE analysis_state END
+                    WHERE id=?""", (encode(pages),title,published,'partial' if gaps else 'success','\n'.join(gaps),new_progress,new_progress,doc_id))
         except Exception as error:
             self.db.execute("UPDATE documents SET processing_state='failed',error=? WHERE id=?", (f"Dokument nicht lesbar: {type(error).__name__}: {error}", doc_id))
         return self.db.one("SELECT * FROM documents WHERE id=?", (doc_id,))

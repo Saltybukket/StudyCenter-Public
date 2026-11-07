@@ -281,7 +281,7 @@ async def test_checklist_reads_exact_local_pdf_all_pages_and_preserves_status(se
     with service.db.connection() as con:
         con.execute("INSERT INTO courses(id,title) VALUES(1,'Messtechnik')")
         con.execute("INSERT INTO sources(id,course_id,kind,title,url) VALUES(1,1,'teachcenter','Kurs','https://tc.test/course')")
-        con.execute("INSERT INTO items(id,course_id,identity,payload,created_at,changed_at) VALUES(1,1,'task:1','{}',?,?)",(now(),now()))
+        con.execute("INSERT INTO items(id,course_id,identity,payload,created_at,changed_at) VALUES(1,1,'task:1','{\"kind\":\"task\",\"source_state\":\"active\",\"title\":\"Abgabe\"}',?,?)",(now(),now()))
         for did,url,title,mime,path,raw in [(1,'https://tc.test/mod/resource/view.php?id=1','AB2 Ressource','text/html',htmlpath,html),(2,'https://tc.test/pluginfile.php/AB2.pdf','AB2.pdf','application/pdf',pdfpath,pdfpath.read_bytes())]:
             con.execute('INSERT INTO documents(id,source_id,url,title,mime,hash,fetched_at,original_path) VALUES(?,?,?,?,?,?,?,?)', (did,1,url,title,mime,hashlib.sha256(raw).hexdigest(),now(),str(path)))
         con.execute("INSERT INTO item_evidence(item_id,document_id,page,anchor,quote,payload) VALUES(1,1,1,'a','Arbeitsblatt 2','{}')")
@@ -313,7 +313,7 @@ async def test_checklist_rejects_changed_document_before_activation(service, mon
     doc=tmp_path/'doc.txt';doc.write_text('Original',encoding='utf8')
     with service.db.connection() as con:
         con.execute("INSERT INTO sources(id,kind,title,url) VALUES(1,'manual','S','https://example.test')")
-        con.execute("INSERT INTO items(id,identity,payload,created_at,changed_at) VALUES(1,'task:1','{}',?,?)",(now(),now()))
+        con.execute("INSERT INTO items(id,identity,payload,created_at,changed_at) VALUES(1,'task:1','{\"kind\":\"task\",\"source_state\":\"active\",\"title\":\"Abgabe\"}',?,?)",(now(),now()))
         con.execute('INSERT INTO documents(id,source_id,url,title,mime,hash,fetched_at,original_path,pages,processing_state) VALUES(1,1,?,?,?,?,?,?,?,?)', ('https://example.test/doc','Aufgabe','text/plain',hashlib.sha256(b'Original').hexdigest(),now(),str(doc),json.dumps([{'page':1,'text':'Original','gaps':[]}]),'success'))
         con.execute("INSERT INTO item_evidence(item_id,document_id,page,anchor,quote,payload) VALUES(1,1,1,'a','Original','{}')")
     service.adapter.item_id=1
@@ -321,3 +321,142 @@ async def test_checklist_rejects_changed_document_before_activation(service, mon
     service.db.execute("UPDATE documents SET pages=? WHERE id=1",(json.dumps([{'page':1,'text':'Geändert','gaps':[]}]),))
     with pytest.raises(QuestError) as error: service.activate(q['id'], {'version':q['version']})
     assert error.value.status==409
+
+
+def seed_learning_material(service, title='Operationsverstärker Skript', text='Gegenkopplung und virtuelle Masse am OPV', *, did=91, stamp='2030-03-01', semester='2030S'):
+    with service.db.connection() as con:
+        con.execute("INSERT OR IGNORE INTO courses(id,title,active,semester) VALUES(91,'Elektronische Schaltungstechnik',1,?)",(semester,))
+        con.execute("INSERT OR IGNORE INTO sources(id,course_id,kind,title,url,active) VALUES(91,91,'teachcenter','Skript','https://example.test/course',1)")
+        con.execute("INSERT INTO documents(id,source_id,url,title,mime,hash,fetched_at,original_path,pages,processing_state,analysis_state) VALUES(?,91,'https://example.test/script.pdf',?,'application/pdf',?,?,?,?,'success','success')",(did,title,'hash-'+str(did),stamp,'unused.pdf',json.dumps([{'page':1,'text':text,'gaps':[]}])) )
+
+
+@pytest.mark.asyncio
+async def test_learning_quest_reads_scripts_and_preserves_verified_material_links(service):
+    seed_learning_material(service)
+    async def respond(instructions,payload):
+        context=json.loads(payload)
+        assert 'virtuelle Masse' in context['learning_materials'][0]['text']
+        assert 'kein Beweis für vollständigen Prüfungsstoff' in instructions
+        return json.dumps({'title':'OPV verstehen','steps':[{'title':'Gegenkopplung erklären','detail':'Im Skript nachlesen und die Wirkung erklären.','topic':'Grundlagen','day_offset':0,'minutes':10,'materials':[{'document_id':91,'page':1}]}]})
+    service.adapter.responses=respond
+    q=(await service.preview(request()|{'goal':'OPV lernen'}))['quest']
+    ref=q['steps'][0]['materials'][0]
+    assert ref['url'].startswith('/documents/91?page=1&reading=') and ref['title']=='Operationsverstärker Skript'
+    edits=[{k:v for k,v in q['steps'][0].items() if k not in ('materials','done','completed_at','scheduled_date')}]
+    q=service.activate(q['id'],{'version':q['version'],'steps':edits})['quest']
+    assert q['steps'][0]['materials']==[ref]
+    q=service.set_step(q['id'],{'version':q['version'],'step_id':q['steps'][0]['id'],'done':True})['quest']
+    assert q['steps'][0]['materials']==[ref]
+    seed_learning_material(service,did=92,stamp='2030-03-02')
+    assert any('Unterlagen haben sich geändert' in w for w in service.dashboard()['quests'][0]['warnings'])
+    assert service.dashboard()['quests'][0]['steps'][0]['done']
+
+
+@pytest.mark.asyncio
+async def test_learning_material_rejects_invented_page_and_changed_reading(service):
+    seed_learning_material(service)
+    async def respond(instructions,payload):
+        return json.dumps({'title':'OPV','steps':[{'title':'Verstehen','detail':'Erklären','day_offset':0,'minutes':10,'materials':[{'document_id':91,'page':99}]}]})
+    service.adapter.responses=respond
+    with pytest.raises(QuestError) as error: await service.preview(request()|{'goal':'OPV lernen'})
+    assert error.value.status==502 and not service.dashboard()['quests']
+    async def valid(instructions,payload):
+        return (await respond(instructions,payload)).replace('99','1')
+    service.adapter.responses=valid
+    q=(await service.preview(request()|{'goal':'OPV lernen'}))['quest']
+    service.db.execute("UPDATE documents SET pages=? WHERE id=91",(json.dumps([{'page':1,'text':'Andere Lesefassung','gaps':[]}]),))
+    with pytest.raises(QuestError) as error: service.activate(q['id'],{'version':q['version']})
+    assert error.value.status==409
+
+
+def test_material_selection_excludes_old_semester_inactive_and_mail(service):
+    from studycenter_public.core.quest_materials import collect
+    seed_learning_material(service,title='OPV WS 2028',semester='2030S')
+    assert collect(service.db,'OPV lernen',[],[],service.search)==([], {})
+    service.db.execute("UPDATE documents SET title='OPV Skript' WHERE id=91")
+    service.db.execute("UPDATE sources SET kind='mail' WHERE id=91")
+    assert collect(service.db,'OPV lernen',[],[],service.search)==([], {})
+    service.db.execute("UPDATE sources SET kind='teachcenter',active=0 WHERE id=91")
+    assert collect(service.db,'OPV lernen',[],[],service.search)==([], {})
+
+
+@pytest.mark.asyncio
+async def test_uncited_learning_material_snapshot_still_protects_draft(service):
+    seed_learning_material(service)
+    q=(await service.preview(request()|{'goal':'OPV lernen'}))['quest']
+    assert q['steps'][0]['material_snapshot'] and not q['steps'][0]['materials']
+    assert q['material_note']=='Mit gespeicherten Unterlagen geplant'
+    service.db.execute("UPDATE documents SET pages=? WHERE id=91",(json.dumps([{'page':1,'text':'Geändert','gaps':[]}]),))
+    with pytest.raises(QuestError) as error: service.activate(q['id'],{'version':q['version']})
+    assert error.value.status==409
+
+
+def test_material_excerpt_contains_late_body_match_and_no_global_item_expansion(service):
+    from studycenter_public.core.quest_materials import collect
+    seed_learning_material(service,title='Schaltungen',text='Vorspann. '*450+'OPV Gegenkopplung: konkreter Stoff')
+    context,allowed=collect(service.db,'OPV lernen',[],[],service.search)
+    assert any('OPV Gegenkopplung' in row['text'] for row in context)
+    assert allowed[(91,1)]['reading_id']
+    assert collect(service.db,'OPV lernen',[sample_item()],[],service.search)==([], {})
+    service.db.execute("UPDATE sources SET kind='tugrazonline' WHERE id=91")
+    assert collect(service.db,'OPV lernen',[],[],service.search)==([], {})
+
+
+@pytest.mark.asyncio
+async def test_bound_mail_without_consent_never_reaches_quest_model(service,monkeypatch):
+    seed_learning_material(service)
+    service.db.execute("UPDATE sources SET kind='mail',config='{}' WHERE id=91")
+    service.db.execute("UPDATE documents SET mime='message/rfc822',title='Verification code' WHERE id=91")
+    service.db.execute("INSERT INTO items(id,identity,payload,created_at,changed_at) VALUES(1,'note:mail','{}','now','now')")
+    service.db.execute("INSERT INTO item_evidence(item_id,document_id,page,anchor,quote,payload) VALUES(1,91,1,'mail','PRIVATE-CODE','{}')")
+    monkeypatch.setattr(service,'_items',lambda con=None:[sample_item()])
+    with pytest.raises(QuestError) as error:
+        await service.preview({'request_id':'private-mail','mode':'item','item_id':1,'horizon':7,'daily_minutes':30})
+    assert error.value.status==422 and service.adapter.calls==0
+
+
+@pytest.mark.asyncio
+async def test_linked_item_cannot_bypass_mail_material_gate(service,monkeypatch):
+    seed_learning_material(service,text='PRIVATE-CODE-MUST-NOT-LEAVE')
+    service.db.execute("UPDATE sources SET kind='mail',config='{}' WHERE id=91")
+    service.db.execute("UPDATE documents SET mime='message/rfc822',title='Verification code' WHERE id=91")
+    for iid in (1,2):
+        service.db.execute("INSERT INTO items(id,course_id,identity,payload,created_at,changed_at) VALUES(?,91,?,'{}','now','now')",(iid,'note:'+str(iid)))
+    service.db.execute("INSERT INTO item_evidence(item_id,document_id,page,anchor,quote,payload) VALUES(2,91,1,'mail','PRIVATE-CODE-MUST-NOT-LEAVE','{}')")
+    first=sample_item();first['course_id']=91;first['data']['description']='Arbeitsblatt /items/2'
+    second=sample_item()|{'id':2,'course_id':91}
+    monkeypatch.setattr(service,'_items',lambda con=None:[first,second])
+    async def respond(instructions,payload):
+        assert 'PRIVATE-CODE' not in payload and not json.loads(payload)['documents']
+        return json.dumps({'title':'Arbeitsplan','steps':[{'title':'Aufgabe lesen','detail':'Quelle prüfen','day_offset':0,'minutes':10,'item_id':1}]})
+    service.adapter.responses=respond
+    q=(await service.preview({'request_id':'linked-mail','mode':'item','item_id':1,'horizon':7,'daily_minutes':30}))['quest']
+    assert any('nicht für die KI freigegeben' in w for w in q['warnings'])
+
+
+@pytest.mark.asyncio
+async def test_budget_repair_examples_keep_strict_reference_schema(service):
+    seed_learning_material(service);calls=[]
+    async def respond(instructions,payload):
+        context=json.loads(payload);calls.append(context)
+        if len(calls)==2:
+            for step in context['correction']['previous_plan']['steps']:
+                assert set(step['materials'][0])=={'document_id','page'}
+        return json.dumps({'title':'OPV','steps':[{'title':'Grundlagen','detail':'Erklären','day_offset':0,'minutes':10,'materials':[{'document_id':91,'page':1}]}]* (4 if len(calls)==1 else 1)})
+    service.adapter.responses=respond
+    assert len((await service.preview(request(1)|{'goal':'OPV lernen'}))['quest']['steps'])==1
+    assert len(calls)==2
+
+
+def test_material_gate_honors_document_allowlists_and_archive_exclusions(service):
+    from studycenter_public.core.quest_materials import document_model_allowed,current_document
+    seed_learning_material(service)
+    service.db.execute("UPDATE sources SET kind='mail',config=? WHERE id=91",(json.dumps({'allow_model_analysis':True,'model_document_ids':[]}),))
+    assert not document_model_allowed(service.db,91)
+    service.db.execute("UPDATE sources SET config=? WHERE id=91",(json.dumps({'allow_model_analysis':True,'model_document_ids':[91]}),))
+    assert document_model_allowed(service.db,91)
+    service.db.execute("UPDATE sources SET kind='teachcenter',config=? WHERE id=91",(json.dumps({'excluded_urls':['https://example.test/script.pdf']}),))
+    assert not document_model_allowed(service.db,91) and current_document(service.db,91) is None
+    service.db.execute("UPDATE sources SET config='{}' WHERE id=91")
+    service.db.execute("UPDATE documents SET analysis_state='archived' WHERE id=91")
+    assert not document_model_allowed(service.db,91)

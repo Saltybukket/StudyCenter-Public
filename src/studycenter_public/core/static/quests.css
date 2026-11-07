@@ -184,3 +184,7 @@ html[data-theme=dark] .quest-step input[type=checkbox]:checked{background:#58826
 .quest-draft-title textarea{resize:vertical;line-height:1.35}
 
 .quest-overdue-more{grid-column:1/-1}.quest-overdue-more summary{cursor:pointer;color:var(--quest-muted);margin:.3rem 0}.quest-overdue-more .quest-step{margin-top:.7rem}
+
+.quest-timeline-stage{display:grid;grid-template-columns:30px minmax(0,1fr)}
+.quest-step-materials{grid-column:2;min-width:0;display:flex;flex-wrap:wrap;gap:.4rem;padding:0 .8rem .7rem}.quest-step-materials a{font-size:.9rem;overflow-wrap:anywhere}
+@media(max-width:600px){.quest-timeline-stage{grid-template-columns:26px minmax(0,1fr)}}

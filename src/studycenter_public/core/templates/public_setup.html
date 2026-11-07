@@ -6,6 +6,43 @@
   <p>Starte mit dem, was du brauchst. Aufgaben, Kalender und Text-PDFs funktionieren bereits. Weitere Funktionen kannst du jederzeit ergänzen.</p>
   <div class="actions"><a class="button" href="/introduction">Einführung ansehen →</a><a href="/sources">Eigene Kurse verbinden</a><a href="/model">Studi verbinden</a></div>
 </section>
+<details class="panel" id="course-presets">
+  <summary>Kursvorlagen für Information and Computer Engineering (ICE)</summary>
+  <p>Wähle eine Lehrveranstaltung, wenn du sie für deine lokale Planung anlegen möchtest. Die Auswahl übernimmt nur den Kurstitel. Semester, Gruppe, Quellen und Termine bleiben leer.</p>
+  <p>Wenn du TeachCenter nutzt, verwende die dort entdeckten Kurse unter <a href="/sources">Kurse</a>, damit du sie nicht doppelt anlegst.</p>
+  <form action="/courses" method="post" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Lehrveranstaltung
+      <select name="title" required>
+        <option value="" selected disabled>Bitte auswählen</option>
+        <optgroup label="Mathematik">
+          <option>Analysis 1 für Informatikstudien</option>
+          <option>Wahrscheinlichkeitstheorie für Informatikstudien</option>
+          <option>Statistik für Informatikstudien</option>
+        </optgroup>
+        <optgroup label="Programmierung und Computersysteme">
+          <option>Introduction to Structured Programming, KU</option>
+          <option>Object-Oriented Programming 1, KU</option>
+          <option>Introduction to Data Structures and Algorithms, UE</option>
+          <option>Computer Organization and Networks</option>
+          <option>System Level Programming</option>
+          <option>Operating Systems</option>
+        </optgroup>
+        <optgroup label="Elektro- und Informationstechnik">
+          <option>Grundlagen der Elektrotechnik, UE</option>
+          <option>Elektronische Schaltungstechnik, Labor</option>
+          <option>Messtechnik, VO</option>
+          <option>Messtechnik, UE</option>
+          <option>Entwurf von Echtzeitsystemen, VO</option>
+          <option>Entwurf von Echtzeitsystemen, UE</option>
+          <option>Digital Communications, UE</option>
+        </optgroup>
+      </select>
+    </label>
+    <button type="submit">Ausgewählten Kurs lokal anlegen</button>
+  </form>
+  <p class="muted">Auswahl aus dem Curriculum 2025. <a href="https://online.tugraz.at/tug_online/wbstpcs.showSpoTree?pFilterType=20&amp;pSjNr=1687&amp;pStStudiumNr=&amp;pStartSemester=W&amp;pStpKnotenNr=&amp;pStpStpNr=1135">Studienplan der TU Graz</a></p>
+</details>
 <div class="settings-help-grid">
 {% for key,title,description in [('browser','TU-Browser','Melde dich mit deinem eigenen TU-Konto an und rufe deine Kurse ab.'),('ocr','Gescannte Unterlagen lesen','Erkennt Text auf eingescannten PDF-Seiten und in Bildern.'),('speech','Mit Studi sprechen','Wandelt deine Aufnahme auf diesem Rechner in Text um.')] %}
 {% set component=components.components[key] %}

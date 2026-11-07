@@ -283,3 +283,23 @@ Quests und Luna: gleiche sichtbare Inhalte; 11 von 12 Bildpaaren pixelgleich.
 Das mobile Luna-Bild weicht an einem Pixel ab, ohne sichtbaren Layoutunterschied.
 Betriebssystem-Installer wurden fuer diesen Quellabgleich nicht neu gebaut
 oder auf Linux/Windows installiert.
+
+
+## Materialgestützte Quests und ICE-Studienvorlagen (2026-11-07)
+
+Gemeinsamer Produktkern auf privaten Referenzstand c2fb1ec aktualisiert: lokale
+Skriptrecherche, konkrete Aufgaben-/Lernschritte, geprüfte Seitenverweise,
+gespeicherte Lesefassungen und Quellenänderungswarnungen. Vollständige gesendete
+Materialstände werden validiert; Mailfreigaben, Dokument-Allowlisten und
+Archivausschlüsse gelten auch für indirekte Verknüpfungen. Keine privaten Daten,
+Live-Testpläne, Transkriptionen oder Quellenmaterialien übernommen.
+
+Public-Einrichtung ergänzt 16 optionale Kursnamen aus dem offiziellen ICE-
+Curriculum 2025. Erst ausdrückliche Auswahl legt einen lokalen Kurs an; ohne
+Semester, Gruppe, Einschreibung, Quelle, Aufgabe oder Sync. TeachCenter-Entdeckung
+bleibt der bevorzugte Weg für die tatsächlich belegten Kurse.
+
+48 gezielte Produkt-/Browser-/Setup-/Migrationstests bestanden. Unabhängiger
+Review und synthetischer Desktop-/Mobilvergleich der Quest-Ansichten bestanden.
+Dies ist ein lokaler Quellabgleich, kein GitHub-Release oder neuer Installer.
+Der ICE-ZIP-Import bleibt unabhängig vom entfernten alten Arbeitscheckout.

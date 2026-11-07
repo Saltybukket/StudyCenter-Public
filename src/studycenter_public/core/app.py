@@ -172,7 +172,7 @@ def create_app(settings=None):
     sync = SyncService(db, settings, browser)
     search = SearchIndex(db)
     assistant = Assistant(db, settings, sync.model, search, view_action_state)
-    quests = QuestService(db, settings, sync.model)
+    quests = QuestService(db, settings, sync.model, search=search)
     speech = SpeechService(lambda: assistant.questions.courses(),engine=settings.stt_engine,name=settings.stt_model,device=settings.stt_device,root=settings.speech_dir,model_path=settings.speech_model_path,ensure_model=settings.ensure_speech_model)
     speech_gate = asyncio.Lock()
     reminders = ReminderService(db,item_timing,adapter=settings.notifications,base_url=lambda:getattr(app.state,'endpoint',''))
