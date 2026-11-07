@@ -21,3 +21,5 @@
 #voice-panel #voice-process:empty{display:none}
 @media(min-width:1150px){body[data-page="item"].voice-open .layout{width:calc(100% - 394px);margin-left:0;margin-right:394px}body[data-page="item"].voice-open .detail-columns{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:700px){#voice-panel[open]{inset:8px 8px auto auto;height:auto;max-height:min(680px,calc(100dvh - 16px));width:min(370px,calc(100vw - 16px));border-radius:12px}#voice-panel .voice-body{padding:.65rem .8rem}#voice-panel #voice-command-form{padding:.65rem .8rem .8rem}}
+
+@media(min-width:1150px){body[data-page="document"].voice-open .layout{width:calc(100% - 394px);margin-left:0;margin-right:394px}body[data-page="document"].voice-open .document-reader-grid{grid-template-columns:minmax(0,1fr)}body[data-page="document"].voice-open .reader-original{position:static}}

@@ -1615,7 +1615,7 @@ def create_app(settings=None):
         selected = next((p for p in pages if p["page"] == page), None)
         from .documents import reading_id
         current_page = selected
-        if reading and selected:
+        if reading and selected and reading!=reading_id(selected):
             selected = next((p for p in selected.get('reading_history', []) if p['reading_id'] == reading), None)
             if not selected:
                 raise HTTPException(404, 'Lesefassung nicht vorhanden')
@@ -1626,7 +1626,7 @@ def create_app(settings=None):
                       previous_page=page_numbers[index-1] if index>0 else None,
                       next_page=page_numbers[index+1] if index>=0 and index+1<len(page_numbers) else None,
                       back_url=back_url,back_label=back_label, current_page=current_page,
-                      current_reading=reading_id(current_page) if current_page else '', historical_reading=bool(reading))
+                      current_reading=reading_id(current_page) if current_page else '', historical_reading=bool(reading and current_page and reading!=reading_id(current_page)))
 
     @app.post('/documents/{doc_id}/pages/{page}/reread')
     async def reread_document_page(request: Request, doc_id: int, page: int):

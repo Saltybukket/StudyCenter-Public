@@ -415,3 +415,40 @@ async def test_open_on_item_uses_visible_item_context_and_new_chat_clears_it(voi
     await page.locator('#voice-send').click()
     await expect(page.locator('#voice-process')).to_have_text('Bereit.')
     assert 'context_item_id' not in requests[1]
+
+
+async def test_document_context_is_explicit_persistent_and_resettable(voice_page):
+    page=voice_page
+    html='<meta charset="utf-8"><meta name="csrf-token" content="fixture"><button id="voice-open">Studi</button><button data-voice-document="42" data-voice-page="2" data-voice-title="Synthetic worksheet">Mit Studi besprechen</button>'+(ROOT/'src/studycenter_public/core/templates/voice.html').read_text(encoding='utf-8')+'<script src="/voice.js" defer></script>'
+    await page.route('https://campusboard.test/',lambda route:route.fulfill(content_type='text/html',body=html))
+    requests=[]
+    async def command(route):
+        data=route.request.post_data_json;requests.append(data)
+        await route.fulfill(json={'request_id':data['request_id'],'changed':False,'message':'Berechne die Verstärkung.',
+            'focus_document':{'id':42,'page':2,'title':'Synthetic worksheet','url':'/documents/42?page=2'}})
+    await page.route('**/api/voice/command',command)
+    await page.goto('https://campusboard.test/')
+    await page.locator('[data-voice-document]').click()
+    await expect(page.locator('#voice-focus')).to_contain_text('Synthetic worksheet · Seite 2')
+    assert not requests
+    await page.reload()
+    await page.locator('#voice-open').click()
+    await expect(page.locator('#voice-focus')).to_contain_text('Synthetic worksheet · Seite 2')
+    await page.locator('#voice-send').click()
+    await expect(page.locator('#voice-chat')).to_contain_text('Berechne die Verstärkung.')
+    assert requests[0]['context_document_id']==42 and requests[0]['context_document_page']==2
+    assert 'context_item_id' not in requests[0]
+    await page.reload()
+    await page.locator('#voice-open').click()
+    await expect(page.locator('#voice-focus')).to_contain_text('Seite 2')
+    await page.locator('#voice-transcript').fill('Und dann?')
+    await page.locator('#voice-send').click()
+    await expect(page.locator('#voice-send')).to_be_enabled()
+    assert requests[-1]['previous_id']==requests[0]['request_id']
+    assert 'context_document_id' not in requests[-1]
+    await page.locator('#voice-new-chat').click()
+    await expect(page.locator('#voice-focus')).to_be_hidden()
+    await page.locator('#voice-transcript').fill('Hallo')
+    await page.locator('#voice-send').click()
+    await expect(page.locator('#voice-send')).to_be_enabled()
+    assert requests[-1]['previous_id'] is None and 'context_document_id' not in requests[-1]

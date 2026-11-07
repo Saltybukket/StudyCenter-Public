@@ -158,6 +158,8 @@ class Command(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     previous_id: UUID | None = None
     context_item_id: int | None = Field(default=None, gt=0)
+    context_document_id: int | None = Field(default=None, gt=0)
+    context_document_page: int = Field(default=1, gt=0)
     choice_id: int | None = None
     choice_course_id: int | None = None
     remember_alias: bool = False
@@ -222,6 +224,10 @@ Benutzer genannte Kursbezeichnung (keinen geratenen vollständigen Kurstitel); o
 Bei mehreren möglichen Kursen/Einträgen nicht raten. Für set_status/set_pin/update_personal_item
 query als kurze passende Suchbegriffe (ohne Bearbeitungswörter), bei unklarer Zuordnung clarify.
 target_id nur bei ausdrücklichem Bezug auf einen gegebenen lokalen Treffer, niemals erfinden.
+focus_document ist das ausdrücklich ausgewählte Dokument mit seiner Seite. Bei Fragen
+zu „diesem Arbeitsblatt“, „hier“, „das“ oder „was muss ich machen“ diesen Bezug nutzen,
+answer_course_question wählen und nicht erneut nach Dokument oder Kurs fragen.
+Der Dokumentbezug ist keine Erlaubnis, Aufgaben oder Fristen zu erfinden.
 focus_item ist der ausdrücklich gewählte Post-it oder zuletzt eindeutig besprochene Eintrag.
 Bei 'das', 'diesen Eintrag', 'dafür', 'daran', 'gerade erstellt' dessen ID und tatsächliche
 Beschreibung als Bezug verwenden. Für Wissensfragen Suchbegriffe aus diesem Titel ableiten;
@@ -354,6 +360,8 @@ class Assistant:
         """Only fully specified UI controls; keep free meaning/date interpretation with Studi."""
         value=key(text).strip(' .!?')
         value=re.sub(r'^bitte\s+','',value)
+        if context.get('focus_document') and value in ('was muss ich auf dieser seite machen','was muss ich hier machen','erklare mir diese seite','fasse diese seite zusammen'):
+            return Action(action='answer_course_question')
         bulk=re.fullmatch(r'markiere alle vorlesungen bis (?:(?:zum |einschliesslich )?(\d{1,2}) (\d{1,2}) (\d{4})|heute) (?:als |alles )?erledigt',value)
         if bulk:
             try: end=Date(int(bulk[3]),int(bulk[2]),int(bulk[1])) if bulk[1] else datetime.now(VIENNA).date()
@@ -580,6 +588,9 @@ class Assistant:
         # Keep old typed/MCP request fingerprints stable when new UI flags are unused.
         for name in ('preview','apply_preview','more'):
             if not wire[name]:wire.pop(name)
+        if wire['context_document_id'] is None and wire['context_document_page']==1:
+            wire.pop('context_document_id')
+            wire.pop('context_document_page')
         typed=direct_plan.model_dump(mode='json') if direct_plan else None
         if typed is not None:
             for name,default in (('tasks',[]),('content_type',''),('document_id',None),('page',1),('deadline_only',False),('reminder_minutes',[]),('reminder_mode','closing')):
@@ -618,6 +629,16 @@ class Assistant:
                             self.db.execute('UPDATE assistant_requests SET state=?,action=?,result=? WHERE id=?',('completed',receipt['action'],encode(result),identifier))
                             return result
                         raise ValueError('Dieser Dialogstand wurde bereits geändert. Bitte mit der letzten Antwort fortfahren.')
+                if request.context_document_id is not None:
+                    if request.previous_id is not None or request.context_item_id is not None:
+                        raise ValueError('Ein neuer Dokumentbezug braucht eine neue Unterhaltung ohne Eintragsbezug.')
+                    context['focus_document'] = self.document_context(request.context_document_id, request.context_document_page)
+                    context['qa_context'] = {'course_id': context['focus_document']['course_id']}
+                elif context.get('focus_document'):
+                    old_document = context['focus_document']
+                    context['focus_document'] = self.document_context(old_document['id'], old_document['page'])
+                    if any(old_document.get(k) != context['focus_document'][k] for k in ('hash','reading')):
+                        raise ValueError('Das Dokument wurde geändert. Bitte vom Dokument aus eine neue Unterhaltung starten.')
                 if request.context_item_id is not None:
                     if request.previous_id is not None:
                         raise ValueError('Ein neuer Eintragsbezug braucht eine neue Unterhaltung.')
@@ -654,7 +675,14 @@ class Assistant:
                 preview_action=(context.get('preview') or {}).get('plan',{}).get('action')
                 if context.get('preview') and creation_accept and preview_action not in ('create_task','create_event','create_note','create_tasks'):
                     raise ValueError('Diese Vorschau betrifft keine Erstellung. Bitte die gewünschte Änderung ausdrücklich bestätigen oder abbrechen.')
-                applying=request.apply_preview or bool(context.get('preview') and (key(request.text) in ('ja','ubernehmen','speichern','bestatigen') or creation_accept))
+                short_confirmation = not request.cancel and '?' not in request.text and key(request.text).strip(' .!') in ('genau','ja genau','passt','okay','ok')
+                preview_plan = (context.get('preview') or {}).get('plan', {})
+                original = key((context.get('dialog') or {}).get('original_text', ''))
+                simple_creation = (preview_action in ('create_task','create_note') and not preview_plan.get('question')
+                    and not any(preview_plan.get(k) for k in ('course','course_id','reminder_requested','notification_at'))
+                    and not (context.get('preview') or {}).get('remember_alias')
+                    and not re.search(r'\b(?:oder|vielleicht|eventuell|zwei|drei|mehrere|alle|anmelden|abmelden|senden|loschen)\b', original))
+                applying=not request.cancel and (request.apply_preview or bool(context.get('preview') and (key(request.text) in ('ja','ubernehmen','speichern','bestatigen') or creation_accept or short_confirmation and simple_creation)))
                 if request.apply_preview and not context.get('preview'):
                     raise ValueError('Keine offene Änderungsvorschau zum Übernehmen.')
                 if applying:
@@ -718,7 +746,7 @@ class Assistant:
                         context['_course_candidates'] += [{'id':c['id'],'title':c['title'],'semester':c['semester'],'score':1.,'match':'alias'} for c in courses if c['id']==saved.course_id]
                     resumed,cancelled = await self.followup(request,context,courses)
                     if resumed is None:
-                        context = {k:v for k,v in context.items() if k in ('focus_item','undo_request_id','paging','has_more','items','qa_context','_direct_mode')}
+                        context = {k:v for k,v in context.items() if k in ('focus_document','focus_item','undo_request_id','paging','has_more','items','qa_context','_direct_mode')}
                         context.update(_course_candidates=course_candidates,_item_candidates=item_candidates)
                 if cancelled:
                     result=self.cancel_dialog(context,identifier)
@@ -743,7 +771,7 @@ class Assistant:
                     payload = {'now':datetime.now(VIENNA).isoformat(), 'text':request.text,
                                'courses':courses,'course_candidates':course_candidates,'item_candidates':item_candidates,
                                'creation_intent':creation_request(request.text),
-                               'previous': {**{k:context.get(k) for k in ('message','items','courses','pending_action','qa_context','reminder_followup','focus_item','undo_request_id','paging','created','changed','documents')},
+                               'previous': {**{k:context.get(k) for k in ('message','items','courses','pending_action','qa_context','reminder_followup','focus_document','focus_item','undo_request_id','paging','created','changed','documents')},
                                             'user_text': json.loads(previous['input']).get('text') if previous else None}}
                     resolved_course=course_candidates[0]['id'] if len(course_candidates)==1 else None
                     instructions=SYSTEM+self.gotchas.guidance('assistant',resolved_course)
@@ -779,7 +807,15 @@ class Assistant:
                     plan=plan.model_copy(update={'time':None,'time_unspecified':True})
                 if plan.action.startswith('create_') and declines_notification((context.get('dialog') or {}).get('original_text',request.text)):
                     plan=plan.model_copy(update={'notification_at':None,'reminder_requested':False})
+                # A pending proposal cannot become a write just because a client omits preview.
+                if context.get('preview') and not context.get('_apply_preview'):
+                    request=request.model_copy(update={'preview':True})
                 result = await self.execute(plan, request, context)
+                if plan.action=='answer_course_question' and context.get('focus_document'):
+                    selected=context['focus_document']
+                    current=self.document_context(selected['id'],selected['page'])
+                    if any(selected.get(k)!=current[k] for k in ('hash','reading')):
+                        raise ValueError('Die Unterlage wurde während der Antwort geändert. Bitte die Frage mit der aktuellen Fassung erneut stellen.')
                 result = self.open_dialog(result,plan,request,context)
                 self.retain_context(result,context,identifier)
                 result['request_id'] = identifier
@@ -799,6 +835,9 @@ class Assistant:
                 return result
 
     async def execute(self, plan, request, context):
+        if plan.action=='answer_course_question' and context.get('focus_document'):
+            document=context['focus_document']
+            return await self.questions.answer(plan.model_copy(update={'course':'','course_id':document['course_id']}),request,context,document['course_id'])
         if plan.action=='undo_last':return self.undo_context(context)
         if plan.action=='create_tasks':return self.create_tasks(plan,request,context)
         if plan.action=='more_results':
@@ -1369,11 +1408,30 @@ class Assistant:
             con.execute('UPDATE assistant_requests SET state=?,action=?,result=? WHERE id=?',('completed',encode(plan.model_dump(mode='json')),encode(result),str(request.request_id)))
         return result
 
+    def document_context(self, identifier, page):
+        document = self.db.one('''SELECT d.id,d.title,d.hash,d.pages,d.analysis_state,d.mime,d.source_id,d.url,s.course_id,s.active source_active,
+            c.active course_active FROM documents d JOIN sources s ON s.id=d.source_id
+            LEFT JOIN courses c ON c.id=s.course_id WHERE d.id=?''', (identifier,))
+        if not document or not document['source_active'] or document['course_active']==0 or document['analysis_state']=='archived':
+            raise ValueError('Das ausgewählte Dokument ist nicht mehr aktiv. Bitte die aktuelle Unterlage öffnen.')
+        if document['mime']!='message/rfc822':
+            latest=self.db.one('SELECT id FROM documents WHERE source_id=? AND url=? ORDER BY fetched_at DESC,id DESC LIMIT 1', (document['source_id'],document['url']))
+            if latest['id']!=identifier:
+                raise ValueError('Es gibt eine neuere Fassung dieser Unterlage. Bitte die aktuelle Fassung öffnen und dort Studi starten.')
+        selected = next((p for p in json.loads(document['pages']) if p['page']==page), None)
+        if not selected or not selected.get('text','').strip():
+            raise ValueError('Diese Seite hat noch keinen lesbaren Text. Bitte zuerst die Dokumentverarbeitung prüfen.')
+        from .documents import reading_id
+        reading=hashlib.sha256(encode([reading_id(p) for p in json.loads(document['pages'])]).encode()).hexdigest()
+        return {k:document[k] for k in ('id','title','hash','course_id')} | {'reading':reading,'page':page,'url':f'/documents/{identifier}?page={page}'}
+
     def retain_context(self, result, context, identifier):
+        if context.get('focus_document'):
+            result['focus_document'] = context['focus_document']
         items=result.get('items',[])
-        if len(items)==1:
+        if len(items)==1 and not context.get('focus_document'):
             result['focus_item']=items[0]
-        elif not items and 'paging' not in result and context.get('focus_item'):
+        elif not context.get('focus_document') and not items and 'paging' not in result and context.get('focus_item'):
             result['focus_item']=context['focus_item']
         if result.get('changed') and (result.get('created') or result.get('undoable')):
             result['undo_request_id']=identifier

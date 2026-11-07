@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from .db import encode
+from .documents import reading_id
 from .config import VIENNA
 from .llm import normalized
 from .decision import course_matches
@@ -88,6 +89,11 @@ eines Angebots und der erwarteten Durchführung bei Bedarf voneinander untersche
 Folgefragen verwenden den beigefügten Kurs und vorheriges Thema, nur erneut gelieferte Quellen.
 Bei fehlender Information insufficient=true; fehlender Nachweis bedeutet NICHT Nein.
 Keine 'Nein'/Optional-Aussage aus bloß fehlender Erwähnung. Bei gar keinem Beleg claims=[].
+Wenn focus_document angegeben ist, beantworte die Frage zu dieser Unterlage und der
+gewählten Seite. Erkläre die dort gestellte Aufgabe in einfachen Worten. Frage nicht
+nach bereits mitgeliefertem Dokument oder Kurs. Nur gelieferte Ausschnitte wurden gelesen;
+Leselücken und fehlende Seiten nicht überspielen. Fachliche Schritte dürfen als Erklärung
+zusammengefasst werden, werden aber nicht als neue persönliche Aufgaben gespeichert.
 Maximal fünf kurze claims; nur zur aktuellen Frage relevante Aussagen. Schema:
 """
 
@@ -220,7 +226,13 @@ class CourseQuestions:
                         if len(w)>2 and not re.match(r'pflicht|verpflicht|mandatory|required|teilnahme',folded(w))}
         followup=bool(previous_hits and len(request.text)<180 and re.search(r'\b(meine?|das|diese\w*|dort|dazu)\b',request.text,re.I)
                       and (previous_words & {folded(w) for w in words} or group_ids))
-        candidates=list(dict.fromkeys((previous_hits if followup else [])+proofs+mail_hits+hits+previous_hits))
+        document_focus=context.get('focus_document') or {}
+        selected_document=allowed.get(document_focus.get('id'))
+        document_hits=[]
+        if selected_document:
+            document_pages=json.loads(selected_document['pages'])
+            document_hits=[(selected_document['id'],p['page']) for p in sorted(document_pages,key=lambda p:p['page']!=document_focus['page'])]
+        candidates=list(dict.fromkeys(document_hits+(previous_hits if followup else [])+proofs+mail_hits+hits+previous_hits))
         sources,seen,budget=[],set(),30000
         terms=list(dict.fromkeys(folded(w) for q in queries[:4] for w in re.findall(r'[^\W_]+',q) if len(w)>2))
         if group_ids:terms.extend(['gruppe','fixplatz'])
@@ -249,7 +261,7 @@ class CourseQuestions:
                 'booking_scope':('confirmed-personal-slot' if d['source_kind']=='teachcenter' and booking_rows(page['text'])
                                  else 'course-calendar' if d['mime']=='text/calendar' else 'course-information'),
                 'revision':d['revision'],'repository_path':d['repository_path'],'gaps':page.get('gaps',[]),
-                'url':f'/documents/{identifier}?page={page_number}','text':text})
+                'url':f'/documents/{identifier}?page={page_number}'+(f'&reading={reading_id(page)}' if d['mime']=='application/pdf' else ''),'text':text})
             seen.add(page_key);budget-=len(text)
             if len(sources)>=12:break
         items=[]
@@ -268,7 +280,7 @@ class CourseQuestions:
             'group':(course or {}).get('group_name') or None,'queries':queries[:4],'question':request.text,
             'source_ids':[s['source_id'] for s in sources]}
         # Generic duty synonyms cannot replace a missing topic with unrelated obligations.
-        if not focused and not topical_found and not (followup and any(s.get('document_id') in allowed for s in sources)):return [],qa,[]
+        if not document_hits and not focused and not topical_found and not (followup and any(s.get('document_id') in allowed for s in sources)):return [],qa,[]
         return sources,qa,items
 
     async def answer(self,plan,request,context,course_id,tag=''):
@@ -278,7 +290,7 @@ class CourseQuestions:
         if not sources:return empty
         payload=encode({'now':datetime.now(VIENNA).isoformat(),'question':request.text,'course_context':qa,
                         'previous_question':context.get('qa_context',{}).get('question'),
-                        'focus_item': context.get('focus_item'), 'sources':sources})
+                        'focus_item': context.get('focus_item'), 'focus_document':context.get('focus_document'), 'sources':sources})
         instructions=ANSWER_SYSTEM+self.gotchas.guidance('questions',course_id)+encode(Answer.model_json_schema())
         available={s['source_id']:s for s in sources}
         # One bounded correction for a paraphrased quotation, as in the existing extraction adapter.
