@@ -5,8 +5,10 @@
 <link rel="stylesheet" href="{{ static_url('calendar.css') }}">
 <script src="/static/vendor/fullcalendar.js" defer></script><script src="/static/vendor/fullcalendar-theme.js" defer></script><script src="/static/vendor/fullcalendar-de.js" defer></script><script src="{{ static_url('calendar.js') }}" defer></script>
 {% endblock %}
-{% block content %}
+{% block toolbar_action %}
 <div class="calendar-views" role="group" aria-label="Kalenderansicht"><button type="button" data-calendar-view="timeGridWeek" aria-pressed="true">Woche</button><button type="button" data-calendar-view="dayGridMonth" aria-pressed="false">Monat</button><button type="button" data-calendar-view="listWeek" aria-pressed="false">Terminliste</button><details class="calendar-more-views"><summary>Weitere Ansichten</summary><div class="calendar-view-menu"><button type="button" data-calendar-view="gantt" aria-pressed="false">Zeitspannen</button><a href="/">Zeitleiste</a></div></details><a class="secondary small" id="calendar-export-link" href="/calendar/export.ics" title="Kalender als ICS-Datei herunterladen">Exportieren ↓</a></div>
+{% endblock %}
+{% block content %}
 <details class="view-filter-menu"><summary>Filter & Exportoptionen</summary>
 <div class="filters"><label>Kurs<select id="calendar-course"><option value="">Alle Kurse</option>{% for c in courses %}<option value="{{ c.id }}">{{ c.title }}</option>{% endfor %}</select></label><label>Art<select id="calendar-kind"><option value="">Alle Arten</option>{% for code,label in kinds.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></label></div>
 <p><label class="check"><input type="checkbox" id="calendar-history">Auch historische / inaktive Kurse</label></p>

@@ -14,29 +14,28 @@
   <script src="{{ static_url('notifications.js') }}" defer></script>
   <link rel="stylesheet" href="{{ static_url('notifications.css') }}">
   <link rel="stylesheet" href="{{ static_url('navigation.css') }}">
+  <link rel="stylesheet" href="{{ static_url('voice-panel.css') }}">
 </head>
 <body data-page="{{ page_key }}">
   <a class="skip-link" href="#main">Zum Inhalt</a>
   <header class="masthead"><a class="brand" href="/overview"><span class="brand-mark">sc</span>StudyCenter</a>
     <form action="/search" method="get" class="header-search" role="search"><label class="visually-hidden" for="global-search">Alle Studieninformationen durchsuchen</label><input id="global-search" type="search" name="q" placeholder="Studium durchsuchen" maxlength="240" required><button class="secondary" aria-label="Globale Suche">⌕</button></form>
-    <div class="actions">{% include 'notifications.html' %}<button type="button" id="voice-open" class="secondary" aria-label="Sprachassistent öffnen" title="Sprachassistent"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><details class="login-menu"><summary aria-label="Weitere Aktionen">Mehr</summary><div class="login-actions"><button type="button" id="sync-button" class="secondary">Quellen aktualisieren ↻</button><button type="button" id="login-button" class="secondary">TU-Anmeldung öffnen</button><button type="button" id="browser-close-button" class="secondary">TU-Browser schließen</button></div></details></div>
+    <div class="actions">{% include 'notifications.html' %}<button type="button" id="voice-open" class="secondary" aria-label="Luna öffnen" title="Luna öffnen" aria-controls="voice-panel" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Luna</span></button><details class="login-menu"><summary aria-label="Weitere Aktionen">Mehr</summary><div class="login-actions"><button type="button" id="sync-button" class="secondary">Quellen aktualisieren ↻</button><button type="button" id="login-button" class="secondary">TU-Anmeldung öffnen</button><button type="button" id="browser-close-button" class="secondary">TU-Browser schließen</button></div></details></div>
   </header>
   <div class="layout"><aside>
     <p class="eyebrow">DEIN STUDIUM</p>
     <nav aria-label="Hauptnavigation">
-    {% for url,label,icon in [('/overview','Heute','◉'),('/board','Aufgaben & Notizen','✓'),('/quests','Quests','⚑'),('/calendar','Kalender','▦'),('/sources','Kurse','⊞')] %}
+    {% for url,label,icon in [('/overview','Upcoming','◉'),('/board','Aufgaben & Notizen','✓'),('/quests','Quests','⚑'),('/calendar','Kalender','▦'),('/sources','Kurse','⊞')] %}
       <a href="{{ url }}" {% if path==url or (url=='/board' and path in ('/pins','/archive')) or (url=='/calendar' and path=='/') or (url=='/sources' and (path in ('/entries','/documents') or path.startswith('/documents/'))) %}aria-current="page"{% endif %}><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>
     {% endfor %}
     </nav>
     <nav class="utility-nav" aria-label="Verwaltung"><a href="/settings" {% if path in ('/settings','/model','/mail') %}aria-current="page"{% endif %}><span aria-hidden="true">⚙</span>Einstellungen</a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Lokal auf deinem Rechner</div>
   </aside>
-  <main id="main"><div class="page-toolbar"><h1>{{ self.title() }}</h1>{% block toolbar_action %}{% endblock %}</div><div class="sync-strip" {% if stage=='Bereit' %}hidden{% endif %}><div class="sync-copy"><span id="sync-state" role="status">{{ stage }}</span><small id="sync-progress-label" hidden></small></div><progress id="sync-progress" aria-label="Quellenprüfung im aktuellen Sync" hidden></progress></div>
+  <main id="main"><div class="page-toolbar"><h1>{{ self.title() }}</h1>{% if path in ('/sources','/entries','/documents') or path.startswith('/documents/') %}<nav class="context-nav" aria-label="Kurse und Unterlagen">{% for url,label in [('/sources','Kursübersicht'),('/entries','Informationen'),('/documents','Dokumente')] %}<a href="{{ url }}" {% if path==url or (url=='/documents' and path.startswith('/documents/')) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}{% if path in ('/settings','/model','/mail') %}<nav class="context-nav" aria-label="Einstellungen und Konten">{% for url,label in [('/settings','Einstellungen'),('/model','KI & Konto'),('/mail','Mail-Verbindung')] %}<a href="{{ url }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}{% block toolbar_action %}{% endblock %}</div><div class="sync-strip" {% if stage=='Bereit' %}hidden{% endif %}><div class="sync-copy"><span id="sync-state" role="status">{{ stage }}</span><small id="sync-progress-label" hidden></small></div><progress id="sync-progress" aria-label="Quellenprüfung im aktuellen Sync" hidden></progress></div>
     <div id="notice" role="status" hidden></div>
     {% if restore_pending and path != '/settings' %}<p class="setup-note warning">Wiederherstellung vorbereitet: Änderungen und Syncs warten auf den App-Neustart. <a href="/settings">Anleitung oder Abbrechen →</a></p>{% endif %}
     {% if not settings.model_ready %}<div class="setup-note">KI-Auswertung noch nicht bereit. Seiten und PDFs bleiben gespeichert. <a href="/model">Modell verbinden und Live-Probe starten →</a></div>{% endif %}
-    {% if path in ('/sources','/entries','/documents') or path.startswith('/documents/') %}<nav class="context-nav" aria-label="Kurse und Unterlagen">{% for url,label in [('/sources','Kursübersicht'),('/entries','Informationen'),('/documents','Dokumente')] %}<a href="{{ url }}" {% if path==url or (url=='/documents' and path.startswith('/documents/')) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}
-    {% if path in ('/settings','/model','/mail') %}<nav class="context-nav" aria-label="Einstellungen und Konten">{% for url,label in [('/settings','Einstellungen'),('/model','KI & Konto'),('/mail','Mail-Verbindung')] %}<a href="{{ url }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}
     {% if path=='/archive' %}<p class="breadcrumb"><a href="/board">← Aufgaben & Notizen</a></p>{% endif %}
     {% block content %}{% endblock %}
   </main></div>

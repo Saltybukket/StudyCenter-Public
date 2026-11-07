@@ -18,7 +18,7 @@ body[data-page=documents] .page-toolbar{flex-wrap:wrap;gap:.6rem}body[data-page=
 body[data-page=overview]{background:#f7f2ed}
 body[data-page=overview] main{--today-panel:#fffdfb;--today-lavender:#f0eaf5;--today-sage:#e5ebda;--today-peach:#fbece3;--today-ink:#183d35}
 body[data-page=overview] .page-toolbar{margin-bottom:.1rem}
-body[data-page=overview] .page-toolbar h1{font:700 clamp(2.2rem,3.4vw,3.4rem)/1.1 Georgia,serif;color:var(--today-ink)}
+body[data-page=overview] .page-toolbar h1{font-family:inherit;font-size:1.15rem;font-weight:650;line-height:1.3;color:var(--today-ink)}
 .today-intro{font-size:1.05rem;color:var(--muted);margin:.2rem 0 1.4rem}
 .today-quest{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:1rem 1.2rem;padding:1.3rem 1.5rem;border:1px solid #e7ddec;border-radius:20px;background:var(--today-lavender);box-shadow:0 4px 14px #443a3710;margin-bottom:1.2rem;color:var(--today-ink)}
 .today-quest-icon{display:grid;place-items:center;width:56px;height:56px;border-radius:14px;background:#e2d8ed;color:#52426e;font-size:1.7rem}
@@ -34,3 +34,9 @@ html[data-theme=dark] body[data-page=overview] main{--today-panel:var(--surface)
 
 body[data-page=overview] .today-action{display:flex;align-items:flex-start;gap:.8rem;border:1px solid #eee7e2;border-radius:14px;padding:.8rem;margin:.65rem 0;box-shadow:0 3px 9px #443a370b;min-width:0}
 .today-action-form{flex:none;margin:0;padding:.15rem 0 0}.today-action-form .today-action-check{display:block;width:25px;height:25px;min-width:25px;min-height:25px;padding:0;border:2px solid #6f8079;border-radius:50%;background:transparent}.today-action-form .today-action-check:hover{background:var(--today-sage);border-color:#207c76}.today-action-form .today-action-check:focus-visible{outline:3px solid #207c76;outline-offset:3px}.today-action-marker{width:25px;text-align:center;font-size:1.3rem;line-height:1.3;color:var(--muted);flex:none}.today-action-body{min-width:0;overflow-wrap:anywhere}.today-action-body h3{font-size:1rem;line-height:1.3;margin:0}.today-action-body p{font-size:.8rem;color:var(--muted);margin:.2rem 0 0}.today-urgent{color:var(--category-registration);font-weight:700}.today-action-details{font-size:.73rem;margin-top:.25rem}.today-action-details summary{cursor:pointer;color:var(--green);width:max-content}.today-checks{border:1px solid #ead7c6;background:#fff4e9;border-radius:14px;padding:.75rem 1rem;margin-bottom:1rem}.today-checks>summary{cursor:pointer;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.today-checks>summary span{font-size:.8rem;color:var(--muted)}.today-checks[open]>summary{margin-bottom:.5rem}html[data-theme=dark] body[data-page=overview] .today-action{border-color:var(--line)}html[data-theme=dark] .today-checks{background:#463c2e;border-color:var(--line);color:var(--ink)}
+
+.upcoming-overdue{border-left:4px solid var(--category-registration)}
+
+/* Readable metadata in Upcoming without increasing the post-it wall density. */
+body[data-page=overview] .today-action-body p{font-size:.875rem;line-height:1.5}
+body[data-page=overview] .today-action-details{font-size:.8rem}

@@ -83,14 +83,14 @@ async def test_quests_render_toggle_failure_and_mobile(tmp_path, monkeypatch):
         await page.route('**/*', serve)
         response = await page.goto('http://localhost/quests?quest=8a59a287-c741-40be-98d6-544b14aaedbb')
         assert response.status == 200
-        assert await page.locator('#quest-path-dialog').is_visible()
+        await page.locator('#quest-path-dialog').wait_for(state='visible')
         assert await page.locator('#quest-path-title').text_content() == 'Lineare Algebra'
         await page.locator('#quest-path-dialog [data-close-dialog]').click()
         await page.goto('http://localhost/quests?quest=missing')
         await page.get_by_role('status').filter(has_text='nicht mehr verfügbar').wait_for()
         assert not await page.locator('#quest-path-dialog').is_visible()
         await page.goto('http://localhost/quests')
-        assert await page.get_by_role('heading', name='Heute').is_visible()
+        assert await page.get_by_role('heading', name='Upcoming').is_visible()
         draft_title = page.locator('[data-quest-card=draft-id] [name=title]')
         await draft_title.fill('Mein bearbeiteter Entwurf')
         await page.locator('[data-quest-card=draft-id]').get_by_role('button', name='Bearbeiten').click()
@@ -107,7 +107,7 @@ async def test_quests_render_toggle_failure_and_mobile(tmp_path, monkeypatch):
         assert not await archive.locator('[data-quest-card=archived-id]').is_visible()
         assert await page.locator('#quest-level').get_by_text('0 / 100 XP zum nächsten Level').is_visible()
         assert await page.locator('#quest-today input[type=checkbox]').count() == 3
-        await page.get_by_role('button', name='Alle heutigen Schritte (4)').click()
+        await page.get_by_role('button', name='Alle nächsten Schritte (4)').click()
         assert await page.locator('#quest-today input[type=checkbox]').count() == 4
         await page.locator('[data-quest-card="8a59a287-c741-40be-98d6-544b14aaedbb"]').get_by_role('button', name='Lernweg öffnen').click()
         assert await page.locator('#quest-path-body input[type=checkbox]').count() == 4
@@ -270,4 +270,68 @@ async def test_checklist_has_no_artificial_schedule_and_next_step_advances(tmp_p
         assert await page.locator('#quest-today-time').text_content() == '0 Min. geplant'
         assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert not errors
+        await browser.close()
+
+
+async def test_upcoming_window_and_item_deep_link(tmp_path, monkeypatch):
+    root = Path(__file__).resolve().parents[2]
+    if (root / '.local/browsers').exists():
+        monkeypatch.setenv('PLAYWRIGHT_BROWSERS_PATH', str(root / '.local/browsers'))
+    client = TestClient(create_app(Settings(data_dir=tmp_path)))
+    steps = [{'id': str(i), 'title': title, 'detail': '', 'minutes': 10, 'done': False,
+              'completed_at': None, 'scheduled_date': day, 'day_offset': i, 'item_id': 7}
+             for i, (title, day) in enumerate([('Überfällig', '2026-11-01'), ('Heute', '2026-11-02'),
+                                               ('Sechster Tag', '2026-11-08'), ('Später', '2026-11-09')])]
+    steps.extend(steps[0] | {'id': f'old-{n}', 'title': f'Alt {n}'} for n in range(1, 5))
+    quest = {'id': 'paced', 'title': 'Lernweg', 'state': 'active', 'planning': 'paced',
+             'start_date': '2026-11-02', 'end_date': '2026-11-09', 'steps': steps,
+             'sources': [], 'version': 1, 'total_count': 4, 'completed_count': 0}
+    writes = []
+    async with async_playwright() as driver:
+        if not Path(driver.chromium.executable_path).exists():
+            pytest.skip('Project Chromium not installed')
+        browser = await driver.chromium.launch(headless=True)
+        page = await browser.new_page()
+        async def serve(route):
+            path = urlsplit(route.request.url).path
+            if path == '/api/quests' and route.request.method == 'GET':
+                await route.fulfill(json={'today': '2026-11-02', 'quests': [quest]})
+            elif path == '/api/quests/options':
+                await route.fulfill(json={'items': [{'id': 7, 'title': 'Quellenaufgabe', 'kind': 'task'}], 'model_ready': True})
+            elif path == '/api/quests/paced/step':
+                payload = route.request.post_data_json
+                writes.append(payload)
+                steps[3]['done'] = True
+                quest['version'] = 2
+                await route.fulfill(json={'quest': quest, 'xp_delta': 10})
+            elif route.request.method == 'POST':
+                writes.append({'unexpected': path})
+                await route.fulfill(status=500)
+            else:
+                response = client.get(path)
+                await route.fulfill(status=response.status_code, body=response.content,
+                                    content_type=response.headers.get('content-type', 'application/octet-stream'))
+        await page.route('**/*', serve)
+        await page.goto('http://localhost/quests')
+        upcoming = page.locator('#quest-today')
+        await upcoming.get_by_text('Sechster Tag').wait_for()
+        assert await upcoming.locator('strong').all_text_contents() == ['Heute', 'Sechster Tag']
+        assert await page.locator('#quest-overdue > .quest-step strong').all_text_contents() == ['Überfällig', 'Alt 1', 'Alt 2']
+        assert await page.locator('#quest-overdue details summary').text_content() == '2 weitere offene Schritte'
+        await page.locator('#quest-overdue details summary').click()
+        assert await page.locator('#quest-overdue details .quest-step').count() == 2
+        assert await page.locator('#quest-today-time').text_content() == '20 Min. geplant'
+        assert not await upcoming.get_by_text('Später').count()
+        await page.locator('[data-quest-card=paced]').get_by_role('button', name='Lernweg öffnen').click()
+        await page.locator('#quest-path-body').get_by_label('Später abschließen').click()
+        await page.locator('#quest-path-message').get_by_text('+10 XP', exact=False).wait_for()
+        assert writes == [{'version': 1, 'step_id': '3', 'done': True}]
+        await page.goto('http://localhost/quests?item=7')
+        await page.locator('#quest-item-selected').get_by_text('Ausgewählt: Quellenaufgabe').wait_for()
+        assert await page.locator('#quest-dialog').is_visible()
+        assert await page.locator('[data-item="7"]').get_attribute('aria-pressed') == 'true'
+        assert len(writes) == 1
+        await page.goto('http://localhost/quests?item=999')
+        await page.locator('#quest-form-message').get_by_text('nicht mehr für eine Quest verfügbar', exact=False).wait_for()
+        assert len(writes) == 1
         await browser.close()

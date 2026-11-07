@@ -13,7 +13,7 @@ import webbrowser
 from contextlib import asynccontextmanager
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import portalocker
 from fastapi import FastAPI, HTTPException, Request, Form, Query
@@ -97,6 +97,12 @@ def static_url(filename):
     return f'/static/{filename}?v={version}'
 
 
+def readable_filename(value):
+    """Decode URL-encoded names for display without changing stored evidence."""
+    decoded=unquote(value or '')
+    return value if any(ord(char)<32 for char in decoded) else decoded
+
+
 def return_destination(value):
     """Local breadcrumb context only; never turn a query parameter into an external link."""
     fallback=('/documents','Dokumente')
@@ -105,7 +111,7 @@ def return_destination(value):
     parsed=urlsplit(value)
     if parsed.scheme or parsed.netloc:return fallback
     labels={'/search':'Zurück zur Suche','/documents':'Zurück zu Dokumenten','/board':'Aufgaben & Notizen',
-            '/overview':'Übersicht','/calendar':'Kalender','/':'Timeline'}
+            '/overview':'Übersicht','/calendar':'Kalender','/sources':'Kurse','/':'Timeline'}
     label=labels.get(parsed.path)
     if not label and re.fullmatch(r'/items/[0-9]+',parsed.path):label='Zurück zum Eintrag'
     return (value,label) if label else fallback
@@ -272,6 +278,7 @@ def create_app(settings=None):
                                 tag_registry=TAGS, item_tags=item_tags,reminder_rule=rule_label,
                                 reminder_states={'pending':'Vorgemerkt','geplant':'Geplant','delivered':'An Windows übergeben','quiet':'Ruhezeit · ausgelassen','expired':'Nicht nachgeholt','cancelled':'Aufgehoben','error':'Windows-Fehler'})
     templates.env.filters['fromjson'] = json.loads
+    templates.env.filters['readable_filename'] = readable_filename
 
     def display_date(value):
         if not value:
@@ -1102,6 +1109,18 @@ def create_app(settings=None):
         upcoming_deadline = next((i for i in due if i['action_date']>=today and i['id'] not in check_ids), None)
         undated_tasks = sorted([i for i in filtered if i['data']['kind']=='task' and i['actionable']
                                 and not i['action_date'] and i['id'] not in check_ids], key=lambda i:i['id'])
+        # Seven calendar days including today; overdue deadlines are never hidden
+        # among upcoming entries, and uncertain claims remain in the check section.
+        upcoming_end = (local_now.date() + timedelta(days=6)).isoformat()
+        reliable = [i for i in filtered if i['relevant'] and i['status'] != 'done'
+                    and not i['offered'] and i['id'] not in check_ids]
+        overdue_entries = sorted([i for i in reliable if i['actionable'] and i['action_deadline']
+                                  and i['remaining'] is not None and i['remaining'] < 0], key=due_key)
+        overdue_ids = {i['id'] for i in overdue_entries}
+        upcoming_entries = sorted([i for i in reliable if i['action_date']
+                                   and today <= i['action_date'] <= upcoming_end
+                                   and i['id'] not in overdue_ids
+                                   and (i['appointment'] or i['action_deadline'] or i['planned_task'])], key=due_key)
         quest_dashboard = await asyncio.to_thread(quests.dashboard)
         quest_candidates = []
         for quest in quest_dashboard['quests']:
@@ -1125,7 +1144,7 @@ def create_app(settings=None):
             if history:
                 item['overview_change'] = {'before':history[0]['before'], 'after':history[-1]['after']}
         sources = [s for s in db.sources() if s['active'] and s['course_active'] != 0]
-        attention = [s for s in sources if s['analysis_pending'] or s['state'] != 'success']
+        attention = [s for s in sources if s['analysis_pending'] > s.get('deferred_analysis', 0) or s['state'] != 'success']
         gaps = db.one("""SELECT count(DISTINCT d.id) n FROM documents d JOIN sources s
             ON d.source_id=s.id OR d.id IN (SELECT value FROM json_each(s.crawl_state,'$.document_ids'))
             WHERE s.id IN (SELECT value FROM json_each(?)) AND d.analysis_state!='archived'
@@ -1134,6 +1153,7 @@ def create_app(settings=None):
                 WHERE d2.source_id=d.source_id AND d2.url=d.url ORDER BY fetched_at DESC,id DESC LIMIT 1))""",
             (encode([s['id'] for s in sources]),))['n']
         return render(request, 'overview.html', kind=kind, today=today, tasks=tasks,
+                      upcoming_end=upcoming_end, upcoming_entries=upcoming_entries, overdue_entries=overdue_entries,
                       today_appointments=today_appointments, upcoming_deadline=upcoming_deadline,
                       undated_tasks=undated_tasks, next_quest=next_quest,
                       expired_registrations=expired_registrations[:8], expired_registration_count=len(expired_registrations),
@@ -1409,12 +1429,50 @@ def create_app(settings=None):
         from .personal import coverage
         view=view if view in ('all','clarify','refresh') else 'all'
         all_coverage=await asyncio.to_thread(coverage,db)
+        # A course recommendation must point to an actual current source, not a
+        # guessed relationship between similarly named files.
+        evidence = await asyncio.to_thread(db.rows, """SELECT e.item_id,e.page,d.id,d.title,d.mime
+            FROM item_evidence e JOIN documents d ON d.id=e.document_id JOIN sources s ON s.id=d.source_id
+            WHERE e.current=1 AND s.active=1 AND d.analysis_state!='archived'
+              AND (d.mime='message/rfc822' OR d.id=(SELECT d2.id FROM documents d2
+                   WHERE d2.source_id=d.source_id AND d2.url=d.url ORDER BY d2.fetched_at DESC,d2.id DESC LIMIT 1))
+            ORDER BY e.id DESC""")
+        proofs = {}
+        for row in evidence:
+            proofs.setdefault(row['item_id'], []).append(row)
+        course_items = await asyncio.to_thread(db.items, active_only=True)
+        from .quests import eligible
+        local_now=datetime.now(VIENNA)
+        today=local_now.date().isoformat()
+        for card in all_coverage:
+            candidates = [i for i in course_items if i['course_id']==card['course_id']
+                          and i['data']['kind']=='task' and not i['identity'].startswith('note:')
+                          and i['id'] in proofs and not i['ignored'] and i['status']!='done'
+                          and i['data']['source_state']=='active' and not i.get('date_conflict',i.get('conflict'))
+                          and not (i['data'].get('group') and i.get('course_group') and i['data']['group']!=i['course_group'])]
+            def task_deadline(item):
+                display=item.get('task_display') or {}
+                day,clock,closing=item_timing(item['data'])
+                day=display.get('deadline_date') or (day if closing else None)
+                clock=display.get('deadline_time') if display.get('deadline_date') else clock
+                return day,clock
+            def past_deadline(item):
+                day,clock=task_deadline(item)
+                return bool(day and (day<today or (day==today and clock and clock[:5]<local_now.strftime('%H:%M'))))
+            overdue=[i for i in candidates if past_deadline(i)]
+            upcoming=[i for i in candidates if not past_deadline(i)]
+            card['next_item']=min(upcoming,key=lambda i:(not bool(task_deadline(i)[0]),task_deadline(i)[0] or '',task_deadline(i)[1] or '',i['id']),default=None)
+            card['overdue_items']=sorted(overdue,key=lambda i:(task_deadline(i)[0],i['id']),reverse=True)
+            card['next_quest_eligible']=bool(card['next_item'] and eligible(card['next_item'],date.fromisoformat(today)))
+            linked=proofs.get(card['next_item']['id'],[]) if card['next_item'] else []
+            card['next_material']=next((p for p in linked if p['mime']=='application/pdf'),None) or next(iter(linked),None)
+            day,clock=task_deadline(card['next_item']) if card['next_item'] else (None,None)
+            attention=bool(card['refresh_needed'] or card['pending'] or card['reading_gaps'])
+            card['_course_priority']=(0,day,clock or '',card['title'].casefold()) if day else (1 if attention else 2,'','',card['title'].casefold())
         cards=[c for c in all_coverage if view=='all' or (c['needs_clarification'] if view=='clarify' else c['refresh_needed'])]
-        featured=cards
-        if view=='all' and len(cards)>2:
-            second=next((c for c in cards[1:] if c['needs_clarification']),cards[1])
-            featured=[cards[0],second]
-        additional=[c for c in cards if c not in featured]
+        cards.sort(key=lambda c:c['_course_priority'])
+        featured=cards[:1]
+        additional=cards[1:]
         return render(request, "sources.html", coverage=cards, all_coverage=all_coverage, coverage_view=view,
                       featured_coverage=featured, additional_coverage=additional,
                       sources=await asyncio.to_thread(db.sources), courses=db.rows("SELECT * FROM courses ORDER BY id"),
@@ -1521,17 +1579,21 @@ def create_app(settings=None):
     @app.get("/documents")
     async def documents(request: Request, all_versions: bool = False, include_inactive: bool = False,
                         q: str = '', course: str = '', state: str = '', page: int = 1):
-        if state not in ('', 'pending', 'gaps', 'success', 'archived'):
+        if state not in ('', 'pending', 'deferred', 'gaps', 'success', 'archived'):
             state = ''
         condition = "" if all_versions else "WHERE d.id=(SELECT d2.id FROM documents d2 WHERE d2.source_id=d.source_id AND d2.url=d.url ORDER BY fetched_at DESC,id DESC LIMIT 1)"
-        rows = await asyncio.to_thread(db.rows, f"SELECT d.id,d.title,d.mime,d.fetched_at,d.analysis_state,d.processing_state,d.error,json_array_length(d.pages) page_count,s.title source_title,s.active source_active,c.title course_title,c.active course_active,c.id course_id FROM documents d JOIN sources s ON s.id=d.source_id LEFT JOIN courses c ON c.id=s.course_id {condition} ORDER BY d.fetched_at DESC,d.id DESC")
+        rows = await asyncio.to_thread(db.rows, f"SELECT d.id,d.title,d.mime,d.fetched_at,d.analysis_state,d.processing_state,d.error,json_array_length(d.pages) page_count,s.title source_title,s.kind source_kind,s.url source_url,s.active source_active,c.title course_title,c.active course_active,c.id course_id FROM documents d JOIN sources s ON s.id=d.source_id LEFT JOIN courses c ON c.id=s.course_id {condition} ORDER BY d.fetched_at DESC,d.id DESC")
         query = q.strip().casefold()
         rows = [d for d in rows if (include_inactive or (d['source_active'] and d['course_active'] != 0))
                 and (not course or str(d['course_id']) == course)
                 and (not query or query in ' '.join([d['title'], d['course_title'] or '', d['source_title']]).casefold())]
-        counts = {'pending':0,'gaps':0,'success':0,'archived':0}
+        counts = {'pending':0,'deferred':0,'gaps':0,'success':0,'archived':0}
         for d in rows:
+            deferred = (d['source_kind']=='public' and urlsplit(d['source_url']).hostname in ('apkpure.com','apkmirror.com','tube.tugraz.at','youtube.com','www.youtube.com','youtu.be')
+                        and 'failed' not in (d['analysis_state'],d['processing_state'])
+                        and 'pending' in (d['analysis_state'],d['processing_state']))
             d['display_state'] = ('archived' if d['analysis_state']=='archived' else
+                'deferred' if deferred else
                 'pending' if d['analysis_state'] in ('pending','failed') or d['processing_state'] in ('pending','failed') else
                 'gaps' if d['analysis_state']=='partial' or d['processing_state']=='partial' else 'success')
             counts[d['display_state']] += 1

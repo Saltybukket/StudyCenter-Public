@@ -47,12 +47,12 @@ def test_today_renders_real_quest_appointments_and_uncertain_deadlines(tmp_path,
     assert 'Ein echter Schritt' in page.select_one('.today-quest').get_text(' ', strip=True)
     assert 'Quelle bitte prüfen.' in page.select_one('.today-quest').get_text(' ', strip=True)
     assert page.select_one('.today-quest a')['href'] == '/quests?quest=q'
-    assert len(page.select('#today-calendar li')) == 15
+    assert len(page.select('#actions li[data-item-id]')) == 16
     assert 'Strittige Frist' in page.select_one('#dated-checks').get_text(' ', strip=True)
-    assert 'Überfällige Aufgabe' in page.select_one('#actions').get_text(' ', strip=True)
-    deadline = page.select_one('.today-deadline').get_text(' ', strip=True)
-    assert 'Nächste Abgabe' in deadline and 'Ohne Uhrzeit' in deadline
-    assert 'Strittige Frist' not in deadline and 'Überfällige Aufgabe' not in deadline
+    assert 'Überfällige Aufgabe' in page.select_one('#overdue').get_text(' ', strip=True)
+    upcoming = page.select_one('#actions').get_text(' ', strip=True)
+    assert 'Nächste Abgabe' in upcoming and 'Ohne Uhrzeit' in upcoming
+    assert 'Strittige Frist' not in upcoming and 'Überfällige Aufgabe' not in upcoming
     assert all(row['status'] == 'open' for row in rows)
 
 
@@ -73,20 +73,22 @@ def test_routine_appointments_do_not_displace_next_task(tmp_path, monkeypatch):
                 'ignored':0, 'conflict':0, 'date_conflict':False, 'pinned':0, 'personal_event':True,
                 'seen':1, 'changed_at':'2030-10-25T08:00:00+00:00', 'history':[]}
     rows = [item(i) for i in range(1, 8)]
-    rows.append(item(8, title='Spätere Aufgabe', kind='task', date='2030-11-03', date_meaning='deadline'))
+    rows.append(item(8, title='Innerhalb der Woche', kind='task', date='2030-11-01', date_meaning='deadline'))
+    rows.append(item(9, title='Außerhalb der Woche', kind='task', date='2030-11-02', date_meaning='deadline'))
     app.state.db.items = lambda active_only=False: rows
     page = BeautifulSoup(TestClient(app).get('/overview').text, 'html.parser')
-    assert 'Spätere Aufgabe' in page.select_one('#actions').get_text(' ', strip=True)
-    assert not page.select('#actions a[href^="/items/1"]')
-    assert 'Pflichttermin' in page.select_one('#week').get_text(' ', strip=True)
+    upcoming = page.select_one('#actions').get_text(' ', strip=True)
+    assert 'Innerhalb der Woche' in upcoming and 'Pflichttermin' in upcoming
+    assert 'Außerhalb der Woche' not in upcoming
+    assert [row['data-item-id'] for row in page.select('#actions li[data-item-id]')] == [str(i) for i in range(1, 9)]
 
 
 def test_today_empty_state_does_not_invent_content(tmp_path):
     app = create_app(Settings(data_dir=tmp_path))
     page = BeautifulSoup(TestClient(app).get('/overview').text, 'html.parser')
     assert 'Noch kein offener Schritt' in page.select_one('.today-quest').get_text(' ', strip=True)
-    assert 'Keine belegten persönlichen Termine' in page.select_one('#today-calendar').get_text(' ', strip=True)
-    assert not page.select_one('.today-deadline')
+    assert 'Keine belegten Termine oder Fristen' in page.select_one('#actions').get_text(' ', strip=True)
+    assert not page.select_one('#overdue')
 
 async def test_today_action_changes_only_selected_task(tmp_path, monkeypatch):
     from pathlib import Path
@@ -124,3 +126,38 @@ async def test_today_action_changes_only_selected_task(tmp_path, monkeypatch):
         assert db.one('SELECT status FROM items WHERE id=?', (identifier,))['status'] == 'done'
         await expect(page.get_by_role('button', name='Erledigt: Gezielte Aufgabe')).to_have_count(0)
         await browser.close()
+
+
+def test_overdue_overflow_remains_available(tmp_path, monkeypatch):
+    from studycenter_public.core import app as app_module
+    fixed = datetime(2030, 10, 26, 9, tzinfo=VIENNA)
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls.fromtimestamp(fixed.timestamp(), tz)
+    monkeypatch.setattr(app_module, 'datetime', FixedDatetime)
+    app = create_app(Settings(data_dir=tmp_path))
+    def item(identifier):
+        data = Candidate(title=f'Frist {identifier}', kind='task', date=f'2030-10-{20+identifier:02}',
+                         date_meaning='deadline', obligation='required', quote='Beleg', page=1, anchor='test').model_dump(mode='json')
+        return {'id': identifier, 'identity': f'fixture:{identifier}', 'data': data, 'status': 'open',
+                'ignored': 0, 'conflict': 0, 'pinned': 0, 'seen': 1, 'history': [], 'changed_at': '2030-10-25'}
+    app.state.db.items = lambda active_only=False: [item(i) for i in range(1, 6)]
+    page = BeautifulSoup(TestClient(app).get('/overview').text, 'html.parser')
+    section = page.select_one('#overdue')
+    assert len(section.select(':scope > ul > li')) == 3
+    assert len(section.select('details li')) == 2
+    assert '2 weitere überfällige Fristen' in section.select_one('details.dashboard-expand > summary').get_text()
+    assert not page.select('#actions [data-item-id]')
+
+
+
+def test_deferred_source_analysis_is_not_reported_as_error(tmp_path):
+    app = create_app(Settings(data_dir=tmp_path))
+    source = {'id': 1, 'active': 1, 'course_active': 1, 'state': 'success',
+              'analysis_pending': 2, 'deferred_analysis': 2}
+    app.state.db.sources = lambda: [source]
+    client = TestClient(app)
+    assert '0 Quellen mit offenen Punkten' in client.get('/overview').text
+    source['analysis_pending'] = 3
+    assert '1 Quellen mit offenen Punkten' in client.get('/overview').text

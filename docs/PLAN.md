@@ -255,3 +255,31 @@ was published on 2026-10-15. [Release verification](RELEASE-VERIFICATION.md)
 records the exact artifacts, actual CI and VM runs, and remaining personal
 acceptance. Linux normal-system-browser UI passed; automated source browsing
 remains blocked in the Ubuntu VM by the existing browser ownership check.
+
+## Produktabgleich: Upcoming und kompaktes Luna-Fenster (2026-11-07)
+
+Der gemeinsame Kern ist auf Referenzcommit
+`1ea3719dc78cff73bd2af04e8fa02f2dea40c88e` aktualisiert. Enthalten sind Upcoming
+mit sieben Kalendertagen und getrennten alten Aufgaben/Quest-Schritten, das
+kompakte nichtmodale Luna-Fenster, Kurspriorisierung nach belegten Fristen,
+direkte Material-/Quest-Zugaenge, getrennte zurueckgestellte Medien, lesbare
+Kalenderstatus und kompakte Kopfzeilen. Die Post-it-Wand bleibt unveraendert.
+
+Uebernommen werden ausschliesslich Produktcode, lokale Standardassets und
+synthetische Tests. Public-Einrichtung, Instanzpfade, Credential-Namespace und
+Onboarding bleiben als Distributionsanpassungen erhalten. Keine privaten
+Datenbanken, Quellenmaterialien, Browserprofile, Berichte oder Zugangsdaten
+gehoeren zum Export. Der Quellabgleich prueft Commit, Baum, Arbeitskopie und
+ausgelieferte Dateihashes; Verhalten und Darstellung werden davon unabhaengig
+mit isolierten synthetischen Daten geprueft. Dieser Quellabgleich veroeffentlicht
+keine neuen Installer und startet keine Synchronisierung.
+
+Validierung: 44 gezielte Produkt-/Runtime-Tests ohne uebersprungene Browserfaelle
+und 24 Tests fuer Distributionsisolation, Quellbindung, Architektur und Onboarding
+bestanden. Headless-Browser mit frischem temporaerem Profil; keine eigenen
+Konten oder echten Modellanfragen. Vergleich mit identischen synthetischen
+Daten bei 1440x900 und 390x900 fuer Upcoming, Kurse, Dokumente, Kalender,
+Quests und Luna: gleiche sichtbare Inhalte; 11 von 12 Bildpaaren pixelgleich.
+Das mobile Luna-Bild weicht an einem Pixel ab, ohne sichtbaren Layoutunterschied.
+Betriebssystem-Installer wurden fuer diesen Quellabgleich nicht neu gebaut
+oder auf Linux/Windows installiert.

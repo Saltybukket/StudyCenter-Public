@@ -334,10 +334,14 @@ async function poll(force = true) {
     }
     if (wasActive && !state.active) {
       const activeSources = state.sources.filter(s => s.active && s.course_active !== 0);
-      const remaining = activeSources.reduce((n,s) => n + (s.analysis_pending ?? s.pending), 0);
+      const remaining = activeSources.reduce((n,s) => n + Math.max(0, (s.analysis_pending ?? s.pending ?? 0) - (s.deferred_analysis || 0)), 0);
       const gaps = activeSources.reduce((n,s) => n + (s.reading_gaps || 0), 0);
-      tell(`${state.run?.state === 'success' ? 'Synchronisierung abgeschlossen.' : 'Synchronisierung teilweise abgeschlossen; Quellenstatus prüfen.'} ${remaining ? `${remaining} Auswertungen noch ausstehend. ` : ''}${gaps ? `${gaps} Dokumente mit Leselücken. ` : ''}`);
+      const access = activeSources.filter(s => ['failed','login_required','interrupted'].includes(s.state)).length;
+      tell([state.run?.state === 'success' ? 'Quellen aktualisiert.' : 'Quellenabgleich teilweise abgeschlossen.',
+        access ? `${access} ${access === 1 ? 'Quellenzugang' : 'Quellenzugänge'} prüfen.` : '', remaining ? `${remaining} ${remaining === 1 ? 'Auswertung' : 'Auswertungen'} offen.` : '',
+        gaps ? 'Leselücken vorhanden.' : ''].filter(Boolean).join(' '));
       const link = document.createElement('a'); link.href = location.href; link.textContent = 'Ansicht aktualisieren →'; notice.append(link);
+      if (access || remaining || gaps) { const details=document.createElement('a');details.href='/sources';details.textContent=' Quellenstatus ansehen →';notice.append(details); }
     }
     wasActive = state.active;loginActive=Boolean(state.login_mode);
   } catch (error) {document.querySelector('#sync-state').textContent = 'App nicht erreichbar - läuft CampusBoard noch?';document.querySelector('#sync-progress').hidden=true;document.querySelector('#sync-progress-label').hidden=true;document.querySelector('.sync-strip').hidden=false;}

@@ -288,8 +288,14 @@ document.addEventListener('DOMContentLoaded', () => {
       clock.textContent = (p.weekPoint ? (p.itemKind === 'registration' ? (p.closingDate ? 'Anmeldeschluss · ' : 'Anmeldung · ') : 'Frist · ') : '') + (info.timeText.replace(/\s*Uhr$/, '').replace('–', '–\u200b') || 'Ohne Uhrzeit')
         + (!info.event.allDay && !info.event.end && !p.weekPoint ? ' · Ende offen' : '');
       const name = document.createElement('strong'); name.textContent=calendarShortLabel(info.event.title);
+      const category = document.createElement('small'); category.className='schedule-kind';
+      category.textContent = p.itemKind === 'registration' ? 'Anmeldung'
+        : p.itemKind === 'task' ? (p.dateMeaning === 'deadline' || p.weekPoint ? 'Abgabe' : p.personallyPlanned ? 'Eigene Aufgabe' : 'Aufgabe')
+        : p.itemKind === 'exam' ? 'Prüfung' : p.itemKind === 'event' ? 'Termin' : '';
+      if (p.status === 'done') category.textContent += (category.textContent ? ' · ' : '') + 'Erledigt';
       const courseName = document.createElement('small'); courseName.className='schedule-course'; courseName.textContent=calendarShortLabel(p.course,36);
       node.append(clock,name);
+      if (category.textContent) node.append(category);
       if (!name.textContent.includes(courseName.textContent)) node.append(courseName);
       return {domNodes:[node]};
     },
@@ -299,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     eventDidMount: info => {
       const p = info.event.extendedProps;
-      info.el.title = `${info.event.title} · ${(p.tags||[]).map(t=>t.label).join(' · ')} · ${rangeText(info.event)}${p.closingDate ? ' · '+(p.itemKind==='registration' ? 'Anmeldeschluss' : 'Fensterschluss')+': '+label(p.closingDate,true)+(p.closingTime ? ' '+p.closingTime.slice(0,5) : ' · ohne Uhrzeit') : ''}`;
+      info.el.title = `${info.event.title}${p.status === 'done' ? ' · Erledigt' : ''} · ${(p.tags||[]).map(t=>t.label).join(' · ')} · ${rangeText(info.event)}${p.closingDate ? ' · '+(p.itemKind==='registration' ? 'Anmeldeschluss' : 'Fensterschluss')+': '+label(p.closingDate,true)+(p.closingTime ? ' '+p.closingTime.slice(0,5) : ' · ohne Uhrzeit') : ''}`;
       const color = p.courseColor || '#67836c';
       info.el.classList.add('calendar-entry');
       if(p.status === 'done') info.el.classList.add('calendar-entry-done');

@@ -1,0 +1,23 @@
+/* Luna stays beside the current view and does not block it. */
+#voice-panel[open]{position:fixed;z-index:90;inset:96px 12px auto auto;margin:0;box-sizing:border-box;width:min(370px,calc(100vw - 24px));max-width:none;height:auto;max-height:min(680px,calc(100dvh - 108px));padding:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px #203d3533}
+#voice-panel .voice-heading{flex:none;align-items:center;padding:.9rem 1rem;border-bottom:1px solid var(--line)}
+#voice-panel .voice-heading h2{font-size:1.2rem}
+#voice-panel .voice-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:.75rem 1rem}
+#voice-panel .voice-chat{max-height:none;margin:.6rem 0;overflow:visible}
+#voice-panel .voice-empty{padding:0;margin:.75rem 0;background:none;border:0;text-align:left;color:var(--muted)}
+#voice-panel .voice-choices{align-items:stretch}
+#voice-panel .voice-preview,#voice-panel .voice-sources{flex-basis:100%;min-width:0}
+#voice-panel .voice-bulk-items{max-height:220px}
+#voice-panel .voice-footer{margin-top:.8rem}
+#voice-panel .voice-speaking{align-self:auto;margin:.6rem 0}
+#voice-panel #voice-command-form{flex:none;padding:.8rem 1rem 1rem;border-top:1px solid var(--line);background:var(--surface)}
+#voice-panel #voice-transcript{display:block;box-sizing:border-box;min-height:64px;max-height:150px;resize:vertical}
+#voice-panel .voice-composer-actions{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.5rem}
+#voice-panel .voice-recording{min-width:0;gap:.35rem;margin:0}
+#voice-panel .voice-recording span{font-size:.7rem;color:var(--muted)}
+#voice-panel #voice-meter{width:3rem}
+#voice-panel #voice-send{white-space:normal}
+#voice-panel #voice-process{display:block;font-size:.75rem;margin-top:.35rem}
+#voice-panel #voice-process:empty{display:none}
+@media(min-width:1150px){body[data-page="item"].voice-open .layout{width:calc(100% - 394px);margin-left:0;margin-right:394px}body[data-page="item"].voice-open .detail-columns{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){#voice-panel[open]{inset:8px 8px auto auto;height:auto;max-height:min(680px,calc(100dvh - 16px));width:min(370px,calc(100vw - 16px));border-radius:12px}#voice-panel .voice-body{padding:.65rem .8rem}#voice-panel #voice-command-form{padding:.65rem .8rem .8rem}}

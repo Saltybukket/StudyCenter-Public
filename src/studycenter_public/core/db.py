@@ -417,14 +417,15 @@ class Database:
           SELECT s.id,
             sum(CASE WHEN d.analysis_state!='success' OR d.processing_state!='success' THEN 1 ELSE 0 END) pending,
             sum(CASE WHEN d.analysis_state IN ('pending','failed') OR d.processing_state IN ('pending','failed') THEN 1 ELSE 0 END) analysis_pending,
+            sum(CASE WHEN (d.analysis_state='pending' OR d.processing_state='pending') AND d.analysis_state!='failed' AND d.processing_state!='failed' THEN 1 ELSE 0 END) deferred_count,
             sum(CASE WHEN d.analysis_state='partial' OR d.processing_state='partial' THEN 1 ELSE 0 END) reading_gaps
           FROM sources s LEFT JOIN current_docs d ON d.source_id=s.id OR d.id IN (SELECT value FROM json_each(s.crawl_state,'$.document_ids')) GROUP BY s.id
         ) SELECT s.*,c.title course_title,c.semester,c.group_name,c.active course_active,
-          stats.pending,stats.analysis_pending,stats.reading_gaps
+          stats.pending,stats.analysis_pending,stats.reading_gaps,stats.deferred_count
           FROM sources s JOIN stats ON stats.id=s.id LEFT JOIN courses c ON c.id=s.course_id ORDER BY s.id""")
         for source in rows:
             media = source['kind']=='public' and urlsplit(source['url']).hostname in ('apkpure.com','apkmirror.com','tube.tugraz.at','youtube.com','www.youtube.com','youtu.be')
-            source['deferred_analysis']=(source['analysis_pending'] or 0) if media else 0
+            source['deferred_analysis']=(source['deferred_count'] or 0) if media else 0
         return rows
 
     def _evidence_context(self, con):

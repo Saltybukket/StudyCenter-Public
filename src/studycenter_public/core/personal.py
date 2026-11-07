@@ -219,8 +219,9 @@ def coverage(db, course_id=None):
         # Keep legacy MCP fields, but separate student questions from processing counts.
         access_issues=[{'source_id':s['id'],'title':s['title'],'state':s['state'],
                         'last_attempt':s['last_attempt'],'last_success':s['last_success'],'kind':s['kind']}
-                       for s in src if not deferred_source(s) and s['kind']!='manual'
-                       and (s['state'] in ('login_required','failed','interrupted') or not s['last_success'])]
+                       for s in src if s['kind']!='manual'
+                       and (s['state'] in ('login_required','failed','interrupted')
+                            or (not deferred_source(s) and not s['last_success']))]
         relevant=[{'title':gap,'detail':'','items':[]} for gap in gaps if not gap.startswith('Frischer TU-Abgleich')]
         grouped={}
         for item in own:
