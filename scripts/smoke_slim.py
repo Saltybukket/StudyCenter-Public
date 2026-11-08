@@ -116,11 +116,11 @@ def probe_app(program, data, env, result, expect_legacy_note=False, *, create_no
                        for identity, payload in rows), 'Migrated note is absent from the shared database'
             result['legacy_synthetic_note_visible_in_shared_ui_and_database'] = True
         if expect_manual_note:
-            with urllib.request.urlopen(url+'/entries?view=all') as response:
-                assert b'Synthetic installation check' in response.read()
             with closing(sqlite3.connect(data/'core'/'campusboard.sqlite3')) as connection:
-                row = connection.execute('SELECT payload FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
-            assert row and json.loads(row[0])['title'] == 'Synthetic installation check'
+                row = connection.execute('SELECT id,payload FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
+            assert row and json.loads(row[1])['title'] == 'Synthetic installation check'
+            with urllib.request.urlopen(url+'/items/'+str(row[0])) as response:
+                assert b'Synthetic installation check' in response.read()
             result['previous_synthetic_note_visible_in_shared_ui_and_database'] = True
             if not create_note:
                 with closing(sqlite3.connect(data/'core'/'campusboard.sqlite3')) as connection:

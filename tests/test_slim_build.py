@@ -143,10 +143,12 @@ def test_upgrade_fixture_closes_wal_before_exact_byte_baseline(tmp_path):
     import sqlite3
     from studycenter_public.core.db import Database
     from studycenter_public.core.models import Candidate
+    from studycenter_public.platform.paths import AppPaths
     from scripts.smoke_slim import PERSISTED_FILES, seed_upgrade_evidence, verify_upgrade_backup, require_persisted_unchanged
     data = tmp_path/'data'
+    paths = AppPaths.create(data)
     core = data/'core'
-    (core/'documents').mkdir(parents=True)
+    (core/'documents').mkdir(parents=True, exist_ok=True)
     database = core/'campusboard.sqlite3'
     Database(database)
     payload = Candidate(title='Synthetic installation check', kind='task', quote='note', page=1, anchor='note').model_dump_json()
@@ -161,6 +163,15 @@ def test_upgrade_fixture_closes_wal_before_exact_byte_baseline(tmp_path):
     assert fixture_step['title'] == 'Synthetic edited step'
     Step.model_validate({name: fixture_step[name] for name in Step.model_fields})
     assert dashboard['quests'][0]['mode'] == 'custom' and dashboard['quests'][0]['daily_minutes'] == 30
+    from fastapi.testclient import TestClient
+    from studycenter_public.product import create_app
+    from studycenter_public.platform.secrets import SecretStore
+    with closing(sqlite3.connect(database)) as con:
+        item_id, status = con.execute('SELECT id,status FROM items WHERE identity=?', ('note:manual:'+'a'*32,)).fetchone()
+    assert status == 'done'
+    with TestClient(create_app(paths, SecretStore(paths.instance_id, session_only=True))) as client:
+        response = client.get(f'/items/{item_id}')
+        assert response.status_code == 200 and 'Synthetic installation check' in response.text
     snapshot = lambda: tuple((data/name).read_bytes() if (data/name).exists() else None for name in PERSISTED_FILES)
     before = snapshot()
     gc.collect()
