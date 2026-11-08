@@ -131,6 +131,7 @@ class Win32Wizard:
     def __init__(self, process):
         self.process = process
         self.pids = {process.pid}
+        self.observed = []
         self.user = ctypes.WinDLL('user32', use_last_error=True)
         self.kernel = ctypes.WinDLL('kernel32', use_last_error=True)
         self.user.GetWindowTextLengthW.argtypes = [wintypes.HWND]
@@ -235,6 +236,20 @@ class Win32Wizard:
     def normalized(label):
         return label.replace('&', '').replace('...', '').strip().lower()
 
+    @classmethod
+    def navigation_label(cls, label):
+        text = cls.normalized(label)
+        return text[:-1].rstrip() if text.endswith('>') else text
+
+    def observe(self, window, children):
+        state = {'window': self.text(window), 'controls': [
+            {'label': label[:200], 'class': klass, 'enabled': enabled}
+            for _, label, klass, enabled in children if label
+        ]}
+        if not self.observed or self.observed[-1] != state:
+            self.observed.append(state)
+            self.observed = self.observed[-12:]
+
     def click(self, hwnd):
         if not self.user.IsWindowEnabled(hwnd):
             raise RuntimeError('Refusing to click a disabled wizard control')
@@ -249,7 +264,9 @@ class Win32Wizard:
             if self.process.poll() is not None:
                 return self.process.returncode
             for window in self.windows():
-                for control, label, klass, enabled in self.children(window):
+                children = self.children(window)
+                self.observe(window, children)
+                for control, label, klass, enabled in children:
                     if enabled and 'button' in klass.lower() and self.normalized(label) in ('yes', 'ja', 'ok'):
                         self.click(control)
             time.sleep(.1)
@@ -261,7 +278,9 @@ class Win32Wizard:
             if self.process.poll() is not None:
                 raise RuntimeError('Installer exited before the pre-install cancellation')
             for window in self.windows():
-                for control, label, klass, enabled in self.children(window):
+                children = self.children(window)
+                self.observe(window, children)
+                for control, label, klass, enabled in children:
                     if enabled and 'button' in klass.lower() and self.normalized(label) in ('cancel', 'abbrechen'):
                         self.click(control)
                         return self.finish_cancel()
@@ -278,6 +297,7 @@ class Win32Wizard:
                 raise RuntimeError('Installer exited before an owned copy-error dialog was observed')
             for window in self.windows():
                 children = self.children(window)
+                self.observe(window, children)
                 labels = [self.normalized(label) for _, label, _, _ in children]
                 combined = ' '.join(labels)
                 if 'preparing the public base environment' in combined:
@@ -315,7 +335,7 @@ class Win32Wizard:
                     if label.startswith('i accept') or label.startswith('ich akzeptiere'):
                         self.click(control)
                 for control, label in buttons:
-                    if label in ('next', 'weiter', 'install', 'installieren'):
+                    if self.navigation_label(label) in ('next', 'weiter', 'install', 'installieren'):
                         self.click(control)
                         last_action = time.monotonic()
                         break
@@ -393,6 +413,12 @@ def run(installer, previous_installer, assets, root=None):
                 result[phase+'_changed_old_program_members_before_abort'] = changed
                 result[phase+'_prepare_caption_observed'] = saw_prepare
                 result[phase+'_prepare_cancel_disabled_observed'] = disabled
+        except Exception:
+            print(json.dumps({'phase': phase, 'observed_owned_windows': wizard.observed}, ensure_ascii=True), flush=True)
+            log = case/'candidate-installer.log'
+            if log.exists():
+                print(log.read_text(encoding='utf-8-sig', errors='replace')[-20000:], flush=True)
+            raise
         finally:
             release_lock()
             wizard.close()

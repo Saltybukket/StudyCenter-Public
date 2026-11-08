@@ -5,11 +5,21 @@ import subprocess
 import sys
 import warnings
 from zipfile import ZipFile
+import importlib
 
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize(('label', 'expected'), [('&Next >', 'next'), ('&Weiter >', 'weiter'),
+                                                ('&Install', 'install'), ('Cancel', 'cancel'),
+                                                ('< &Back', '< back')])
+def test_installer_navigation_label_matches_real_button_captions(monkeypatch, label, expected):
+    monkeypatch.syspath_prepend(str(ROOT/'scripts'))
+    driver = importlib.import_module('scripts.smoke_windows_cancellation')
+    assert driver.Win32Wizard.navigation_label(label) == expected
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Requires Windows PowerShell')
