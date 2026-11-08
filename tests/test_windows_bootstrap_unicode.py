@@ -22,6 +22,14 @@ def test_installer_navigation_label_matches_real_button_captions(monkeypatch, la
     assert driver.Win32Wizard.navigation_label(label) == expected
 
 
+def test_installer_driver_recognizes_observed_sharing_error_dialog(monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT/'scripts'))
+    driver = importlib.import_module('scripts.smoke_windows_cancellation').Win32Wizard
+    labels = ['&Try again', '&Skip this file (not recommended)', 'Cancel installation']
+    assert [driver.is_retry_label(label) for label in labels] == [True, False, False]
+    assert [driver.is_cancel_installation_label(label) for label in labels] == [False, False, True]
+
+
 @pytest.mark.skipif(sys.platform != 'win32', reason='Requires Windows PowerShell')
 @pytest.mark.parametrize('scenario', ['valid', 'duplicate', 'existing', 'junction'])
 def test_pinned_uv_extraction_handles_unicode_and_refuses_unsafe_cases(tmp_path, scenario):

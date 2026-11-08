@@ -241,6 +241,15 @@ class Win32Wizard:
         text = cls.normalized(label)
         return text[:-1].rstrip() if text.endswith('>') else text
 
+    @classmethod
+    def is_retry_label(cls, label):
+        return cls.normalized(label) in ('retry', 'try again', 'wiederholen')
+
+    @classmethod
+    def is_cancel_installation_label(cls, label):
+        return cls.normalized(label) in ('cancel', 'cancel installation', 'abbrechen',
+                                         'abort', 'abbrechen der installation')
+
     def observe(self, window, children):
         state = {'window': self.text(window), 'controls': [
             {'label': label[:200], 'class': klass, 'enabled': enabled}
@@ -304,7 +313,7 @@ class Win32Wizard:
                     saw_prepare = True
                     disabled_during_prepare |= any(self.normalized(label) in ('cancel', 'abbrechen') and not enabled
                                                    for _, label, _, enabled in children)
-                has_retry = any(x in ('retry', 'wiederholen') for x in labels)
+                has_retry = any(self.is_retry_label(x) for x in labels)
                 if has_retry:
                     changed = sorted(name for name, before in baseline.items()
                                      if not name.startswith(('.local/', 'unins')) and (program/name).is_file()
@@ -320,7 +329,7 @@ class Win32Wizard:
                     buttons = [(c, self.normalized(label)) for c, label, klass, enabled in children
                                if enabled and 'button' in klass.lower()]
                     for control, label in buttons:
-                        if label in ('cancel', 'abbrechen', 'abort', 'abbrechen der installation'):
+                        if self.is_cancel_installation_label(label):
                             self.click(control)
                             # Let the genuine error-dialog click land before
                             # releasing the owned lock needed for rollback.
