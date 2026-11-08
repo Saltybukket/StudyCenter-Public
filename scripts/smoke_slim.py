@@ -22,6 +22,14 @@ PERSISTED_FILES = ('instance.json', 'studycenter-public.sqlite3', 'core/campusbo
                    'config/synthetic-credential-sentinel.txt')
 
 
+def configure_diagnostics():
+    # Windows hosted runners can expose a legacy console encoding. Preserve
+    # arbitrary paths in diagnostics as escaped text without changing argv.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(errors='backslashreplace')
+
+
 def require_persisted_unchanged(before, after):
     if len(before) != len(PERSISTED_FILES) or len(after) != len(PERSISTED_FILES):
         raise AssertionError('Incomplete persisted data inventory')
@@ -225,6 +233,7 @@ def verify_upgrade_backup(data, root, expected):
 
 
 def main():
+    configure_diagnostics()
     parser = argparse.ArgumentParser()
     parser.add_argument('--assets', required=True, type=Path)
     parser.add_argument('--installer', type=Path)

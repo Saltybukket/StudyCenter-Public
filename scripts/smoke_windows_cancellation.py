@@ -336,6 +336,7 @@ def lock_for_reading(path):
 
 
 def run(installer, previous_installer, assets, root=None):
+    smoke_slim.configure_diagnostics()
     temp = require_runner()
     installer = Path(installer).resolve(strict=True)
     previous_installer = Path(previous_installer).resolve(strict=True)

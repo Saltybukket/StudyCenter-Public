@@ -2,9 +2,21 @@
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import pytest
 from scripts import build_slim
+
+
+def test_slim_diagnostics_do_not_fail_on_unicode_with_legacy_console():
+    code = ("import os,sys; from scripts.smoke_slim import configure_diagnostics,run_command; "
+            "configure_diagnostics(); run_command([sys.executable,'-c','pass','\\u5b66\\u7fd2'],dict(os.environ))")
+    env = dict(os.environ, PYTHONIOENCODING='cp1252:strict')
+    result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode('ascii', errors='replace')
+    assert b'\\u5b66\\u7fd2' in result.stdout
 
 
 @pytest.mark.parametrize('actual,accepted', [('0.1.0b4', True), ('0.1.0b3', False)])
