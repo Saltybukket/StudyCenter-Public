@@ -116,7 +116,7 @@ jobs:
           child=dict(os.environ); child.pop('GH_TOKEN',None)
           subprocess.run([os.environ['SYSTEM_BROWSER_PYTHON'],'scripts/smoke_slim.py','--assets',str(assets),'--archive',str(package),'--expected-source',source],env=child,check=True)
           PY
-      - name: Existing browser and own XDG UI probe
+      - name: Existing browser and own XDG UI probe (slim uses source backend)
         shell: bash
         env:
           EXPECTED_EXECUTABLE_SHA256: ${{ inputs.executable_sha256 }}

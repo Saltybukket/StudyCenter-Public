@@ -523,6 +523,26 @@ def sandbox_evidence(context, profile, diagnostics=None):
         version.close()
 
 
+def import_synthetic_pdf(request, base, content):
+    session = request.get(base + '/api/session', headers={'X-Requested-With': 'fetch'})
+    if not session.ok:
+        raise RuntimeError('Own synthetic session request failed.')
+    imported = request.post(base + '/import', headers={'Origin': base, 'X-CSRF-Token': session.json()['csrf']},
+        multipart={'file': {'name': 'Synthetic Public.pdf', 'mimeType': 'application/pdf', 'buffer': content}},
+        max_redirects=0)
+    location = imported.headers.get('location', '')
+    if imported.status != 303 or not re.fullmatch(r'/documents/[1-9][0-9]*', location):
+        raise RuntimeError('Own synthetic PDF import failed.')
+    return base + location
+
+
+def wait_for_synthetic_pdf(request, url):
+    def ready():
+        response = request.get(url)
+        return response.ok and 'Synthetic Public PDF reader sentinel' in response.text()
+    wait_for(ready)
+
+
 def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
     profile = own_directory(fixture / ('ui-profile-' + uuid4().hex))
     child, pid_receipt = install_own_xdg_dispatch(fixture, profile, base, environment)
@@ -548,21 +568,18 @@ def ui_probe(playwright, fixture, environment, base, stack, diagnostics):
     context = browser.contexts[0]
     page = next((page for page in context.pages if page.url.startswith(base)), None) or context.new_page()
     page.goto(base + '/overview')
-    page.get_by_role('heading', name='Übersicht', exact=True).wait_for()
+    page.get_by_role('heading', name='Upcoming', exact=True).wait_for()
     partial['overview_rendered'] = True
     screen = fixture / 'own-xdg-ui.png'
     page.screenshot(path=screen, full_page=True)
     partial['UI_screenshot_sha256'] = digest(screen)
-    session = context.request.get(base + '/api/session').json()
     import pymupdf
     pdf = pymupdf.open()
     pdf.new_page().insert_text((72, 72), 'Synthetic Public PDF reader sentinel')
     content = pdf.tobytes(); pdf.close()
-    imported = context.request.post(base + '/api/documents/import', headers={'Origin': base, 'X-CSRF-Token': session['csrf']},
-        multipart={'file': {'name': 'Synthetic Public.pdf', 'mimeType': 'application/pdf', 'buffer': content}})
-    if not imported.ok:
-        raise RuntimeError('Own synthetic PDF import failed.')
-    page.goto(base + '/documents/' + str(imported.json()['id']))
+    document_url = import_synthetic_pdf(context.request, base, content)
+    wait_for_synthetic_pdf(context.request, document_url)
+    page.goto(document_url)
     page.get_by_text('Synthetic Public PDF reader sentinel', exact=False).first.wait_for()
     partial['PDF_reader_DOM'] = True
     page.locator('img.pdf-page').first.wait_for(state='visible')

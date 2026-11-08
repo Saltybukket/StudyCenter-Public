@@ -314,6 +314,52 @@ def test_current_desktop_sandbox_rows_accept_legitimate_nonbroker_yama_no():
     assert controller.sandbox_page_diagnostics(SANDBOX_BODY)['verified_desktop_rows'] is True
 
 
+def test_browser_probe_current_shared_overview_and_pdf_import_contract(tmp_path):
+    import pymupdf
+    from fastapi.testclient import TestClient
+    from studycenter_public.platform.paths import AppPaths
+    from studycenter_public.product import create_app
+
+    class RequestAdapter:
+        def __init__(self, client):
+            self.client = client
+
+        @staticmethod
+        def wrap(response):
+            class Result:
+                status = response.status_code
+                ok = 200 <= status < 300
+                headers = response.headers
+                json = response.json
+                text = lambda self: response.text
+            return Result()
+
+        def get(self, url, *, headers=None):
+            return self.wrap(self.client.get(url, headers=headers))
+
+        def post(self, url, *, headers, multipart, max_redirects):
+            assert max_redirects == 0
+            file = multipart['file']
+            return self.wrap(self.client.post(url, headers=headers,
+                files={'file': (file['name'], file['buffer'], file['mimeType'])}, follow_redirects=False))
+
+    app = create_app(AppPaths.create(str(tmp_path/'synthetic-data')))
+    pdf = pymupdf.open()
+    pdf.new_page().insert_text((72, 72), 'Synthetic Public PDF reader sentinel')
+    content = pdf.tobytes()
+    pdf.close()
+    with TestClient(app, base_url='http://testserver') as client:
+        overview = client.get('/overview')
+        assert overview.status_code == 200 and '<h1>Upcoming</h1>' in overview.text
+        assert client.get('/api/session').status_code == 403
+        requests = RequestAdapter(client)
+        destination = controller.import_synthetic_pdf(requests, 'http://testserver', content)
+        controller.wait_for_synthetic_pdf(requests, destination)
+        page = client.get(destination)
+        assert page.status_code == 200 and 'Synthetic Public PDF reader sentinel' in page.text
+        assert 'class="pdf-page"' in page.text
+
+
 @pytest.mark.parametrize('row',SANDBOX_REQUIRED_ROWS)
 @pytest.mark.parametrize('mutation',['missing','duplicate','no','unknown','malformed'])
 def test_current_sandbox_required_rows_fail_closed(row,mutation):
