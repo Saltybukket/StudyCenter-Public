@@ -89,6 +89,9 @@ type TSafeFindRec = record
   Attributes: LongWord;
   Error: LongInt;
 end;
+type TUnicodeIniBOM = record
+  First, Second: Byte;
+end;
 const OwnApplication = 'StudyCenter.Public';
   OwnUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B60E9F91-11F3-4EA8-B973-5C6D65C7A59A}_is1';
 var DataDirectoryPage: TInputDirWizardPage;
@@ -102,6 +105,12 @@ var DataDirectoryPage: TInputDirWizardPage;
 #endif
 function GetFileAttributesW(Name: String): LongWord;
   external 'GetFileAttributesW@kernel32.dll stdcall';
+function NativeCreateFile(Name: String; Access, Share, Security, Creation, Flags, Template: LongWord): THandle;
+  external 'CreateFileW@kernel32.dll stdcall';
+function NativeWriteFile(Handle: THandle; var Buffer: TUnicodeIniBOM; Count: LongWord; var Written: LongWord; Overlapped: LongWord): Boolean;
+  external 'WriteFile@kernel32.dll stdcall';
+function NativeCloseHandle(Handle: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
 function NativeFindFirst(Name: String; var Data: TNativeFindData): THandle;
   external 'FindFirstFileW@kernel32.dll stdcall';
 function NativeFindNext(Handle: THandle; var Data: TNativeFindData): Boolean;
@@ -155,6 +164,22 @@ begin
     Current := RemoveBackslashUnlessRoot(Parent);
   until False;
   Result := True;
+end;
+function CreateUnicodeIni(Path: String): Boolean;
+var Handle: THandle; BOM: TUnicodeIniBOM; Written: LongWord;
+begin
+  Result := False;
+  if not NoReparseAncestors(Path) then exit;
+  { Write the UTF-16LE BOM as two raw bytes. WritePrivateProfileStringW
+    otherwise creates an ANSI file and loses characters outside its code page. }
+  Handle := NativeCreateFile(Path, $40000000, 0, 0, 2, $80, 0);
+  if Handle = THandle(-1) then exit;
+  try
+    BOM.First := $FF; BOM.Second := $FE; Written := 0;
+    Result := NativeWriteFile(Handle, BOM, 2, Written, 0) and (Written = 2);
+  finally
+    if not NativeCloseHandle(Handle) then Result := False;
+  end;
 end;
 function FolderHasEntries(Path: String): Boolean;
 var Search: TSafeFindRec;
@@ -522,6 +547,7 @@ begin
       An interrupted first setup owns only its marked .local staging directory. }
     if not FileExists(ExpandConstant('{app}\installation-marker.ini')) then begin
       if not ForceDirectories(ExpandConstant('{app}')) or
+         not CreateUnicodeIni(ExpandConstant('{app}\.setup-pending.ini')) or
          not SetIniString('identity', 'application', OwnApplication, ExpandConstant('{app}\.setup-pending.ini')) or
          not SetIniString('identity', 'data_directory', ExpandFileName(DataDirectory), ExpandConstant('{app}\.setup-pending.ini')) then begin Result := 'Cannot mark this new Public setup for retry.'; exit; end;
     end;
@@ -586,6 +612,7 @@ begin
   if not OwnInventoryTree(ExpandConstant('{app}'), ExpandConstant('{app}'), Lines, False, Output) then RaiseException('Installed file inventory could not be verified.');
   Inventory := ExpandConstant('{app}\installation-files.txt'); Marker := ExpandConstant('{app}\installation-marker.ini');
   if not SaveStringToFile(Inventory, Output, False) then RaiseException('Installed file inventory could not be saved.');
+  if not CreateUnicodeIni(Marker) then RaiseException('Installation identity could not be created as Unicode.');
   if not SetIniString('identity', 'application', OwnApplication, Marker) or
      not SetIniString('identity', 'data_directory', ExpandFileName(GetDataDirectory('')), Marker) or
      not SetIniString('identity', 'inventory_sha256', GetSHA256OfFile(Inventory), Marker) then RaiseException('Installation identity could not be saved.');

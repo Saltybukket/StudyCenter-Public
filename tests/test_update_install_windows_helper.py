@@ -14,8 +14,8 @@ from studycenter_public import update_install
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Requires native Win32 INI functions')
-@pytest.mark.parametrize('utf16', [False, True])
-@pytest.mark.parametrize('data_name', ['data', 'data ä ö'])
+@pytest.mark.parametrize(('utf16', 'data_name'), [(False, 'data'), (False, 'data ä ö'),
+                                                 (True, 'data'), (True, 'data ä ö 学習')])
 def test_marker_reader_matches_win32_for_data_path(tmp_path, utf16, data_name):
     marker = tmp_path/'marker.ini'
     if utf16:

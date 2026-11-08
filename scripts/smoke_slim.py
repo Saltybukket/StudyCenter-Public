@@ -345,6 +345,7 @@ def main():
         import ctypes
         from studycenter_public.update_install import _read_windows_marker
         marker = program/'installation-marker.ini'
+        assert marker.read_bytes().startswith(b'\xff\xfe'), 'Installed marker must be UTF-16LE'
         native = ctypes.create_unicode_buffer(32768)
         read_ini = ctypes.windll.kernel32.GetPrivateProfileStringW
         read_ini.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_wchar_p]
@@ -446,7 +447,7 @@ def main():
         if before:
             # The failed first setup leaves only its narrowly marked own staging
             # directory. The same installer must repair it without manual cleanup.
-            fresh, fresh_data = root/'fresh retry program', root/'fresh retry data'
+            fresh, fresh_data = root/'fresh retry program 学習', root/'fresh retry data 学習'
             fresh_install = [args.installer, '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR='+str(fresh), '/DATADIR='+str(fresh_data)]
             failed = subprocess.run(list(map(str, fresh_install+['/LOG='+str(root/'fresh-failure.log')])),
                 env=dict(env, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(broken)), timeout=300,
@@ -454,11 +455,12 @@ def main():
             print((root/'fresh-failure.log').read_text(errors='replace'), flush=True)
             assert failed.returncode != 0
             assert (fresh/'.setup-pending.ini').is_file() and not (fresh/'start.cmd').exists()
+            assert (fresh/'.setup-pending.ini').read_bytes().startswith(b'\xff\xfe')
             run_command(fresh_install+['/LOG='+str(root/'fresh-retry.log')], env)
             assert not (fresh/'.setup-pending.ini').exists()
             retained = Path(json.loads((fresh/'.local/installation.json').read_text())['manifest'])
             assert retained.is_relative_to(fresh/'.local/manifests') and retained.is_file()
-            probe_app(fresh, fresh_data, offline, {})
+            probe_app(fresh, fresh_data, offline, {}, check_update_support=True)
             uninstall(fresh, env, root/'fresh-uninstall.log')
             assert not (fresh/'.local').exists()
             result['interrupted_first_install_repairs_on_retry'] = True
