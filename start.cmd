@@ -51,8 +51,6 @@ set "uv=%uv_dir%\uv.exe"
 if exist "%uv%" goto uv_ready
 where curl.exe >nul 2>nul
 if errorlevel 1 goto tools_error
-where tar.exe >nul 2>nul
-if errorlevel 1 goto tools_error
 set "STUDYCENTER_PUBLIC_SETUP_ARCHIVE=%tools%\uv-0.8.22-windows.zip"
 if exist "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%" goto check_uv
 set "download_partial=%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%.%RANDOM%.partial"
@@ -63,7 +61,8 @@ move /y "%download_partial%" "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%" >nul
 :check_uv
 powershell.exe -NoLogo -NoProfile -Command "$s=$null; $h=$null; try { $s=[IO.File]::OpenRead($env:STUDYCENTER_PUBLIC_SETUP_ARCHIVE); $h=[Security.Cryptography.SHA256]::Create(); $v=[BitConverter]::ToString($h.ComputeHash($s)).Replace('-','').ToLowerInvariant(); if ($v -ne '5049375aa2a5162f132b2c1cb992e25d42d47d934cab8c174dbe6f60973dcc12') { throw 'Official uv archive checksum mismatch.' } } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 } finally { if ($s) { $s.Dispose() }; if ($h) { $h.Dispose() } }"
 if errorlevel 1 goto damaged_archive
-tar.exe -xf "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%" -C "%uv_dir%" uv.exe
+set "STUDYCENTER_PUBLIC_SETUP_UV=%uv%"
+powershell.exe -NoLogo -NoProfile -Command "$zip=$null; $entryStream=$null; $outputStream=$null; $tmp=$null; $created=$false; try { $p=[IO.Path]::GetFullPath([IO.Path]::GetDirectoryName($env:STUDYCENTER_PUBLIC_SETUP_UV)); while ($p) { if ([IO.Directory]::Exists($p) -and ([IO.File]::GetAttributes($p) -band [IO.FileAttributes]::ReparsePoint)) { throw 'Linked setup path refused' }; $p=[IO.Path]::GetDirectoryName($p.TrimEnd('\')) }; Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip=[IO.Compression.ZipFile]::OpenRead($env:STUDYCENTER_PUBLIC_SETUP_ARCHIVE); $entry=@($zip.Entries | Where-Object { $_.FullName -ceq 'uv.exe' }); if ($entry.Count -ne 1) { throw 'Expected exactly one uv.exe archive entry.' }; $tmp=$env:STUDYCENTER_PUBLIC_SETUP_UV+'.partial-'+[Guid]::NewGuid().ToString('N'); $outputStream=[IO.File]::Open($tmp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None); $created=$true; $entryStream=$entry[0].Open(); $entryStream.CopyTo($outputStream); $entryStream.Dispose(); $entryStream=$null; $outputStream.Dispose(); $outputStream=$null; [IO.File]::Move($tmp,$env:STUDYCENTER_PUBLIC_SETUP_UV); $created=$false } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 } finally { if ($entryStream) { $entryStream.Dispose() }; if ($outputStream) { $outputStream.Dispose() }; if ($zip) { $zip.Dispose() }; if ($created -and [IO.File]::Exists($tmp)) { [IO.File]::Delete($tmp) } }"
 if errorlevel 1 goto setup_error
 :uv_ready
 set "UV_CACHE_DIR=%local_dir%\uv-cache"
@@ -111,7 +110,7 @@ del "%STUDYCENTER_PUBLIC_SETUP_ARCHIVE%" >nul 2>nul
 echo Damaged own uv download removed. Retry start.cmd.
 exit /b 1
 :tools_error
-echo Existing Windows curl.exe and tar.exe are required for first setup.
+echo Existing Windows curl.exe is required for first setup.
 exit /b 1
 :setup_error
 echo Setup did not finish. Retry the same starter; existing Public data is retained.
