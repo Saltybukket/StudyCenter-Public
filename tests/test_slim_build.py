@@ -154,6 +154,13 @@ def test_upgrade_fixture_closes_wal_before_exact_byte_baseline(tmp_path):
         con.execute("INSERT INTO items(identity,payload,created_at,changed_at) VALUES(?,?,?,?)",
                     ('note:manual:'+'a'*32, payload, '2026-01-01', '2026-01-01'))
     expected = seed_upgrade_evidence(data)
+    from studycenter_public.core.quests import QuestService, Step
+    dashboard = QuestService(Database(database), None, None, search=object()).dashboard(current_items=[])
+    assert dashboard['quests'][0]['completed_count'] == 1
+    fixture_step = dashboard['quests'][0]['steps'][0]
+    assert fixture_step['title'] == 'Synthetic edited step'
+    Step.model_validate({name: fixture_step[name] for name in Step.model_fields})
+    assert dashboard['quests'][0]['mode'] == 'custom' and dashboard['quests'][0]['daily_minutes'] == 30
     snapshot = lambda: tuple((data/name).read_bytes() if (data/name).exists() else None for name in PERSISTED_FILES)
     before = snapshot()
     gc.collect()

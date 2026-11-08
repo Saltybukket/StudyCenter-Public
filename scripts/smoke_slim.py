@@ -194,7 +194,7 @@ def seed_upgrade_evidence(data):
         con.execute("INSERT INTO item_evidence(item_id,document_id,page,anchor,quote,payload) VALUES(?,?,1,'p1','synthetic','{}')", (item,doc))
         con.execute("UPDATE items SET status='done', pinned=1, overrides=? WHERE id=?", (json.dumps({'description':'Synthetic personal correction'}), item))
         con.execute("INSERT INTO quests(id,request_id,input_hash,title,mode,horizon,daily_minutes,start_date,end_date,state,sources,steps,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    ('synthetic-quest','synthetic-request','synthetic-hash','Synthetic quest','practice',7,20,'2026-01-01','2026-01-07','active','[]',json.dumps([{'id':'synthetic-step','title':'Synthetic edited step','done':True,'completed_at':'2026-01-02','edited_fields':['title'],'minutes':20,'scheduled_date':'2026-01-02'}]),'2026-01-01','2026-01-01'))
+                    ('synthetic-quest','synthetic-request','synthetic-hash','Synthetic quest','custom',7,30,'2026-01-01','2026-01-07','active','[]',json.dumps([{'id':'synthetic-step','title':'Synthetic edited step','detail':'Synthetic completed exercise','topic':'Synthetic topic','materials':[],'item_id':None,'done':True,'completed_at':'2026-01-02','edited_fields':['title'],'minutes':20,'day_offset':1}]),'2026-01-01','2026-01-01'))
     settings = data/'core/settings.json'
     settings.write_text(json.dumps({'stt_engine':'whisper','stt_model':'base','stt_device':'cpu','llm_model':'synthetic-settings'}), encoding='utf-8')
     for name in ('browser-profiles/synthetic-profile/Default/sentinel.txt', 'config/synthetic-credential-sentinel.txt'):
