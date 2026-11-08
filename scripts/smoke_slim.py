@@ -82,7 +82,7 @@ def wait_http(process, data, expected_version):
     raise RuntimeError('Slim application readiness timed out')
 
 
-def probe_app(program, data, env, result, expect_legacy_note=False, *, create_note=False, expect_manual_note=False):
+def probe_app(program, data, env, result, expect_legacy_note=False, *, create_note=False, expect_manual_note=False, check_update_support=False):
     log = (program/'.local/app-smoke.log').open('w', encoding='utf-8')
     process = subprocess.Popen(starter(program, '--no-browser', '--port', '0', '--data-dir', str(data)), env=env, stdout=log, stderr=subprocess.STDOUT,
                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
@@ -92,6 +92,11 @@ def probe_app(program, data, env, result, expect_legacy_note=False, *, create_no
         for path in ('/board', '/settings', '/overview'):
             with urllib.request.urlopen(url+path) as response:
                 assert response.status == 200
+        if check_update_support:
+            with urllib.request.urlopen(url+'/api/updates') as response:
+                update = json.load(response)
+            assert update['can_install'] is True, 'Installed updater rejected its own installation: '+str(update.get('install_reason'))
+            result['installed_windows_update_preflight'] = True
         if create_note:
             req = urllib.request.Request(url+'/api/session', headers={'X-Requested-With': 'fetch'})
             with urllib.request.urlopen(req) as response:
@@ -233,7 +238,7 @@ def main():
     assets = args.assets.resolve(strict=True)
     root = Path(os.environ['RUNNER_TEMP'])/('StudyCenter-Public-slim-'+uuid4().hex)
     root.mkdir()
-    program, data = root/'program', root/'data'
+    program, data = (root/'program ä', root/'data ö') if os.name == 'nt' else (root/'program', root/'data')
     env = dict(os.environ, STUDYCENTER_PUBLIC_RELEASE_ASSETS=str(assets))
     env.pop('GH_TOKEN', None)
     env.pop('GITHUB_TOKEN', None)
@@ -334,6 +339,21 @@ def main():
                 archive.extractall(root, filter='data')
             program = root/'StudyCenter-Public'
             run_command(starter(program, '--setup-only', '--data-dir', str(data)), env)
+    if os.name == 'nt':
+        # Compare the installed marker's actual Win32 interpretation with the
+        # reader used by the updater, including the non-ASCII data path.
+        import ctypes
+        from studycenter_public.update_install import _read_windows_marker
+        marker = program/'installation-marker.ini'
+        native = ctypes.create_unicode_buffer(32768)
+        read_ini = ctypes.windll.kernel32.GetPrivateProfileStringW
+        read_ini.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_wchar_p]
+        read_ini.restype = ctypes.c_uint
+        length = read_ini('identity', 'data_directory', '', native, len(native), str(marker))
+        assert 0 < length < len(native)-1 and os.path.normcase(native.value) == os.path.normcase(str(data))
+        parsed = _read_windows_marker(marker)
+        assert os.path.normcase(parsed['data_directory']) == os.path.normcase(native.value)
+        result['native_marker_and_updater_reader_match_non_ascii_path'] = True
     receipt = json.loads((program/'.local/installation.json').read_text())
     manifest = json.loads((program/'slim-manifest.json').read_text())
     assert manifest['source_git_sha'] == args.expected_source
@@ -350,7 +370,7 @@ def main():
     result['native_pdf_without_ocr'] = True
     probe_ice_import(program, root, env, result)
     offline = dict(env, UV_OFFLINE='1')
-    probe_app(program, data, offline, result, expect_legacy_note=previous_version == '0.1.0b4', expect_manual_note=previous_version == '0.1.0b5')
+    probe_app(program, data, offline, result, expect_legacy_note=previous_version == '0.1.0b4', expect_manual_note=previous_version == '0.1.0b5', check_update_support=os.name == 'nt')
     # Isolated child PATH hides discoverable system Python on the hosted runner;
     # it never uninstalls or edits an existing interpreter. Record actual choice.
     private_program = root/'private-runtime-program'
@@ -397,7 +417,7 @@ def main():
     result['optional_components_real_install_and_offline_repeat'] = True
     result['all_components_installed_bytes_including_cache'] = sum(p.stat().st_size for p in program.rglob('*') if p.is_file())
     result['component_network_scope'] = 'Own draft archives fetched once by gh; verified read-only asset seed. Python extras fetched by uv. No model weights.'
-    probe_app(program, data, offline, result, expect_legacy_note=previous_version == '0.1.0b4', expect_manual_note=previous_version == '0.1.0b5')
+    probe_app(program, data, offline, result, expect_legacy_note=previous_version == '0.1.0b4', expect_manual_note=previous_version == '0.1.0b5', check_update_support=os.name == 'nt')
     if os.name == 'nt':
         preserved = persisted_bytes()
         notices = list((program/'.local/components').rglob('*COPYING.LGPL-2.1-or-later'))

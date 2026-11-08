@@ -1,5 +1,4 @@
 """Voluntary handoff to a verified release; never owns user data."""
-import configparser
 import hashlib
 import json
 import os
@@ -21,6 +20,24 @@ class UpdateInstallError(ValueError):
 def _digest(path):
     with open(path, 'rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def _read_windows_marker(path):
+    """Use the same Win32 INI interpretation as Inno, including ANSI files."""
+    import ctypes
+    from ctypes import wintypes
+    read = ctypes.WinDLL('kernel32', use_last_error=True).GetPrivateProfileStringW
+    read.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                     wintypes.LPWSTR, wintypes.DWORD, wintypes.LPCWSTR]
+    read.restype = wintypes.DWORD
+    values = {}
+    for name in ('application', 'data_directory', 'inventory_sha256'):
+        buffer = ctypes.create_unicode_buffer(32768)
+        count = read('identity', name, '', buffer, len(buffer), str(path))
+        if count >= len(buffer)-1:
+            raise UpdateInstallError('Installationskennung ist zu lang.')
+        values[name] = buffer.value
+    return values
 
 
 def _root():
@@ -55,13 +72,12 @@ def _layout(paths):
     if sys.platform == 'win32':
         marker = reject_links(root/'installation-marker.ini')
         inventory = reject_links(root/'installation-files.txt')
-        ini = configparser.RawConfigParser()
         if not marker.is_file() or not inventory.is_file():
             raise UpdateInstallError('Keine verwaltete Windows-Installation erkannt.')
-        ini.read(marker, encoding='utf-8-sig')
-        if (ini.get('identity', 'application', fallback='') != 'StudyCenter.Public' or
-            os.path.normcase(os.path.normpath(ini.get('identity', 'data_directory', fallback=''))) != os.path.normcase(str(data)) or
-            ini.get('identity', 'inventory_sha256', fallback='').lower() != _digest(inventory)):
+        ini = _read_windows_marker(marker)
+        if (ini['application'] != 'StudyCenter.Public' or
+            os.path.normcase(os.path.normpath(ini['data_directory'])) != os.path.normcase(str(data)) or
+            ini['inventory_sha256'].lower() != _digest(inventory)):
             raise UpdateInstallError('Installationskennung oder Datenordner stimmt nicht überein.')
         import winreg
         keyname = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B60E9F91-11F3-4EA8-B973-5C6D65C7A59A}_is1'
