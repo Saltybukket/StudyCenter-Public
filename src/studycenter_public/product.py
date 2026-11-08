@@ -240,4 +240,6 @@ def create_app(paths, secrets=None):
     app.include_router(create_ice_import_router(paths))
     from .onboarding import install
     install(app)
+    from .updates import install as install_updates
+    install_updates(app, paths)
     return app

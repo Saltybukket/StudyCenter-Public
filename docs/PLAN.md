@@ -303,3 +303,25 @@ bleibt der bevorzugte Weg für die tatsächlich belegten Kurse.
 Review und synthetischer Desktop-/Mobilvergleich der Quest-Ansichten bestanden.
 Dies ist ein lokaler Quellabgleich, kein GitHub-Release oder neuer Installer.
 Der ICE-ZIP-Import bleibt unabhängig vom entfernten alten Arbeitscheckout.
+
+
+## Freiwillige Public-Updates
+
+Einstellungen → Updates: lokale Versionsanzeige, manuelle Release-Pruefung,
+optional taeglicher Hinweis (standardmaessig aus), Version ueberspringen,
+getrennter Download und ausdruecklich bestaetigte Installation. Keine TU-Syncs.
+Updates sichern den lokalen Produktbestand vor dem Prozesswechsel und behalten
+Datenverzeichnis, persoenliche Korrekturen und Quest-Fortschritt bei.
+
+Unterstuetzt werden verwaltete x64-Slim-Installationen fuer Windows und Linux.
+Quellcheckouts und alte Pakete ohne Capability-Metadaten bleiben beim manuellen
+Update. Linux behaelt die vorherige Umgebung und ein Recovery-Journal.
+Windows verwendet den interaktiven Installer mit gesperrtem Programm-/Datenpfad;
+ein vollstaendiger Rollback teilweise ersetzter Inno-Dateien ist nicht belegt.
+Native Windows-Installation und Inno-Kompilierung stehen noch aus.
+
+Release-Builds erzeugen zum Installer/Archiv ein plattformspezifisches
+`*-update.json`, gebunden an die Artefakt-Pruefsumme. Dieses und SHA256SUMS
+muessen gemeinsam als GitHub-Release-Assets veroeffentlicht werden. Der interne
+Metadaten-Schritt wird nur nach erfolgreichem Bootstrap-Build aufgerufen.
+Keine automatische Installation und kein Release durch diese Codeaenderung.

@@ -6,7 +6,7 @@
     "object_format": "sha1",
     "path": "campusboard"
   },
-  "policy_sha256": "3a0bce3c2ae0e5599a076593a418ff858ad6ee537e79a463e4eeeffca855945d",
+  "policy_sha256": "1556254e8f14c0b86ad01a01f948f270b6ec3b835ed19a020cde6c2ca253a016",
   "files": {
     "__init__.py": {
       "git_blob": "8b137891791fe96927ad78e64b0aad7bded08bdc",
@@ -26,7 +26,7 @@
     "app.py": {
       "git_blob": "c59d4bbd842ee9731379d4d960e6591672c29c68",
       "mode": "100644",
-      "shipped_sha256": "7a026e16cbc19edd8d3717f1f0b1b6c9e6fe5aa9403e81f9396c0fe9b993bfb0"
+      "shipped_sha256": "42482bb12b48bf4da06530eb6baf67b163e996cb2a2c6ad3344b1283d2388d2f"
     },
     "assistant.py": {
       "git_blob": "9d17c9d0a504927011b6105ed877981661d9a2ca",
@@ -441,7 +441,7 @@
     "templates/base.html": {
       "git_blob": "97bcc9c8dda01ee03e316d5fdbab4cfac913df8c",
       "mode": "100644",
-      "shipped_sha256": "403a38c0f8d98c21504ca8ae14945d5ebd918f6b2a2a65d75ac33b6cf3297843"
+      "shipped_sha256": "09da867a7042f2ebf3428c5611b038635a065a68dc5684bc03371f145feb468d"
     },
     "templates/board.html": {
       "git_blob": "7e0c254ecbb0c4c8776200d6efea984d6201c118",
@@ -526,7 +526,7 @@
     "templates/settings.html": {
       "git_blob": "c8d54bdcc5e4656f43d5cdfe89c14d42febbfda0",
       "mode": "100644",
-      "shipped_sha256": "b4a5dd8f649f9f9c300900f6826954376eb0bc17aea9aaf2803f0e837e504758"
+      "shipped_sha256": "9c73ca89e7a3102e3fd7ad1eac7456c26713a049e1e7b20e8a132832dc2bdf78"
     },
     "templates/sources.html": {
       "git_blob": "4aa3efcf6d8de868ee49cdf55f25fc3c4ccbf5f2",
@@ -566,6 +566,12 @@
     "static/onboarding.js": {
       "shipped_sha256": "bcec640c187fef3be852b776d8fe171fb8ee4f1410a170775b7dce409de22447"
     },
+    "static/public-updates.css": {
+      "shipped_sha256": "351191dd1e01e8f84f3f1ccffb289e81489582f9b3405d5e85f3a7a89f2f41e8"
+    },
+    "static/public-updates.js": {
+      "shipped_sha256": "5fd5712cf152b218434ad5121b89d8d45c4efc23fc792e630e164cf0b0b639cd"
+    },
     "static/public_setup.js": {
       "shipped_sha256": "391315b7394dba581d70ec52a36d7473505be0065d61ecace6093118899567a1"
     },
@@ -574,6 +580,9 @@
     },
     "templates/public_setup.html": {
       "shipped_sha256": "042d3f3bef5ec6b1cb27f866423cdfd6026db4be28189c1c30d06a7d32d2ed89"
+    },
+    "templates/public_updates.html": {
+      "shipped_sha256": "40c5a94fa5032a52a6928ed7352fe8fa2d56d7522a48ec7ad60535c3035a0b93"
     }
   }
 }

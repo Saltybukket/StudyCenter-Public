@@ -300,7 +300,7 @@ def create_app(settings=None):
     admission = {'writers': 0, 'exclusive': False}
     exclusive_paths = {'/settings/backups/create', '/settings/backups/check',
                        '/settings/backups/confirm', '/settings/backups/cancel',
-                       '/settings/stop', '/settings/restart'}
+                       '/settings/stop', '/settings/restart', '/api/updates/install'}
 
     @app.middleware("http")
     async def local_guard(request, call_next):
@@ -403,6 +403,8 @@ def create_app(settings=None):
         if hasattr(app.state,'stop_callback'):asyncio.get_running_loop().call_later(.1 if system else 1,app.state.stop_callback)
 
     app.state.begin_stop=begin_stop
+    # Public's installer shares the same maintenance admission and activity checks.
+    app.state.product_update_activities = activities
 
     @app.post('/mcp')
     async def mcp_request(request:Request):

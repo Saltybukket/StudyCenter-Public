@@ -36,3 +36,5 @@ Im aktuellen Quellstand bündelt **Aufgaben & Notizen** Filter und persönliche 
 [Kurzanleitung](docs/QUICKSTART.md) · [Optionale Funktionen](docs/OPTIONAL.md) · [Prüfstand & bekannte Grenzen](docs/RELEASE-VERIFICATION.md) · [Aus dem Quellcode starten](docs/DEVELOPMENT.md)
 
 [AGPL-3.0-only](LICENSE) · [Drittanbieter-Lizenzen](docs/THIRD_PARTY.md)
+
+Im aktuellen Quellstand gibt es **Einstellungen → Updates**: manuell pruefen, herunterladen und erst nach Bestaetigung installieren. Automatische Hinweise sind optional und anfangs aus. Vor der Installation wird eine lokale Datensicherung erstellt; Datenordner und Fortschritte bleiben erhalten. Aeltere Installationen brauchen einmal ein manuelles Update auf eine Version mit dieser Funktion. Ein Git-Push allein ist kein veroeffentlichtes Update.

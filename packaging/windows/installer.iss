@@ -92,6 +92,8 @@ const OwnApplication = 'StudyCenter.Public';
   OwnUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B60E9F91-11F3-4EA8-B973-5C6D65C7A59A}_is1';
 var DataDirectoryPage: TInputDirWizardPage;
   DataDirectoryPageReady: Boolean;
+  UpdateLocked: Boolean;
+  LockedProgramDirectory, LockedDataDirectory: String;
 #ifdef SlimSetup
   OldInstallationFiles: TArrayOfString;
 #endif
@@ -374,6 +376,15 @@ begin
   DataDirectoryPage.Add('');
   DataDirectoryPage.Values[0] := ExpandConstant('{param:DATADIR|' + GetPreviousData('DataDirectory', ExpandConstant('{localappdata}\StudyCenter-Public\Data')) + '}');
   DataDirectoryPageReady := True;
+  UpdateLocked := ExpandConstant('{param:UPDATELOCK|0}') = '1';
+  if UpdateLocked then begin
+    LockedProgramDirectory := ExpandConstant('{param:UPDATELOCKDIR|}');
+    LockedDataDirectory := ExpandConstant('{param:UPDATELOCKDATA|}');
+    WizardForm.DirEdit.ReadOnly := True;
+    WizardForm.DirBrowseButton.Enabled := False;
+    DataDirectoryPage.Edits[0].ReadOnly := True;
+    DataDirectoryPage.Buttons[0].Enabled := False;
+  end;
 end;
 procedure RegisterPreviousData(PreviousDataKey: Integer);
 begin
@@ -416,6 +427,18 @@ begin
     if Problem <> '' then begin SuppressibleMsgBox(Problem, mbError, MB_OK, IDOK); Result := False; end;
   end;
 end;
+function UpdateLockProblem(Directory, DataDirectory: String): String;
+begin
+  Result := '';
+  if not UpdateLocked then exit;
+  Result := 'The selected update must keep its original program and data folders.';
+  if (LockedProgramDirectory = '') or (LockedDataDirectory = '') then exit;
+  if CompareText(RemoveBackslashUnlessRoot(ExpandFileName(Directory)), RemoveBackslashUnlessRoot(ExpandFileName(LockedProgramDirectory))) <> 0 then exit;
+  if CompareText(RemoveBackslashUnlessRoot(ExpandFileName(DataDirectory)), RemoveBackslashUnlessRoot(ExpandFileName(LockedDataDirectory))) <> 0 then exit;
+  if not FileExists(AddBackslash(Directory) + 'installation-marker.ini') then exit;
+  if not FileExists(AddBackslash(DataDirectory) + 'instance.json') then exit;
+  Result := '';
+end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: String;
 #ifdef SlimSetup
@@ -425,6 +448,8 @@ var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: 
 #endif
 begin
   DataDirectory := GetDataDirectory('');
+  Result := UpdateLockProblem(ExpandConstant('{app}'), DataDirectory);
+  if Result <> '' then exit;
   Result := ProgramDirectoryProblem(ExpandConstant('{app}'), DataDirectory, True);
   if Result <> '' then exit;
   Result := DataDirectoryProblem(DataDirectory, ExpandConstant('{app}'), False);

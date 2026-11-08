@@ -9,7 +9,16 @@ case "$argument" in
 esac
 done
 python=''
-if [ -f "$root/.local/python-path.txt" ]; then IFS= read -r python < "$root/.local/python-path.txt" || true; fi
+if [ -e "$root/.local/update-journal.json" ]; then
+  if [ -L "$root/.local/update-journal.json" ] || [ -L "$root/.local/update-recovery-python.txt" ] || [ -L "$root/.local/update-recover.py" ] || [ ! -f "$root/.local/update-recover.py" ] || [ ! -f "$root/.local/update-recovery-python.txt" ]; then
+    echo 'Update recovery metadata is unavailable or linked. The program was not started.' >&2; exit 1
+  fi
+  IFS= read -r python < "$root/.local/update-recovery-python.txt" || true
+  case "$python" in "$root"/.local/environments/*/bin/python) ;; *) echo 'Invalid update recovery interpreter.' >&2; exit 1;; esac
+  if [ ! -x "$python" ] || ! "$python" -I -c 'import sys,struct; assert sys.version_info[:2] == (3,12) and struct.calcsize("P") == 8' >/dev/null 2>&1; then
+    echo 'The previous update recovery interpreter is unavailable. The program was not started.' >&2; exit 1
+  fi
+elif [ -f "$root/.local/python-path.txt" ]; then IFS= read -r python < "$root/.local/python-path.txt" || true; fi
 if [ -x "$python" ] && ! "$python" -I -c 'import sys,struct; assert sys.version_info[:2] == (3,12) and struct.calcsize("P") == 8' >/dev/null 2>&1; then python=''; fi
 if [ ! -x "$python" ] && [ -x "$root/.venv/bin/python" ]; then
   if "$root/.venv/bin/python" -I -c 'import sys,struct; assert sys.version_info[:2] == (3,12) and struct.calcsize("P") == 8' >/dev/null 2>&1; then python="$root/.venv/bin/python"; fi
@@ -46,6 +55,12 @@ if [ ! -x "$python" ]; then
   fi
 fi
 unset VIRTUAL_ENV PYTHONHOME PYTHONPATH
+# Update recovery is a private, stdlib-only helper installed before a switch.
+# It waits for any in-progress update and rolls back an interrupted one.
+if [ -L "$root/.local/update-recover.py" ]; then echo 'Linked update recovery helper refused.' >&2; exit 1; fi
+if [ -f "$root/.local/update-recover.py" ]; then
+  "$python" -I "$root/.local/update-recover.py" "$root"
+fi
 export PYTHONNOUSERSITE=1
 uv="$root/.local/tools/uv-0.8.22/uv"
 if [ -f "$root/src/studycenter_public/platform/setup.py" ]; then

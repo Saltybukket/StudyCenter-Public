@@ -1,0 +1,6 @@
+.update-banner { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin: 0 0 1rem; padding: .75rem 1rem; border: 1px solid var(--border, #ccd5d4); border-radius: .75rem; background: var(--surface, #fff); }
+.update-banner[hidden] { display: none; }
+.update-banner button { margin-left: auto; }
+.update-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; }
+#update-error:empty, #update-status:empty { display: none; }
+@media (max-width: 600px) { .update-banner button { margin-left: 0; } #updates .actions { flex-wrap: wrap; } }

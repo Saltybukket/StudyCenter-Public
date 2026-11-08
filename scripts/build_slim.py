@@ -33,7 +33,7 @@ BETA2_LINUX_SHA = '10a01f2638092d51e2b9e07ad9167ecbad72df836fb9c9a39f6b766429642
 RUNTIME_REQUIREMENTS_SHA = '188a1d7149565492460b8450576b0fbd7cb6ae079c477a7a15726cc41775eef7'
 PROXY_WHEEL_SHA = 'e230f9c9936e3dfc56d00b20000043f530010455bfad63cee56fef8b80288aa0'
 BUILD_INPUTS = ('src/studycenter_public', 'packaging', 'scripts/build_slim.py',
-                'scripts/prepare_slim_assets.py', 'scripts/artifact_reviews.json',
+                'scripts/prepare_slim_assets.py', 'scripts/artifact_reviews.json', 'scripts/write_update_manifest.py',
                 'start.cmd', 'start.sh', 'LICENSE', 'README.md', 'docs/QUICKSTART.md',
                 'pyproject.toml', 'requirements-windows.lock', 'requirements-linux.lock')
 
@@ -361,6 +361,12 @@ def main():
         if platform == 'windows' and (not runtime.is_file() or digest(runtime) != RUNTIME_REQUIREMENTS_SHA):
             raise ValueError('Windows system runtime requirements differ from the reviewed beta.2 installer')
         make_bootstrap(platform, release_manifest, output, version, args.iscc, runtime)
+        if platform == 'linux' or args.iscc:
+            try:
+                from .write_update_manifest import write_update_manifest
+            except ImportError:
+                from write_update_manifest import write_update_manifest
+            write_update_manifest(output, version, platform, fresh_build=True)
     if args.source_commit:
         verify_checkout(args.source_commit)
 

@@ -1,0 +1,20 @@
+<div class="settings-pane" data-settings-pane="updates">
+<section class="panel settings-card" id="updates" aria-labelledby="updates-heading">
+  <header class="settings-card-heading"><span class="settings-card-icon">{{ setting_icon('background') }}</span><div><h2 id="updates-heading">Updates</h2><p>Neue Versionen freiwillig prüfen und installieren.</p></div></header>
+  <p class="settings-status" id="update-current">Installierte Version wird geladen …</p>
+  <label class="check"><input type="checkbox" id="update-auto" disabled>Automatisch nach Updates suchen</label>
+  <p class="settings-caption">Die automatische Suche ist freiwillig. Installation und Neustart erfolgen nur nach deiner Bestätigung.</p>
+  <div class="actions"><button type="button" id="update-check" disabled>Jetzt nach Updates suchen</button></div>
+  <p id="update-status" role="status" aria-live="polite"></p><p id="update-outcome" role="status"></p><p id="update-error" class="error" role="alert"></p>
+  <div id="update-release" class="settings-group" hidden>
+    <h3 id="update-version"></h3><p id="update-skipped" class="settings-caption" hidden>Hinweis für diese Version ausgeblendet. Du kannst sie weiterhin herunterladen.</p><p>Versionshinweise:</p><div id="update-notes" class="update-notes"></div><p><a id="update-release-link" target="_blank" rel="noopener noreferrer" hidden>Release auf GitHub öffnen ↗</a></p>
+    <div class="actions"><button type="button" id="update-download">Update herunterladen</button><button type="button" class="secondary" id="update-later">Später</button><button type="button" class="secondary" id="update-skip">Diese Version überspringen</button></div>
+  </div>
+  <div id="update-install-area" class="settings-group" hidden>
+    <h3>Bereit zur Installation</h3><p>Die App wird für die Installation geschlossen und neu gestartet. Vorher wird eine Sicherung erstellt; deine Daten und Lernfortschritte bleiben erhalten.</p>
+    <p id="update-install-reason" class="settings-caption"></p>
+    <label class="check"><input type="checkbox" id="update-confirm">Ich möchte diese Version jetzt installieren und die App neu starten.</label>
+    <button type="button" id="update-install" disabled>Installieren & neu starten</button>
+  </div>
+</section>
+</div>

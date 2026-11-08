@@ -14,6 +14,7 @@
   <script src="{{ static_url('notifications.js') }}" defer></script>
   <link rel="stylesheet" href="{{ static_url('notifications.css') }}">
   <link rel="stylesheet" href="{{ static_url('navigation.css') }}">
+  <link rel="stylesheet" href="{{ static_url('public-updates.css') }}"><script src="{{ static_url('public-updates.js') }}" defer></script>
   <link rel="stylesheet" href="{{ static_url('voice-panel.css') }}">
 <link rel="stylesheet" href="{{ static_url('polish.css') }}"><script src="{{ static_url('polish.js') }}" defer></script>
 {% if path in ('/board','/pins','/settings') %}<link rel="stylesheet" href="{{ static_url('pinwall.css') }}">{% endif %}
@@ -36,6 +37,7 @@
   </aside>
   <main id="main"><div class="page-toolbar"><h1>{{ self.title() }}</h1>{% if path in ('/sources','/entries','/documents') or path.startswith('/documents/') %}<nav class="context-nav" aria-label="Kurse und Unterlagen">{% for url,label in [('/sources','Kursübersicht'),('/entries','Informationen'),('/documents','Dokumente')] %}<a href="{{ url }}" {% if path==url or (url=='/documents' and path.startswith('/documents/')) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}{% if path in ('/settings','/model','/mail') %}<nav class="context-nav" aria-label="Einstellungen und Konten">{% for url,label in [('/settings','Einstellungen'),('/model','KI & Konto'),('/mail','Mail-Verbindung')] %}<a href="{{ url }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>{% endif %}{% block toolbar_action %}{% endblock %}</div><div class="sync-strip" {% if stage=='Bereit' %}hidden{% endif %}><div class="sync-copy"><span id="sync-state" role="status">{{ stage }}</span><small id="sync-progress-label" hidden></small></div><progress id="sync-progress" aria-label="Quellenprüfung im aktuellen Sync" hidden></progress></div>
     <div id="notice" role="status" hidden></div>
+    <div id="update-banner" class="update-banner" role="status" hidden><span id="update-banner-text"></span> <a href="/settings?section=updates">Update ansehen →</a> <button type="button" class="secondary small" id="update-banner-dismiss" aria-label="Update-Hinweis für diese Sitzung ausblenden">Später</button></div>
     {% if restore_pending and path != '/settings' %}<p class="setup-note warning">Wiederherstellung vorbereitet: Änderungen und Syncs warten auf den App-Neustart. <a href="/settings">Anleitung oder Abbrechen →</a></p>{% endif %}
     {% if not settings.model_ready %}<div class="setup-note">KI-Auswertung noch nicht bereit. Seiten und PDFs bleiben gespeichert. <a href="/model">Modell verbinden und Live-Probe starten →</a></div>{% endif %}
     {% if path=='/archive' %}<p class="breadcrumb"><a href="/board">← Aufgaben & Notizen</a></p>{% endif %}
