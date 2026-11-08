@@ -82,3 +82,25 @@ def test_restore_refuses_junction_before_creating_missing_directory(tmp_path):
     assert outcome.returncode == 0
     assert not (foreign/'new').exists()
     os.rmdir(root/'link')
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Requires Windows file sharing and PowerShell')
+def test_restore_retries_after_locked_destination_is_released(tmp_path):
+    source, destination = tmp_path/'source', tmp_path/'destination'
+    source.write_text('old bytes')
+    destination.write_text('new bytes')
+    helper = update_install._WINDOWS_HELPER
+    functions = helper[helper.index('function Hash'):helper.index('$opened=$false')]
+    script = tmp_path/'retry.ps1'
+    script.write_text("$ErrorActionPreference='Stop'\n"+functions+"""
+$lock=[IO.File]::Open($args[1], [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+$failed=$false
+try { RestoreFile $args[0] $args[1] } catch { $failed=$true } finally { $lock.Dispose() }
+if (-not $failed) { throw 'Expected locked file failure' }
+RestoreFile $args[0] $args[1]
+""", encoding='utf-8')
+    outcome = subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
+                              '-File',str(script),str(source),str(destination)], capture_output=True,text=True,timeout=30)
+    assert outcome.returncode == 0, outcome.stdout+'\n'+outcome.stderr
+    assert destination.read_text() == 'old bytes'
+    assert not list(tmp_path.glob('destination.update-restore-*'))

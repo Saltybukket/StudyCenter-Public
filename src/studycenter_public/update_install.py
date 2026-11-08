@@ -344,11 +344,14 @@ function RestoreFile($source,$destination) {
  [IO.Directory]::CreateDirectory($parent) | Out-Null
  CheckRegular $parent
  if ([IO.File]::Exists($destination)) { CheckRegular $destination }
- $temporary=$destination+'.update-restore'
- if ([IO.File]::Exists($temporary)) { throw 'Temporäre Wiederherstellungsdatei existiert bereits.' }
- [IO.File]::Copy($source,$temporary,$false)
- if ([IO.File]::Exists($destination)) { [IO.File]::Copy($temporary,$destination,$true); [IO.File]::Delete($temporary) } else { [IO.File]::Move($temporary,$destination) }
- if ((Hash $source) -ne (Hash $destination)) { throw 'Wiederherstellung konnte nicht verifiziert werden: '+$destination }
+ $temporary=$destination+'.update-restore-'+[Guid]::NewGuid().ToString('N'); $created=$false
+ try {
+  [IO.File]::Copy($source,$temporary,$false); $created=$true
+  if ([IO.File]::Exists($destination)) { [IO.File]::Copy($temporary,$destination,$true) } else { [IO.File]::Move($temporary,$destination) }
+  if ((Hash $source) -ne (Hash $destination)) { throw 'Wiederherstellung konnte nicht verifiziert werden: '+$destination }
+ } finally {
+  if ($created -and [IO.File]::Exists($temporary)) { CheckRegular $temporary; [IO.File]::Delete($temporary) }
+ }
 }
 function RestoreInstallation {
  $saved=Get-Content -LiteralPath (Join-Path $backup 'files.json') -Raw -Encoding UTF8 | ConvertFrom-Json
