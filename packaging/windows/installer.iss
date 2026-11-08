@@ -46,8 +46,9 @@ Name: "desktopicon"; Description: "Desktop shortcut"; Flags: unchecked
 Name: "startup"; Description: "Start StudyCenter-Public when I sign in"; Flags: unchecked
 [Files]
 #ifdef SlimSetup
-Source: "{#BundleDir}\*"; DestDir: "{app}"; Excludes: "backup_core.py"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BundleDir}\*"; DestDir: "{app}"; Excludes: "backup_core.py,installer-recovery.ps1"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BundleDir}\backup_core.py"; Flags: dontcopy
+Source: "{#BundleDir}\installer-recovery.ps1"; Flags: dontcopy
 #else
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 #endif
@@ -96,6 +97,8 @@ var DataDirectoryPage: TInputDirWizardPage;
   LockedProgramDirectory, LockedDataDirectory: String;
 #ifdef SlimSetup
   OldInstallationFiles: TArrayOfString;
+  SavedOldSnapshot, SetupSucceeded: Boolean;
+  RecoveryStage: String;
 #endif
 function GetFileAttributesW(Name: String): LongWord;
   external 'GetFileAttributesW@kernel32.dll stdcall';
@@ -439,6 +442,15 @@ begin
   if not FileExists(AddBackslash(DataDirectory) + 'instance.json') then exit;
   Result := '';
 end;
+#ifdef SlimSetup
+function RunInstallerRecovery(Operation: String): Boolean;
+var Code: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + AddBackslash(RecoveryStage) + 'installer-recovery.ps1" ' + Operation +
+    ' "' + ExpandConstant('{app}') + '" "' + RecoveryStage + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+end;
+#endif
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ResultCode, Attempt: Integer; DataDirectory, DatabaseFile, BackupDirectory: String;
 #ifdef SlimSetup
@@ -513,6 +525,21 @@ begin
          not SetIniString('identity', 'application', OwnApplication, ExpandConstant('{app}\.setup-pending.ini')) or
          not SetIniString('identity', 'data_directory', ExpandFileName(DataDirectory), ExpandConstant('{app}\.setup-pending.ini')) then begin Result := 'Cannot mark this new Public setup for retry.'; exit; end;
     end;
+    { Use the updater's same snapshot for direct installer launches. Save once:
+      a retry must never replace the original baseline with promoted files. }
+    if FileExists(ExpandConstant('{app}\installation-marker.ini')) and not SavedOldSnapshot then begin
+      ExtractTemporaryFile('installer-recovery.ps1');
+      RecoveryStage := AddBackslash(DataDirectory) + 'backups\installer-recovery-' + GetDateTimeString('yyyymmddhhnnsszzz', #0, #0);
+      if DirExists(RecoveryStage) or not NoReparseAncestors(RecoveryStage) or not ForceDirectories(RecoveryStage) then begin
+        Result := 'Cannot create a safe recovery directory. Update cancelled.'; exit;
+      end;
+      if not FileCopy(ExpandConstant('{tmp}\installer-recovery.ps1'), AddBackslash(RecoveryStage) + 'installer-recovery.ps1', True) then begin
+        Result := 'Cannot retain the installation recovery tool. Update cancelled.'; exit;
+      end;
+      Log('Previous installation recovery files: ' + RecoveryStage);
+      if not RunInstallerRecovery('save') then begin Result := 'Cannot save the previous installation. Update cancelled.'; exit; end;
+      SavedOldSnapshot := True;
+    end;
     ExtractTemporaryFile('start.cmd');
     ExtractTemporaryFile('setup.py');
     ExtractTemporaryFile('slim-manifest.json');
@@ -522,6 +549,9 @@ begin
       Log('Public base setup failed. The previous program files were not replaced.');
       if LoadStringsFromFile(ExpandConstant('{tmp}\public-base-setup.log'), OldSetupLog) then
         for Attempt := 0 to GetArrayLength(OldSetupLog) - 1 do Log(OldSetupLog[Attempt]);
+      if SavedOldSnapshot and not RunInstallerRecovery('restore') then begin
+        Result := 'The previous installation could not be restored. Do not start StudyCenter-Public until repaired.'; exit;
+      end;
       Result := 'Public base setup did not finish. Retry this installer; existing program files and personal data are retained.';
       exit;
     end;
@@ -534,6 +564,9 @@ var Lines: TArrayOfString; Output, Marker, Inventory: String;
   I, Separator: Integer; Relative, Path: String;
 #endif
 begin
+#ifdef SlimSetup
+  if CurStep = ssDone then SetupSucceeded := True;
+#endif
   if CurStep <> ssPostInstall then exit;
 #ifdef SlimSetup
   DeleteFile(ExpandConstant('{app}\.setup-pending.ini'));
@@ -557,6 +590,15 @@ begin
      not SetIniString('identity', 'data_directory', ExpandFileName(GetDataDirectory('')), Marker) or
      not SetIniString('identity', 'inventory_sha256', GetSHA256OfFile(Inventory), Marker) then RaiseException('Installation identity could not be saved.');
 end;
+#ifdef SlimSetup
+procedure DeinitializeSetup;
+begin
+  if SavedOldSnapshot and not SetupSucceeded and not RunInstallerRecovery('restore') then begin
+    Log('Previous installation recovery failed. Do not start the application until repaired.');
+    SuppressibleMsgBox('The previous installation could not be restored. Do not start StudyCenter-Public until it has been repaired. Recovery files: ' + RecoveryStage, mbError, MB_OK, IDOK);
+  end;
+end;
+#endif
 function InitializeUninstall: Boolean;
 var ResultCode, Attempt: Integer; DataDirectory, Problem: String;
 begin

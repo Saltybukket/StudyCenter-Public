@@ -4,6 +4,7 @@ No installers or application processes are executed. Existing native binaries,
 notices and corresponding-source offers are retained byte for byte.
 """
 import argparse
+import ast
 import hashlib
 import io
 import json
@@ -228,6 +229,15 @@ def make_bootstrap(platform, manifest, output, version, iscc=None, runtime_requi
     (stage/'slim-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     if platform == 'windows':
         shutil.copy2(ROOT/'packaging/windows/launch.vbs', stage/'launch.vbs')
+        # Embed exactly the same bounded snapshot/restore logic as the updater.
+        source = ast.parse((ROOT/'src/studycenter_public/update_install.py').read_text(encoding='utf-8'))
+        helper = next(ast.literal_eval(node.value) for node in source.body
+                      if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == '_WINDOWS_HELPER' for target in node.targets))
+        functions = helper[helper.index('# The installer may replace'):helper.index('$opened=$false')]
+        program = ("param([string]$Operation,[string]$Root,[string]$Stage)\n"
+                   "$ErrorActionPreference='Stop'\n$d=@{root=$Root;stage=$Stage}\n" + functions +
+                   "\ntry { if ($Operation -eq 'save') { SaveInstallation } elseif ($Operation -eq 'restore') { RestoreInstallation } else { throw 'Invalid operation' } } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }\n")
+        (stage/'installer-recovery.ps1').write_text(program, encoding='utf-8-sig')
         if not runtime_requirements:
             raise ValueError('Existing verified Windows runtime requirements are required')
         shutil.copy2(runtime_requirements, stage/'SYSTEM-RUNTIME-REQUIREMENTS.iss')

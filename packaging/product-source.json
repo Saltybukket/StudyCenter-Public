@@ -206,7 +206,7 @@
     "speech.py": {
       "git_blob": "28e38978776988496f4163e73a44fd019045ca20",
       "mode": "100644",
-      "shipped_sha256": "e7f93d1c208881c8c1308b6db5f8e4f524779b60dcd7b1014e13736cb83c363c"
+      "shipped_sha256": "3df1de311ca1467129a9f78e8ec15229ce8a75146cd88cd44a90a457ec8ab035"
     },
     "static/app.css": {
       "git_blob": "380715a263bbb4bf1439051f1672ca55dfaf1a43",

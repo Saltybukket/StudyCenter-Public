@@ -92,9 +92,11 @@ def test_speech_fallback_uses_instance_model_hook(tmp_path, monkeypatch, failed_
         return original(service, audio)
     monkeypatch.setattr(SpeechService, 'recognize', recognize)
     service = SpeechService(engine='parakeet', name='small', device='auto', root=tmp_path,
-                            model_path=model_path, ensure_model=ensure_model)
+                            model_path=model_path, ensure_model=ensure_model, vocabulary=lambda: ['Synthetic vocabulary'])
     result = service.transcribe(recording())
     assert result['model'] == expected and result['engine'] == 'whisper'
     assert ensured == [expected] and paths == [expected]
     assert loaded == [str(tmp_path / ('verified-' + expected))]
     assert service.fallback.ensure_model is ensure_model
+
+    assert service.fallback.vocabulary() == ['Synthetic vocabulary']

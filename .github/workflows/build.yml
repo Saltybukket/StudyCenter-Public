@@ -3,10 +3,44 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      upload_release_candidate:
+        description: Retain the checked native candidate for an explicitly requested release
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
+  wheel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and verify one shared source wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install setuptools==84.0.0
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$GITHUB_SHA")"
+          mkdir -p .local/build/wheels
+          python -m pip wheel --no-deps --no-build-isolation --wheel-dir .local/build/wheels .
+          python -c "import glob, os; from scripts.build_slim import verify_source_wheel; paths=glob.glob('.local/build/wheels/*.whl'); assert len(paths)==1; verify_source_wheel(paths[0], os.environ['GITHUB_SHA'])"
+          python scripts/check_public.py --artifact .local/build/wheels/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-wheel-${{ github.sha }}
+          path: .local/build/wheels/*.whl
+          retention-days: 1
+          include-hidden-files: true
+          if-no-files-found: error
   verify:
+    needs: wheel
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +58,9 @@ jobs:
     steps:
       - name: Preserve committed source bytes on checkout
         shell: bash
-        run: git config --global core.autocrlf false
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -50,12 +86,14 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & $env:TASK_PYTHON scripts/check_product_architecture.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Build exact source wheel and seed pinned components
+      - uses: actions/download-artifact@v4
+        with:
+          name: source-wheel-${{ github.sha }}
+          path: .local/build/wheels
+      - name: Bind shared wheel and seed pinned components
         shell: pwsh
         run: |
           $assets = "$pwd/.local/build/slim"
-          & $env:TASK_PYTHON -m pip wheel --no-deps --no-build-isolation --wheel-dir "$pwd/.local/build/wheels" .
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           & $env:TASK_PYTHON scripts/prepare_slim_assets.py --platform $env:PLATFORM --output $assets --previous-output "$pwd/.local/build/previous"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $version = & $env:TASK_PYTHON -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
@@ -85,6 +123,27 @@ jobs:
           }
           & $env:TASK_PYTHON scripts/scan_slim_components.py --platform $env:PLATFORM --assets $assets --output "$pwd/.local/build/component-scan"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Validate and scan update metadata
+        shell: pwsh
+        run: |
+          $assets = "$pwd/.local/build/slim"
+          $stem = "studycenter-public-$env:CANDIDATE_VERSION-$env:PLATFORM-x86_64"
+          $suffix = if ($env:PLATFORM -eq 'windows') { 'setup.exe' } else { 'slim.tar.gz' }
+          $artifact = "$stem-$suffix"
+          $metadata = "$stem-update.json"
+          $record = Get-Content -Raw "$assets/$metadata" | ConvertFrom-Json
+          if ($record.format -ne 1 -or $record.application -cne 'StudyCenter.Public' -or $record.version -cne $env:CANDIDATE_VERSION -or $record.platform -cne "$env:PLATFORM-x86_64" -or $record.artifact -cne $artifact -or $record.protocol -ne 1) { throw 'Update metadata identity differs' }
+          if ($env:PLATFORM -eq 'windows' -and $record.installer_update_lock -ne $true) { throw 'Installer update lock capability is missing' }
+          $hash = (Get-FileHash -Algorithm SHA256 "$assets/$artifact").Hash.ToLowerInvariant()
+          if ($record.sha256 -cne $hash) { throw 'Update metadata artifact checksum differs' }
+          $lines = @(Get-Content "$assets/SHA256SUMS")
+          $metadataHash = (Get-FileHash -Algorithm SHA256 "$assets/$metadata").Hash.ToLowerInvariant()
+          if ($lines.Count -ne 2 -or "$hash  $artifact" -cnotin $lines -or "$metadataHash  $metadata" -cnotin $lines) { throw 'Update checksum list differs' }
+          $scan = "$pwd/.local/build/metadata-scan"
+          New-Item -ItemType Directory $scan | Out-Null
+          Copy-Item "$assets/$metadata", "$assets/SHA256SUMS", "$assets/slim-$env:PLATFORM-x86_64.json", "$assets/requirements-$env:PLATFORM.lock" $scan
+          & $env:TASK_PYTHON scripts/check_public.py --artifact $scan
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Synthetic installer and isolated package lifecycle
         shell: pwsh
         run: |
@@ -97,4 +156,22 @@ jobs:
           }
           & $env:TASK_PYTHON @smokeArguments
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      # No Actions cache, stored artifacts, release creation, or publication.
+          if ($env:PLATFORM -eq 'windows') {
+            & $env:TASK_PYTHON scripts/smoke_windows_cancellation.py --assets $assets --installer "$assets/studycenter-public-$env:CANDIDATE_VERSION-windows-x86_64-setup.exe" --previous-installer "$pwd/.local/build/previous/studycenter-public-0.1.0b5-windows-x86_64-setup.exe"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+      - name: Retain checked release candidate
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_release_candidate }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: studycenter-public-${{ env.CANDIDATE_VERSION }}-${{ matrix.platform }}-${{ github.sha }}
+          retention-days: 1
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .local/build/slim/*.whl
+            .local/build/slim/requirements-${{ matrix.platform }}.lock
+            .local/build/slim/slim-${{ matrix.platform }}-x86_64.json
+            .local/build/slim/studycenter-public-${{ env.CANDIDATE_VERSION }}-${{ matrix.platform }}-x86_64-*
+            .local/build/slim/SHA256SUMS
+      # Retention is opt-in and follows every check; this workflow never publishes.

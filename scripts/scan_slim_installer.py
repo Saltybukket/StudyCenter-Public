@@ -44,7 +44,7 @@ def scan(installer, bootstrap, output, unpacker=None):
     subprocess.run([str(unpacker), '-x', '-b', '-q', '-a', '-m', '-d'+str(unpacked), str(installer)], check=True, timeout=300)
     application = unpacked/'{app}'
     actual = {path.relative_to(application).as_posix() for path in application.rglob('*') if path.is_file()}
-    expected = {path.relative_to(bootstrap).as_posix() for path in bootstrap.rglob('*') if path.is_file()} - {'backup_core.py'}
+    expected = {path.relative_to(bootstrap).as_posix() for path in bootstrap.rglob('*') if path.is_file()} - {'backup_core.py', 'installer-recovery.ps1'}
     if not expected or actual != expected:
         raise ValueError('Installer application inventory differs from its bootstrap')
     for name in expected:
@@ -53,6 +53,9 @@ def scan(installer, bootstrap, output, unpacker=None):
     helper = unpacked/'{tmp}'/'backup_core.py'
     if not helper.is_file() or extraction.digest(helper) != extraction.digest(bootstrap/'backup_core.py'):
         raise ValueError('Installer backup helper differs from reviewed bootstrap')
+    recovery = unpacked/'{tmp}'/'installer-recovery.ps1'
+    if not recovery.is_file() or extraction.digest(recovery) != extraction.digest(bootstrap/'installer-recovery.ps1'):
+        raise ValueError('Installer recovery helper differs from reviewed bootstrap')
     subprocess.run([sys.executable, str(ROOT/'scripts/check_public.py'), '--artifact', str(unpacked)], check=True)
     print('Slim installer contents match bootstrap and passed the unpacked artifact scan.')
 

@@ -2,7 +2,7 @@
 
 Aufgaben, Notizen, Kalender und PDF-Import funktionieren ohne Konto. Persönliche Daten liegen im eigenen lokalen Bestand.
 
-Diese Anleitung beschreibt beta.4 Slim. Unter [Releases und Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases) stehen die veröffentlichten Versionen: für Windows die als empfohlen bezeichnete Setup-Datei, für Linux das Slim-Archiv wählen. Das weiterhin verfügbare beta.2-Komplettpaket enthält seine Komponenten bereits.
+Diese Anleitung beschreibt beta.6 Slim. Unter [Releases und Prüfsummen](https://github.com/Saltybukket/StudyCenter-Public/releases) stehen die veröffentlichten Versionen: für Windows die als empfohlen bezeichnete Setup-Datei, für Linux das Slim-Archiv wählen. Das weiterhin verfügbare beta.2-Komplettpaket enthält seine Komponenten bereits.
 
 ## Windows 10/11 x64
 

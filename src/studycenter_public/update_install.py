@@ -278,31 +278,105 @@ function RestartPrevious {
  } else { $target=Join-Path $d.root 'StudyCenter-Public.exe'; $arguments='--data-dir "'+$d.data+'" --port '+$d.port }
  Start-Process -FilePath $target -ArgumentList $arguments -WorkingDirectory $d.root -WindowStyle Hidden | Out-Null
 }
-function SaveEnvironment {
- $dir=Join-Path $d.stage 'previous-environment'
+# The installer may replace or remove program files after preparing a new
+# environment. Keep the old bytes and registration until it reports success.
+# .local environments/components are retained; only its active pointers change.
+$backup=Join-Path $d.stage 'previous-installation'
+$registry='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{B60E9F91-11F3-4EA8-B973-5C6D65C7A59A}_is1'
+$shortcuts=@(
+ (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\StudyCenter-Public\StudyCenter-Public.lnk'),
+ (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\StudyCenter-Public\Uninstall StudyCenter-Public.lnk'),
+ (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\StudyCenter-Public.lnk'),
+ (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'StudyCenter-Public.lnk')
+)
+function Hash($path) {
+ $stream=[IO.File]::OpenRead($path); $sha=[Security.Cryptography.SHA256]::Create()
+ try { return ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant() }
+ finally { $stream.Dispose(); $sha.Dispose() }
+}
+function CheckRegular($path) {
+ $cursor=[IO.Path]::GetFullPath($path)
+ while ($cursor) {
+  if (([IO.File]::Exists($cursor) -or [IO.Directory]::Exists($cursor)) -and (([IO.File]::GetAttributes($cursor) -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'Verlinkter Installationspfad verweigert: '+$cursor }
+  $cursor=[IO.Path]::GetDirectoryName($cursor)
+ }
+}
+function ProgramFiles {
+ $files=New-Object 'System.Collections.Generic.List[string]'
+ $pending=New-Object 'System.Collections.Generic.Stack[string]'; $pending.Push($d.root)
+ while ($pending.Count -gt 0) {
+  $directory=$pending.Pop(); CheckRegular $directory
+  foreach ($item in Get-ChildItem -LiteralPath $directory -Force) {
+   if ($directory -eq $d.root -and $item.Name -eq '.local') { CheckRegular $item.FullName; continue }
+   CheckRegular $item.FullName
+   if ($item.PSIsContainer) { $pending.Push($item.FullName) } else { $files.Add($item.FullName.Substring($d.root.Length).TrimStart('\')) }
+  }
+ }
+ return $files.ToArray()
+}
+function SaveInstallation {
+ [IO.Directory]::CreateDirectory($backup) | Out-Null
+ $files=@(ProgramFiles)
+ foreach ($name in $files) {
+  $source=Join-Path $d.root $name; $target=Join-Path (Join-Path $backup 'program') $name
+  [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+  [IO.File]::Copy($source,$target,$false)
+ }
+ $files | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'files.json') -Encoding UTF8
  if (Test-Path -LiteralPath (Join-Path $d.root 'start.cmd')) {
-  New-Item -ItemType Directory -Path $dir | Out-Null
   foreach ($name in @('installation.json','python-path.txt')) {
    $source=Join-Path (Join-Path $d.root '.local') $name
-   if (-not [IO.File]::Exists($source) -or (([IO.File]::GetAttributes($source) -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'Vorherige Umgebungskennung fehlt oder ist verlinkt.' }
-   [IO.File]::Copy($source,(Join-Path $dir $name),$false)
+   if (-not [IO.File]::Exists($source)) { throw 'Vorherige Umgebungskennung fehlt.' }
+   CheckRegular $source; [IO.File]::Copy($source,(Join-Path $backup $name),$false)
   }
  }
+ & "$env:SystemRoot\System32\reg.exe" export $registry (Join-Path $backup 'uninstall.reg') /y | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Installationsregistrierung konnte nicht gesichert werden.' }
+ $saved=@()
+ for ($i=0; $i -lt $shortcuts.Count; $i++) {
+  $exists=[IO.File]::Exists($shortcuts[$i]); $saved+= $exists
+  if ($exists) { CheckRegular $shortcuts[$i]; [IO.File]::Copy($shortcuts[$i],(Join-Path $backup ('shortcut-'+$i)),$false) }
+ }
+ ConvertTo-Json -InputObject $saved | Set-Content -LiteralPath (Join-Path $backup 'shortcuts.json') -Encoding UTF8
 }
-function RestoreEnvironment {
- $dir=Join-Path $d.stage 'previous-environment'
- if (Test-Path -LiteralPath $dir) {
-  foreach ($name in @('installation.json','python-path.txt')) {
-   $destination=Join-Path (Join-Path $d.root '.local') $name
-   if ([IO.File]::Exists($destination) -and (([IO.File]::GetAttributes($destination) -band [IO.FileAttributes]::ReparsePoint) -ne 0)) { throw 'Verlinkte Umgebungskennung verweigert.' }
-   $temporary=$destination+'.update-restore'; [IO.File]::Copy((Join-Path $dir $name),$temporary,$true)
-   if ([IO.File]::Exists($destination)) { [IO.File]::Replace($temporary,$destination,$null) } else { [IO.File]::Move($temporary,$destination) }
+function RestoreFile($source,$destination) {
+ $parent=[IO.Path]::GetDirectoryName($destination); CheckRegular $parent
+ [IO.Directory]::CreateDirectory($parent) | Out-Null
+ CheckRegular $parent
+ if ([IO.File]::Exists($destination)) { CheckRegular $destination }
+ $temporary=$destination+'.update-restore'
+ if ([IO.File]::Exists($temporary)) { throw 'Temporäre Wiederherstellungsdatei existiert bereits.' }
+ [IO.File]::Copy($source,$temporary,$false)
+ if ([IO.File]::Exists($destination)) { [IO.File]::Copy($temporary,$destination,$true); [IO.File]::Delete($temporary) } else { [IO.File]::Move($temporary,$destination) }
+ if ((Hash $source) -ne (Hash $destination)) { throw 'Wiederherstellung konnte nicht verifiziert werden: '+$destination }
+}
+function RestoreInstallation {
+ $saved=Get-Content -LiteralPath (Join-Path $backup 'files.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+ $allowed=@('start.cmd','start.sh','LICENSE','README.md','setup.py','slim-manifest.json','launch.vbs','SYSTEM-RUNTIME-REQUIREMENTS.iss','installation-files.txt','installation-marker.ini','unins000.exe','unins000.dat','unins000.msg')
+ $unknown=@()
+ foreach ($name in @(ProgramFiles)) {
+  if ($saved -notcontains $name) {
+   if ($allowed -contains $name) { [IO.File]::Delete((Join-Path $d.root $name)) } else { $unknown+= $name }
   }
  }
+ foreach ($name in $saved) { RestoreFile (Join-Path (Join-Path $backup 'program') $name) (Join-Path $d.root $name) }
+ foreach ($name in @('installation.json','python-path.txt')) {
+  $source=Join-Path $backup $name
+  if ([IO.File]::Exists($source)) { RestoreFile $source (Join-Path (Join-Path $d.root '.local') $name) }
+ }
+ [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($registry.Substring(5),$false)
+ & "$env:SystemRoot\System32\reg.exe" import (Join-Path $backup 'uninstall.reg') | Out-Null
+ if ($LASTEXITCODE -ne 0) { throw 'Installationsregistrierung konnte nicht wiederhergestellt werden.' }
+ $savedShortcuts=Get-Content -LiteralPath (Join-Path $backup 'shortcuts.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+ for ($i=0; $i -lt $shortcuts.Count; $i++) {
+  if ($savedShortcuts[$i]) { RestoreFile (Join-Path $backup ('shortcut-'+$i)) $shortcuts[$i] }
+  elseif ([IO.File]::Exists($shortcuts[$i])) { CheckRegular $shortcuts[$i]; [IO.File]::Delete($shortcuts[$i]) }
+ }
+ if ($unknown.Count -gt 0) { throw 'Unbekannte neue Dateien bleiben erhalten; automatischer Neustart verweigert: '+($unknown -join ', ') }
 }
-$opened=$false; $exited=$false; $safeRestart=$true
+$opened=$false; $exited=$false; $safeRestart=$true; $mutationPossible=$false
 try {
- if ((Get-FileHash -LiteralPath $d.artifact -Algorithm SHA256).Hash.ToLowerInvariant() -ne $d.sha256) { throw 'Prüfsumme geändert' }
+ if ((Hash $d.artifact) -ne $d.sha256) { throw 'Prüfsumme geändert' }
  $handle=[UpdateWait]::OpenProcess(0x100000,$false,$ParentId)
  if ($handle -eq [IntPtr]::Zero) { throw 'Prozess-Handle konnte nicht geöffnet werden' }
  $opened=$true
@@ -319,14 +393,21 @@ try {
  $wait=[UpdateWait]::WaitForSingleObject($handle,60000)
  if ($wait -ne 0) { Record 'timeout' 'Vorherige Instanz läuft noch.'; exit 1 }
  $exited=$true
- if ((Get-FileHash -LiteralPath $d.artifact -Algorithm SHA256).Hash.ToLowerInvariant() -ne $d.sha256) { throw 'Prüfsumme geändert' }
- SaveEnvironment
+ if ((Hash $d.artifact) -ne $d.sha256) { throw 'Prüfsumme geändert' }
+ SaveInstallation
  $arguments='/DIR="'+$d.root+'" /DATADIR="'+$d.data+'" /UPDATELOCK=1 /UPDATELOCKDIR="'+$d.root+'" /UPDATELOCKDATA="'+$d.data+'"'
+ $mutationPossible=$true
  $process=Start-Process -FilePath $d.artifact -ArgumentList $arguments -PassThru -Wait
- if ($process.ExitCode -ne 0) { try { RestoreEnvironment } catch { $safeRestart=$false; throw }; Record 'cancelled_or_failed' ('Installer exit '+$process.ExitCode); RestartPrevious; exit 0 }
+ if ($process.ExitCode -ne 0) { try { RestoreInstallation; $mutationPossible=$false } catch { $safeRestart=$false; throw }; Record 'cancelled_or_failed' ('Installer exit '+$process.ExitCode); RestartPrevious; exit 0 }
+ $mutationPossible=$false
  Record 'installer_completed' ''
  RestartPrevious
-} catch { Record 'failed' $_.Exception.Message; if ($exited -and $safeRestart) { try { RestartPrevious } catch { Record 'failed' ($_.Exception.Message+'; Neustart fehlgeschlagen') } } }
+} catch {
+ $detail=$_.Exception.Message
+ if ($mutationPossible -and $safeRestart) { try { RestoreInstallation; $mutationPossible=$false } catch { $safeRestart=$false; $detail+='; Wiederherstellung fehlgeschlagen: '+$_.Exception.Message } }
+ Record 'failed' $detail
+ if ($exited -and $safeRestart) { try { RestartPrevious } catch { Record 'failed' ($detail+'; Neustart fehlgeschlagen: '+$_.Exception.Message) } }
+}
 finally { if ($opened) { [UpdateWait]::CloseHandle($handle) | Out-Null } }
 '''
 
@@ -344,7 +425,7 @@ def launch_handoff(prepared):
     config.write_text(json.dumps(plan, ensure_ascii=False), encoding='utf-8')
     if sys.platform != 'win32': config.chmod(0o600)
     helper = stage/('handoff.ps1' if prepared['platform'] == 'windows' else 'handoff.py')
-    helper.write_text(_WINDOWS_HELPER if prepared['platform'] == 'windows' else _LINUX_HELPER, encoding='utf-8')
+    helper.write_text(_WINDOWS_HELPER if prepared['platform'] == 'windows' else _LINUX_HELPER, encoding='utf-8-sig' if prepared['platform'] == 'windows' else 'utf-8')
     if prepared['platform'] == 'linux':
         (stage/'recover.py').write_text(_RECOVERY_HELPER, encoding='utf-8')
     options = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)

@@ -78,15 +78,27 @@ jobs:
           "SLIM_ASSETS=$candidate" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $previous = Join-Path $candidate 'previous'
           New-Item -ItemType Directory -Path $previous | Out-Null
-          gh release download v0.1.0-beta.4 --repo $env:GITHUB_REPOSITORY --pattern 'studycenter-public-0.1.0b4-windows-x86_64-setup.exe' --pattern 'studycenter_public-0.1.0b4-py3-none-any.whl' --pattern 'requirements-windows.lock' --pattern 'proxy_tools-0.1.0-py3-none-any.whl' --dir $previous
+          gh release download v0.1.0-beta.5 --repo $env:GITHUB_REPOSITORY --pattern 'studycenter-public-0.1.0b5-windows-x86_64-setup.exe' --pattern 'studycenter_public-0.1.0b5-py3-none-any.whl' --pattern 'requirements-windows.lock' --pattern 'proxy_tools-0.1.0-py3-none-any.whl' --dir $previous
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          $old = Join-Path $previous 'studycenter-public-0.1.0b4-windows-x86_64-setup.exe'
-          if ((Get-FileHash -LiteralPath $old -Algorithm SHA256).Hash.ToLowerInvariant() -cne 'dd27b2795a3d672fd5f26a6ef04988350ce9792441662d61ea2b5351f24c4d10') { throw 'Previous public installer differs' }
+          $old = Join-Path $previous 'studycenter-public-0.1.0b5-windows-x86_64-setup.exe'
+          if ((Get-FileHash -LiteralPath $old -Algorithm SHA256).Hash.ToLowerInvariant() -cne '3aee438e61c3e132b8fc57330bd96fddaead4f4e2460fbaeb3a668490890c77b') { throw 'Previous public installer differs' }
+          $previousHashes = @{
+            'studycenter_public-0.1.0b5-py3-none-any.whl' = 'd01ab63cdef8997cdc4565ed84a7597bfcbbdaa70a2ad1d9bcfd938a0782e77c'
+            'requirements-windows.lock' = '61125a06d66813a14349cdcc8bba8b1b6aeb3e775b5055263b9f9fe89c524ffe'
+          }
+          foreach ($name in $previousHashes.Keys) {
+            if ((Get-FileHash -LiteralPath (Join-Path $previous $name) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $previousHashes[$name]) { throw "Previous asset differs: $name" }
+          }
           "PREVIOUS_INSTALLER=$old" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Output "Own candidate SHA256 verified: $actual"
       - name: Exact installer lifecycle and installed package smoke
         shell: pwsh
         run: |
           & .venv/Scripts/python.exe scripts/smoke_slim.py --assets $env:SLIM_ASSETS --installer $env:CANDIDATE_INSTALLER --previous-installer $env:PREVIOUS_INSTALLER --expected-source $env:EXPECTED_BUILD_SOURCE
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Exact installer cancellation and rollback controls
+        shell: pwsh
+        run: |
+          & .venv/Scripts/python.exe scripts/smoke_windows_cancellation.py --assets $env:SLIM_ASSETS --installer $env:CANDIDATE_INSTALLER --previous-installer $env:PREVIOUS_INSTALLER
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       # No cache, artifact storage or publication. The VM is discarded after the job.
