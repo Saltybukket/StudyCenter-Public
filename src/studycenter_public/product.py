@@ -107,13 +107,21 @@ def make_settings(paths, secrets=None):
     settings.process_env, settings.working_directory = ocr.process_env, ocr.working_directory
     settings.api_store = record('model-api')
     model_path = paths.config / 'model-api.json'
+    def save_model_api(base_url, model, api_key):
+        if api_key:
+            settings.api_store.write({'api_key': api_key, 'base_url': base_url})
+        elif settings.api_store.read().get('api_key'):
+            secret_store.delete('model-api')
+        atomic_json(model_path, {'base_url': base_url, 'model': model})
+    settings.save_model_api = save_model_api
     if model_path.is_file():
         from .providers.contracts import ProviderProfile
         try:
             saved = json.loads(model_path.read_text(encoding='utf-8'))
             profile = ProviderProfile('compatible', model=saved['model'], base_url=saved['base_url'])
             settings.llm_base_url, settings.llm_model = profile.base_url, profile.model
-            settings.llm_api_key = settings.api_store.read().get('api_key', '')
+            stored = settings.api_store.read()
+            settings.llm_api_key = stored.get('api_key', '') if stored.get('base_url', profile.base_url) == profile.base_url else ''
         except SecretStoreUnavailable:
             settings.llm_api_key = ''
         except (ValueError, KeyError, TypeError):
@@ -193,13 +201,14 @@ def create_app(paths, secrets=None):
             raise HTTPException(400, str(error)) from None
         unchanged = profile.base_url == settings.llm_base_url
         if api_key:
-            settings.api_store.write({'api_key': api_key})
+            settings.api_store.write({'api_key': api_key, 'base_url': profile.base_url})
         elif not unchanged:
             if settings.api_store.read().get('api_key'):
                 secret_store.delete('model-api')
         atomic_json(paths.config / 'model-api.json', {'base_url':profile.base_url, 'model':profile.model})
         settings.llm_base_url, settings.llm_model = profile.base_url, profile.model
         settings.llm_api_key = api_key or (settings.llm_api_key if unchanged else '')
+        settings.save()
         return {'message':'Modellverbindung gespeichert. Anbieter unter Modell auswählen.', 'base_url':profile.base_url, 'model':profile.model}
     @app.get('/setup')
     async def public_setup(request: Request):

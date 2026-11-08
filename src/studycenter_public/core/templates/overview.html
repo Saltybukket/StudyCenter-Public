@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% from 'macros.html' import empty,action_entry %}{% from 'macros.html' import icon %}
+{% extends 'base.html' %}{% from 'macros.html' import empty,action_entry,task_connection %}{% from 'macros.html' import icon %}
 {% block title %}Upcoming{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ static_url('dashboard.css') }}">{% endblock %}
 {% macro step(item,check=false,readonly=false) %}
@@ -12,7 +12,7 @@
 {% macro next_action(item) %}
 {% set d=item.data %}<li class="today-action" data-item-id="{{ item.id }}">
 {% if item.actionable and d.kind in ('task','registration') %}<form action="/items/{{ item.id }}" method="post" class="quick-form today-action-form" data-entry-action><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="status"><input type="hidden" name="expected_revision" value="{{ item.status_revision }}"><input type="hidden" name="status" value="done"><button type="submit" class="today-action-check" aria-label="Erledigt: {{ item_title(item) }}" title="Als erledigt markieren"></button></form>{% else %}<span class="today-action-marker" aria-hidden="true">◷</span>{% endif %}
-<div class="today-action-body"><h3><a href="/items/{{ item.id }}">{{ item_title(item) }}</a></h3><p>{{ item.course_title or ('Eigene Notiz' if item.identity.startswith('note:') else 'TU-Mail / Dokument') }} · {{ item.action_label }}{% if item.action_date %} · {{ item.action_date|localdate }}{% if item.action_time %}, {{ item.action_time[:5] }}{% else %} · Ohne Uhrzeit{% endif %} · <span{% if item.urgent %} class="today-urgent"{% endif %}>{{ item.relative }}</span>{% else %} · Datum offen{% endif %}</p><details class="today-action-details"><summary>Weitere Angaben</summary><div class="step-tags">{% for tag in item_tags(item) if tag.dimension=='personal' or tag.dimension=='obligation' or tag.code in ('unclear','conflict') %}<span class="step-tag" title="{{ tag.help }}">{{ tag.label }}</span>{% endfor %}</div><a href="/items/{{ item.id }}#evidence">Belege →</a></details></div></li>
+<div class="today-action-body"><h3><a href="/items/{{ item.id }}">{{ item_title(item) }}</a></h3><p>{{ item.course_title or ('Eigene Notiz' if item.identity.startswith('note:') else 'TU-Mail / Dokument') }} · {{ item.action_label }}{% if item.action_date %} · {{ item.action_date|localdate }}{% if item.action_time %}, {{ item.action_time[:5] }}{% else %} · Ohne Uhrzeit{% endif %} · <span{% if item.urgent %} class="today-urgent"{% endif %}>{{ item.relative }}</span>{% else %} · Datum offen{% endif %}</p>{{ task_connection(item) }}<details class="today-action-details"><summary>Weitere Angaben</summary><div class="step-tags">{% for tag in item_tags(item) if tag.dimension=='personal' or tag.dimension=='obligation' or tag.code in ('unclear','conflict') %}<span class="step-tag" title="{{ tag.help }}">{{ tag.label }}</span>{% endfor %}</div><a href="/items/{{ item.id }}#evidence">Belege →</a></details></div></li>
 {% endmacro %}
 {% block content %}{% set focus_action_ids=focus_display|map(attribute='id')|list %}
 <section class="today-quest" aria-labelledby="today-quest-title">
@@ -20,7 +20,9 @@
   {% if next_quest %}{% set quest=next_quest.quest %}{% set next_step=next_quest.step %}
   <div class="today-quest-name"><small>Deine nächste Quest</small><h2 id="today-quest-title">{{ quest.title }}</h2></div>
   <div class="today-quest-next"><strong>{{ next_step.title }}</strong><small>{% if quest.planning=='checklist' %}Freiwilliger Einstieg{% else %}{{ next_step.scheduled_date|localdate }}{% if next_step.minutes %} · {{ next_step.minutes }} Min.{% endif %}{% endif %}</small></div>
-  <a class="today-quest-button" href="/quests?quest={{ quest.id|urlencode }}">Weiterlernen →</a>
+  {% if quest.pending_revision %}<a class="today-quest-button" href="/quests?quest={{ quest.id|urlencode }}&amp;review=revision">Vorschlag prüfen →</a>
+  {% elif quest.sources_changed %}<a class="today-quest-button" href="/quests?quest={{ quest.id|urlencode }}&amp;review=sources">Anpassungen prüfen →</a>
+  {% else %}<a class="today-quest-button" href="/quests?quest={{ quest.id|urlencode }}">Weiterlernen →</a>{% endif %}
   <div class="today-quest-progress"><progress max="{{ quest.total_count }}" value="{{ quest.completed_count }}" aria-label="Questfortschritt"></progress><span>{{ quest.completed_count }} von {{ quest.total_count }} erledigt</span></div>
   {% if quest.warnings %}<div class="today-quest-warnings">{% for warning in quest.warnings %}<p>{{ warning }}</p>{% endfor %}</div>{% endif %}
   {% else %}<div class="today-quest-name today-quest-empty"><small>Deine Quests</small><h2 id="today-quest-title">Dein nächster Lernschritt</h2><p>Noch kein offener Schritt in einer aktiven Quest.</p></div><a class="today-quest-button" href="/quests">Quests öffnen →</a>{% endif %}

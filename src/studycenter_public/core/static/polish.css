@@ -1,4 +1,4 @@
-/* Shared reading scale. This stylesheet is never loaded by the post-it views. */
+/* Shared reading scale for every workspace, including the pinwall. */
 body{--text-body:1rem;--text-secondary:.9rem;--text-caption:.85rem}
 body[data-page] main :is(p,label,summary){line-height:1.55}
 body[data-page] main :is(small,.muted,.search-context,.search-proofs,.search-date,.course-material,.reader-intro p,.reader-status,.document-format,.today-action-details,.quest-caption,.quest-step-body small){font-size:var(--text-secondary);line-height:1.5}
@@ -83,3 +83,31 @@ body[data-page] main :is(h2){line-height:1.35}
 .google-more-actions{flex-basis:100%;padding:.4rem 0}.google-more-actions[open]{display:flex;flex-wrap:wrap;gap:.5rem}.google-more-actions summary{font-size:.9rem;cursor:pointer}.google-more-actions button{margin-top:.5rem}
 
 [data-settings-advanced]:not(.disclosure-ready)>summary{display:none}
+
+/* Audit: put search results before optional controls; keep document text readable. */
+.search-form .search-options{flex-basis:100%;margin:0;border-top:1px solid var(--line);padding:.55rem 0}
+.search-options>summary,.search-guidance>summary{cursor:pointer;width:fit-content;padding:.35rem 0;font-size:.9rem}
+.search-options .filters{margin:.5rem 0;padding:0;border:0}
+.search-options>.check{margin:.7rem 0}.search-options>button{margin:.3rem 0}
+.search-guidance{margin:.1rem 0 .8rem;color:var(--muted)}
+.search-guidance p{max-width:70ch}
+body[data-page] .document-table-head{font-size:.8rem;letter-spacing:.02em;text-transform:none}
+body[data-page] .document-table-row{font-size:.9rem}
+body[data-page] .document-file h2{font-size:1rem;line-height:1.45}
+body[data-page] .document-table .document-status{font-size:.85rem;border-radius:8px}
+body[data-page] .document-table .document-format small{font-size:.8rem}
+@media(max-width:700px){
+ .search-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.6rem;align-items:end}
+ .search-form .search-query{min-width:0;width:auto}
+ .search-form>.search-options{grid-column:1/-1}
+ .search-form>button{min-height:44px;margin:0}
+}
+
+.settings-page .theme-choices.chat-layout-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+.task-connection{font-size:.88rem;line-height:1.45;margin:.3rem 0 .55rem;overflow-wrap:anywhere}
+.task-connection a{text-decoration:underline;text-underline-offset:3px}
+.related-work{margin:.7rem 0}.related-work h2{font-size:1rem;margin:0 0 .5rem}
+.related-work ul{list-style:none;padding:0;margin:.5rem 0}.related-work li{display:flex;gap:.7rem;justify-content:space-between;padding:.45rem 0}
+.related-work li span{white-space:nowrap;color:var(--muted);font-size:.9rem}.related-work .related-work-note{font-size:.9rem;color:var(--muted);margin-bottom:0}
+html[data-theme=dark] body .sticky-note .task-connection a{color:#cbd9cf}

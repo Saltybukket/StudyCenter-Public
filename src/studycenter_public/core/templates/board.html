@@ -3,10 +3,10 @@
 {% block head %}<link rel="stylesheet" href="{{ static_url('postits.css') }}"><script src="{{ static_url('postits.js') }}" defer></script>{% endblock %}
 {% block toolbar_action %}{% set note_compose_label = '+ Post-it' %}{% include 'note_form.html' %}{% endblock %}
 {% block content %}
-{{ wall_views(path,include_inactive,show_ignored,request) }}
+<div class="wall-controls">{{ wall_views(path,include_inactive,show_ignored,request) }}
 {% if class_completion_error %}<p class="setup-note warning" role="alert">Lehrtermine konnten nicht automatisch abgeschlossen werden: {{ class_completion_error }}</p>{% endif %}
-{{ wall_filter(path,request,courses,course,q,status,include_inactive,show_ignored,personal,due) }}
-<p class="wall-rule">{{ total }} offene Einträge. <a href="/archive">Erledigt im Archiv{% if archived_count %} · {{ archived_count }}{% endif %}</a></p>{{ wall_pagination(request,page,pages,total) }}
+{{ wall_filter(path,request,courses,course,q,status,include_inactive,show_ignored,personal,due) }}</div>
+<div class="wall-context"><p class="wall-rule">{{ total }} {{ 'offener Zettel' if total==1 else 'offene Zettel' }} <span aria-hidden="true">·</span> <a href="/archive">{{ archived_count }} erledigt</a></p>{% if lecture_count %}<a class="wall-calendar-link" href="{{ request.url.include_query_params(lectures='false' if lectures else 'true',page=1) }}">{{ 'Vorlesungen ausblenden' if lectures else 'Vorlesungen einblenden' }} <span>{{ lecture_count }}</span></a>{% endif %}</div>{{ wall_pagination(request,page,pages,total) }}
 <div class="postit-board">{% set pinned_items=items|selectattr('pinned')|list %}{% if pinned_items %}<section class="work-section" data-work-status="pinned"><div class="section-heading"><h2>Angeheftet</h2><span data-work-count title="Einträge auf dieser Seite">{{ pinned_items|length }}</span></div><div class="postit-grid">{% for item in pinned_items %}{{ card(item,csrf,true) }}{% endfor %}</div></section>{% endif %}{% for code,label in [('doing','In Arbeit'),('open','Offen')] if not status or status==code %}{% set section_items=items|rejectattr('pinned')|selectattr('status','equalto',code)|list %}{% if section_items %}
 <section class="work-section" data-work-status="{{ code }}"><div class="section-heading"><h2>{{ label }}</h2><span data-work-count title="Einträge auf dieser Seite">{{ section_items|length }}</span></div>
 <div class="postit-grid">{% for item in section_items %}{{ card(item,csrf,true) }}{% endfor %}</div></section>{% endif %}{% endfor %}{% if not items %}{{ empty('Keine passenden Einträge. Passe die Filter an oder füge ein Post-it hinzu.') }}{% endif %}</div>{{ wall_pagination(request,page,pages,total) }}{{ later_tasks(later) }}{% endblock %}

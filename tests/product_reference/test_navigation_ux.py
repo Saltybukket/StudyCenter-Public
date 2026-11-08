@@ -34,7 +34,7 @@ async def test_navigation_reflows_and_settings_history_preserves_reminder_values
         await page.goto('http://campusboard.test/overview')
         assert await page.locator('nav[aria-label="Hauptnavigation"] a').count() == 5
         assert await page.locator('nav[aria-label="Hauptnavigation"] a[href="/quests"]').count() == 1
-        for width in (1440, 820, 390):
+        for width in (1920, 1440, 820, 390):
             await page.set_viewport_size({'width': width, 'height': 1000})
             bounds = await page.evaluate('''() => ({
                 header:document.querySelector('.masthead').getBoundingClientRect().bottom,
@@ -42,6 +42,7 @@ async def test_navigation_reflows_and_settings_history_preserves_reminder_values
                 width:innerWidth, scroll:document.documentElement.scrollWidth})''')
             assert bounds['search'] <= bounds['header']
             assert bounds['scroll'] <= bounds['width']
+            assert (await page.locator('.layout > aside').bounding_box())['x'] == 0
         assert await page.locator('.header-search').is_hidden()
         assert (await page.locator('#main').bounding_box())['y']<160
         await page.locator('#mobile-search-toggle').click()
@@ -140,12 +141,12 @@ async def test_sync_summary_excludes_deferred_media_but_keeps_real_errors(tmp_pa
         await browser.close()
 
 
-def test_polish_excludes_postit_routes_and_keeps_no_js_search(tmp_path):
+def test_polish_unifies_postit_routes_and_keeps_no_js_search(tmp_path):
     with TestClient(create_app(Settings(data_dir=tmp_path))) as client:
         for route in ('/board','/pins','/archive'):
             html=client.get(route).text
-            assert 'polish.css' not in html and 'polish.js' not in html
-            assert 'mobile-search-toggle' not in html
+            assert 'polish.css' in html and 'polish.js' in html
+            assert 'mobile-search-toggle' in html
         for route in ('/overview','/quests','/settings','/sources','/documents','/calendar','/search'):
             html=client.get(route).text
             assert 'polish.css' in html and 'id="header-search-form"' in html

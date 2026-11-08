@@ -3,8 +3,8 @@
 {% block head %}<link rel="stylesheet" href="{{ static_url('postits.css') }}"><script src="{{ static_url('postits.js') }}" defer></script>{% endblock %}
 {% block toolbar_action %}{% set note_compose_label = '+ Post-it' %}{% include 'note_form.html' %}{% endblock %}
 {% block content %}
-{{ wall_views(path,include_inactive,show_ignored,request) }}
-{{ wall_filter(path,request,courses,course,q,status,include_inactive,show_ignored,personal,due) }}
+<div class="wall-controls">{{ wall_views(path,include_inactive,show_ignored,request) }}
+{{ wall_filter(path,request,courses,course,q,status,include_inactive,show_ignored,personal,due) }}</div>
 <p class="wall-rule">{{ total }} Einträge · Angeheftet und für dich vorgeschlagen. <a href="/archive">Erledigt im Archiv{% if archived_count %} · {{ archived_count }}{% endif %}</a></p>
 <div class="magnet-wall card-grid">{% for item in items %}{{ card(item,csrf,true) }}{% else %}{{ empty('Keine passenden Aufgaben, Abgaben oder Pins. Wähle einen anderen Zeitraum oder füge ein Post-it hinzu.') }}{% endfor %}</div>
 {{ wall_pagination(request,page,pages,total) }}{{ later_tasks(later) }}{% endblock %}

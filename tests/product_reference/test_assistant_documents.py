@@ -167,7 +167,7 @@ async def test_default_document_question_preserves_model_readiness_gate(env):
     doc=document_fixture(env)
     service.settings.oauth_probe_passed=False
     result=await service.command(Command(request_id=uuid4(),text='Was muss ich auf dieser Seite machen?',context_document_id=doc))
-    assert result['failed'] and 'Live-Probe' in result['message']
+    assert result['failed'] and 'KI & Konto' in result['message']
     adapter.responses.assert_not_called()
 
 

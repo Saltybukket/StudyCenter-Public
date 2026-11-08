@@ -17,7 +17,7 @@ FORMAT = 1
 APP_VERSION = '0.1.0'
 MAX_ARCHIVE = 2 * 1024**3
 TABLES = {'courses', 'sources', 'documents', 'items', 'item_evidence', 'sync_runs'}
-OPTIONAL_TABLES = {'assistant_requests','course_aliases','personal_reminders','app_preferences','item_preferences','reminder_jobs','notification_reads','google_events','class_completions','quests'}  # Older format-1 snapshots remain restorable.
+OPTIONAL_TABLES = {'assistant_requests','course_aliases','personal_reminders','app_preferences','item_preferences','reminder_jobs','notification_reads','google_events','class_completions','quests','quest_revisions'}  # Older format-1 snapshots remain restorable.
 SECRET = re.compile(r'password|passwd|secret|token|cookie|credential|authorization|api[_-]?key', re.I)
 
 

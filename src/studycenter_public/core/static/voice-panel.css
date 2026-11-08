@@ -1,5 +1,5 @@
 /* Studi stays beside the current view and does not block it. */
-#voice-panel[open]{position:fixed;z-index:90;inset:96px 12px auto auto;margin:0;box-sizing:border-box;width:min(370px,calc(100vw - 24px));max-width:none;height:auto;max-height:min(680px,calc(100dvh - 108px));padding:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px #203d3533}
+#voice-panel[open]{position:fixed;z-index:90;inset:calc(var(--chat-header-bottom,86px) + 10px) 12px auto auto;margin:0;box-sizing:border-box;width:min(370px,calc(100vw - 24px));max-width:none;height:auto;max-height:min(680px,calc(100dvh - var(--chat-header-bottom,86px) - 22px));padding:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px #203d3533}
 #voice-panel .voice-heading{flex:none;align-items:center;padding:.9rem 1rem;border-bottom:1px solid var(--line)}
 #voice-panel .voice-heading h2{font-size:1.2rem}
 #voice-panel .voice-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:.75rem 1rem}
@@ -20,6 +20,22 @@
 #voice-panel #voice-process{display:block;font-size:.75rem;margin-top:.35rem}
 #voice-panel #voice-process:empty{display:none}
 @media(min-width:1150px){body[data-page="item"].voice-open .layout{width:calc(100% - 394px);margin-left:0;margin-right:394px}body[data-page="item"].voice-open .detail-columns{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:700px){#voice-panel[open]{inset:8px 8px auto auto;height:auto;max-height:min(680px,calc(100dvh - 16px));width:min(370px,calc(100vw - 16px));border-radius:12px}#voice-panel .voice-body{padding:.65rem .8rem}#voice-panel #voice-command-form{padding:.65rem .8rem .8rem}}
+@media(max-width:700px){#voice-panel[open]{inset:calc(var(--chat-header-bottom,86px) + 8px) 8px auto auto;height:auto;max-height:min(680px,calc(100dvh - var(--chat-header-bottom,86px) - 16px));width:min(370px,calc(100vw - 16px));border-radius:12px}#voice-panel .voice-body{padding:.65rem .8rem}#voice-panel #voice-command-form{padding:.65rem .8rem .8rem}}
 
 @media(min-width:1150px){body[data-page="document"].voice-open .layout{width:calc(100% - 394px);margin-left:0;margin-right:394px}body[data-page="document"].voice-open .document-reader-grid{grid-template-columns:minmax(0,1fr)}body[data-page="document"].voice-open .reader-original{position:static}}
+
+#voice-resize{display:none}
+#voice-panel #voice-send{min-width:82px;padding:.55rem .8rem}
+#voice-panel #voice-question{padding:.65rem;margin:.5rem 0}
+#voice-panel #voice-question>p{font-size:.85rem;margin:.3rem 0}
+#voice-panel #voice-question>div{display:flex;gap:.4rem;flex-wrap:wrap}
+#voice-panel .voice-chat .voice-turn{overflow-wrap:anywhere}
+@media(min-width:900px){
+ html[data-chat-layout=sidebar] #voice-panel[open]{inset:var(--chat-header-bottom,86px) 0 0 auto;width:var(--chat-width,380px);height:calc(100dvh - var(--chat-header-bottom,86px));max-height:calc(100dvh - var(--chat-header-bottom,86px));border-radius:0;border-width:0 0 0 1px;box-shadow:-3px 0 16px #203d3512}
+ html[data-chat-layout=sidebar] body.voice-open .layout{padding-right:var(--chat-width,380px)}
+ html[data-chat-layout=sidebar] body.voice-open .layout{width:100%;margin:0}
+ html[data-chat-layout=sidebar] #voice-resize{display:block;position:absolute;left:0;top:0;bottom:0;width:7px;cursor:col-resize;touch-action:none;z-index:2}
+ html[data-chat-layout=sidebar] #voice-resize:hover,html[data-chat-layout=sidebar] #voice-resize:focus-visible{background:var(--green);opacity:.45;outline:0}
+ .chat-resizing{cursor:col-resize;user-select:none}
+}
+@media(max-width:899px){html[data-chat-layout=sidebar] #voice-panel[open]{inset:var(--chat-header-bottom,86px) 0 0 auto;height:calc(100dvh - var(--chat-header-bottom,86px));max-height:calc(100dvh - var(--chat-header-bottom,86px));width:min(420px,100vw);border-radius:0}}

@@ -173,7 +173,8 @@ def create_app(settings=None):
     search = SearchIndex(db)
     assistant = Assistant(db, settings, sync.model, search, view_action_state)
     quests = QuestService(db, settings, sync.model, search=search)
-    speech = SpeechService(lambda: assistant.questions.courses(),engine=settings.stt_engine,name=settings.stt_model,device=settings.stt_device,root=settings.speech_dir,model_path=settings.speech_model_path,ensure_model=settings.ensure_speech_model)
+    speech = SpeechService(lambda: assistant.questions.courses(),engine=settings.stt_engine,name=settings.stt_model,device=settings.stt_device,root=settings.speech_dir,model_path=settings.speech_model_path,ensure_model=settings.ensure_speech_model,
+        vocabulary=lambda:[r['title'] for r in db.rows("SELECT COALESCE(json_extract(overrides,'$.title'),json_extract(payload,'$.title')) AS title FROM items WHERE status!='done' AND ignored=0 ORDER BY pinned DESC,changed_at DESC LIMIT 20") if r['title']])
     speech_gate = asyncio.Lock()
     reminders = ReminderService(db,item_timing,adapter=settings.notifications,base_url=lambda:getattr(app.state,'endpoint',''))
     from .class_completion import ClassCompletionService
@@ -450,6 +451,34 @@ def create_app(settings=None):
     async def quest_activate(quest_id: str, request: Request):
         return await finish_thread(quests.activate, quest_id, await quest_input(request))
 
+    @app.post('/api/quests/{quest_id}/replan')
+    async def quest_replan(quest_id: str, request: Request):
+        return await finish_thread(quests.revisions.replan, quest_id, await quest_input(request))
+
+    @app.post('/api/quests/{quest_id}/suggest')
+    async def quest_suggest(quest_id: str, request: Request):
+        return await quests.revisions.suggest(quest_id, await quest_input(request))
+
+    @app.post('/api/quests/{quest_id}/apply-revision')
+    async def quest_apply_revision(quest_id: str, request: Request):
+        return await finish_thread(quests.revisions.apply, quest_id, await quest_input(request))
+
+    @app.post('/api/quests/{quest_id}/undo-revision')
+    async def quest_undo_revision(quest_id: str, request: Request):
+        return await finish_thread(quests.revisions.undo, quest_id, await quest_input(request))
+
+    @app.post('/api/quests/{quest_id}/edit-step')
+    async def quest_edit_step(quest_id: str, request: Request):
+        return await finish_thread(quests.revisions.edit, quest_id, await quest_input(request))
+
+    @app.get('/api/quests/{quest_id}/revision')
+    async def quest_pending_revision(quest_id: str):
+        return JSONResponse(await asyncio.to_thread(quests.revisions.pending,quest_id),headers={'Cache-Control':'no-store'})
+
+    @app.post('/api/quests/{quest_id}/dismiss-revision')
+    async def quest_dismiss_revision(quest_id: str, request: Request):
+        return await finish_thread(quests.revisions.dismiss, quest_id, await quest_input(request))
+
     @app.post('/api/quests/{quest_id}/step')
     async def quest_step(quest_id: str, request: Request):
         return await finish_thread(quests.set_step, quest_id, await quest_input(request))
@@ -467,8 +496,8 @@ def create_app(settings=None):
         active=speech.effective
         return {'model': active.name if active.engine=='whisper' else 'parakeet-tdt-0.6b-v3',
                 'local_model': (active.directory / ('model.bin' if active.engine=='whisper' else 'encoder.int8.onnx')).exists(),
-                'seconds': 60, 'connected': settings.model_provider=='chatgpt' and settings.model_ready,
-                'llm_model': settings.oauth_model, 'stt_busy': speech_gate.locked() or speech.lock.locked(),
+                'seconds': 60, 'connected': settings.model_ready,
+                'llm_model': settings.oauth_model if settings.model_provider=='chatgpt' else settings.llm_model, 'stt_busy': speech_gate.locked() or speech.lock.locked(),
                 'engine':active.engine,'device':active.device,'stt_warning':speech.warning or active.warning,
                 'configured_engine':speech.engine,'configured_model':speech.name,'configured_device':speech.requested_device,
                 'stt_phase':speech.phase,'stt_elapsed_seconds':round(monotonic_clock.perf_counter()-speech.started,1) if speech.started is not None else 0,
@@ -593,7 +622,7 @@ def create_app(settings=None):
         except ValueError as error:raise HTTPException(400,str(error)) from None
         if speech_gate.locked() or speech.lock.locked():
             raise HTTPException(409,'Eine Transkription läuft bereits. Einstellungen danach ändern.')
-        replacement=SpeechService(speech.courses,engine=stt_engine,name=stt_model,device=stt_device,root=settings.speech_dir,model_path=settings.speech_model_path,ensure_model=settings.ensure_speech_model)
+        replacement=SpeechService(speech.courses,engine=stt_engine,name=stt_model,device=stt_device,root=settings.speech_dir,model_path=settings.speech_model_path,ensure_model=settings.ensure_speech_model,vocabulary=speech.vocabulary)
         previous=(settings.stt_engine,settings.stt_model,settings.stt_device)
         settings.stt_engine,settings.stt_model,settings.stt_device=stt_engine,stt_model,stt_device
         try:settings.save()
@@ -1056,7 +1085,8 @@ def create_app(settings=None):
         local_now = datetime.now(VIENNA)
         today = local_now.date().isoformat()
         horizon = (local_now.date() + timedelta(days=14)).isoformat()
-        rows = [i | view_action_state(i, local_now) for i in (await asyncio.to_thread(db.items,active_only=True)) if not i['ignored']]
+        current_items = await asyncio.to_thread(db.items,active_only=True)
+        rows = [i | view_action_state(i, local_now) for i in current_items if not i['ignored']]
         filtered = [i for i in rows if not kind or i['data']['kind']==kind]
         due_key = lambda i: (i['action_date'] or '9999', i['action_time'] or '', i['id'])
         tasks = [i for i in rows if i['actionable'] and i['data']['kind']=='task']
@@ -1121,7 +1151,7 @@ def create_app(settings=None):
                                    and today <= i['action_date'] <= upcoming_end
                                    and i['id'] not in overdue_ids
                                    and (i['appointment'] or i['action_deadline'] or i['planned_task'])], key=due_key)
-        quest_dashboard = await asyncio.to_thread(quests.dashboard)
+        quest_dashboard = await asyncio.to_thread(quests.dashboard, current_items=current_items)
         quest_candidates = []
         for quest in quest_dashboard['quests']:
             if quest['state'] != 'active': continue
@@ -1196,7 +1226,7 @@ def create_app(settings=None):
 
     @app.get("/board")
     async def board(request: Request, show_ignored: bool = False, include_inactive: bool = False,
-                    course: str = '', q: str = '', status: str = '', due: str = 'all', personal: bool = False, page: int = 1):
+                    course: str = '', q: str = '', status: str = '', due: str = 'all', personal: bool = False, page: int = 1, lectures: bool = False):
         if status == 'done':
             return RedirectResponse('/archive?' + str(request.query_params), status_code=303)
         due = due if due in ('all','1','7','30') else 'all'
@@ -1209,6 +1239,10 @@ def create_app(settings=None):
                 and (not query or query in ' '.join([i['data']['title'], i['data'].get('description') or '', i['course_title'] or '']).casefold())]
         archived_count = sum(i['status']=='done' for i in rows)
         rows = [i for i in rows if i['status'] != 'done']
+        from .wall import calendar_lecture
+        lecture_count = sum(calendar_lecture(i) for i in rows)
+        if not lectures:
+            rows = [i for i in rows if not calendar_lecture(i)]
         if due != 'all':
             horizon = (local_now.date()+timedelta(days=int(due))).isoformat()
             rows = [i for i in rows if i['expired'] or i['action_date'] and local_now.date().isoformat() <= i['action_date'] <= horizon]
@@ -1220,7 +1254,7 @@ def create_app(settings=None):
         page = max(1, min(page, pages))
         return render(request, "board.html", items=rows[(page-1)*24:page*24], later=later, total=total, page=page, pages=pages, show_ignored=show_ignored, include_inactive=include_inactive,
                       courses=db.rows('SELECT * FROM courses ORDER BY active DESC,title'), course=course, q=q, status=status,
-                      due=due, personal=personal, archived_count=archived_count)
+                      due=due, personal=personal, archived_count=archived_count, lectures=lectures, lecture_count=lecture_count)
 
     @app.get("/pins")
     async def pins(request: Request, show_ignored: bool = False, include_inactive: bool = False,
@@ -1428,7 +1462,8 @@ def create_app(settings=None):
     async def sources(request: Request, view: str = 'all'):
         from .personal import coverage
         view=view if view in ('all','clarify','refresh') else 'all'
-        all_coverage=await asyncio.to_thread(coverage,db)
+        course_items = await asyncio.to_thread(db.items, active_only=True)
+        all_coverage=await asyncio.to_thread(coverage,db,items=course_items)
         # A course recommendation must point to an actual current source, not a
         # guessed relationship between similarly named files.
         evidence = await asyncio.to_thread(db.rows, """SELECT e.item_id,e.page,d.id,d.title,d.mime
@@ -1440,7 +1475,6 @@ def create_app(settings=None):
         proofs = {}
         for row in evidence:
             proofs.setdefault(row['item_id'], []).append(row)
-        course_items = await asyncio.to_thread(db.items, active_only=True)
         from .quests import eligible
         local_now=datetime.now(VIENNA)
         today=local_now.date().isoformat()
@@ -1817,8 +1851,8 @@ def create_app(settings=None):
         return {'sessions':checked, 'message': 'Vorhandene Sitzungen geprüft. Gültige Sitzung wird verwendet; nur bei echter Loginseite wird Anmeldung geöffnet.'}
 
     def model_idle():
-        if sync.active:
-            raise HTTPException(409, "Bitte den laufenden Sync oder die Live-Probe beenden lassen.")
+        if sync.active or assistant.gate.locked() or quests.lock.locked():
+            raise HTTPException(409, "Bitte die laufende Auswertung, Studi-Anfrage oder Quest-Planung beenden lassen.")
 
     def model_error(error):
         sync.auth.message = str(error) if isinstance(error, ChatGPTError) else f"ChatGPT-Verbindung fehlgeschlagen ({type(error).__name__})."
@@ -1827,7 +1861,7 @@ def create_app(settings=None):
     async def model_configuration(request: Request):
         try:
             status = sync.auth.status()
-            if status["connected"] and status["plan_enabled"] and not sync.auth.models:
+            if settings.model_provider == "chatgpt" and status["connected"] and status["plan_enabled"] and not sync.auth.models:
                 await sync.auth.list_models()
             status = sync.auth.status()
         except Exception as error:
@@ -1915,13 +1949,59 @@ def create_app(settings=None):
             except Exception as error:
                 model_error(error)
                 return RedirectResponse("/model", status_code=303)
-        elif not settings.llm_base_url or not settings.llm_model:
-            raise HTTPException(400, "Chat Completions zuerst unter Einrichtung ausdrücklich konfigurieren.")
-        if provider != settings.model_provider or model != settings.oauth_model:
-            settings.oauth_probe_passed = False
-        settings.model_provider, settings.oauth_model = provider, model if provider == "chatgpt" else ""
+        else:
+            from copy import copy
+            from .providers import validate_endpoint
+            candidate = copy(settings)
+            try:
+                candidate.llm_base_url = validate_endpoint(str(form.get('base_url', settings.llm_base_url)))
+            except ValueError as error:
+                raise HTTPException(400, str(error)) from None
+            if candidate.llm_base_url != settings.llm_base_url:
+                import ipaddress
+                from urllib.parse import urlsplit
+                host = urlsplit(candidate.llm_base_url).hostname
+                try: loopback = ipaddress.ip_address(host).is_loopback
+                except ValueError: loopback = host == 'localhost'
+                if not loopback and form.get('cloud_consent') != 'yes':
+                    raise HTTPException(400, 'Für diesen externen Modelldienst die Übertragung ausdrücklich bestätigen.')
+            candidate.llm_model = str(form.get('api_model', settings.llm_model)).strip()
+            if not candidate.llm_model or len(candidate.llm_model) > 200:
+                raise HTTPException(400, 'Modellkennung des Servers angeben (maximal 200 Zeichen).')
+            key = str(form.get('api_key', '')).strip()
+            if form.get('clear_api_key'):
+                key = ''
+            elif not key:
+                key = (settings.llm_api_key if candidate.llm_base_url == settings.llm_base_url
+                       else '')
+            if len(key) > 16000 or any(c in key for c in ('\r', '\n')):
+                raise HTTPException(400, 'API-Schlüssel enthält einen Zeilenumbruch.')
+            settings.save_model_api(candidate.llm_base_url, candidate.llm_model, key)
+            settings.llm_base_url, settings.llm_model = candidate.llm_base_url, candidate.llm_model
+            settings.llm_api_key = key
+            settings.llm_json_mode = form.get('json_mode') == 'on'
+        if provider == "chatgpt":
+            if model != settings.oauth_model:
+                settings.oauth_probe_passed = False
+            settings.oauth_model = model
+        settings.model_provider = provider
         settings.save()
         return RedirectResponse("/model", status_code=303)
+
+    @app.post("/model/api-test")
+    async def model_api_test():
+        model_idle()
+        if settings.model_provider == 'chatgpt' or not settings.model_ready:
+            raise HTTPException(400, 'Zuerst eine API-Verbindung speichern.')
+        try:
+            text = await sync.model.responses('Antworte nur als JSON: {"ok": true}.', 'Verbindungstest ohne Kursdaten.')
+            if json.loads(text) != {'ok': True}:
+                raise ValueError()
+        except ChatGPTError as error:
+            raise HTTPException(400, str(error)) from None
+        except (ValueError, TypeError):
+            raise HTTPException(400, 'Server erreichbar, aber keine gültige JSON-Antwort. Instruct-Modell oder JSON-Modus prüfen.') from None
+        return {'ok': True, 'message': 'Verbindung und JSON-Antwort funktionieren. Keine Kursdaten gesendet.'}
 
     @app.post("/model/disconnect")
     async def model_disconnect():

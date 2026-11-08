@@ -18,8 +18,9 @@ class Settings:
     data_dir: Path
     llm_base_url: str = ""
     llm_model: str = ""
-    llm_api_key: str = ""
+    llm_api_key: str = field(default="", repr=False)
     llm_trust_env: bool = False
+    llm_json_mode: bool = False
     teachcenter_url: str = "https://tc.tugraz.at/main/"
     ocr_lang: str = "eng"
     tesseract: str | None = None
@@ -44,6 +45,9 @@ class Settings:
             self.stt_engine = saved.get('stt_engine', self.stt_engine)
             self.stt_model = saved.get('stt_model', self.stt_model)
             self.stt_device = saved.get('stt_device', self.stt_device)
+            self.llm_base_url = saved.get('llm_base_url', self.llm_base_url)
+            self.llm_model = saved.get('llm_model', self.llm_model)
+            self.llm_json_mode = saved.get('llm_json_mode', self.llm_json_mode)
         self.validate_speech(self.stt_engine, self.stt_model, self.stt_device)
 
     @staticmethod
@@ -70,6 +74,7 @@ class Settings:
         for legacy in ('auto_sync','daily_time'):saved.pop(legacy,None)
         saved.update({"model_provider": self.model_provider, "oauth_model": self.oauth_model,
                       "oauth_probe_passed": self.oauth_probe_passed,
+                      "llm_base_url": self.llm_base_url, "llm_model": self.llm_model, "llm_json_mode": self.llm_json_mode,
                       'stt_engine': self.stt_engine, 'stt_model': self.stt_model, 'stt_device': self.stt_device})
         temporary.write_text(json.dumps(saved), encoding="utf-8")
         temporary.replace(path)

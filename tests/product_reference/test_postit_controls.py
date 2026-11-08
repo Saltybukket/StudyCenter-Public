@@ -38,12 +38,12 @@ def test_postit_controls_keep_sources_and_archive_completed(tmp_path):
         for path in ('/board', '/pins'):
             dom = BeautifulSoup(client.get(path).text, 'html.parser')
             card = dom.select_one(f'[data-item-id="{identifier}"]')
-            assert [button['data-status-choice'] for button in card.select('[data-status-choice]')] == ['done', 'open', 'doing']
-            assert card.select_one('.postit-done[data-status-choice="done"]')
-            assert [b['data-status-choice'] for b in card.select('.postit-status-menu [data-status-choice]')] == ['open', 'doing']
-            assert card.select_one('.postit-work-row .postit-chat')['data-voice-item'] == str(identifier)
+            assert [button['data-status-choice'] for button in card.select('[data-status-choice]')] == ['open', 'doing', 'done']
+            assert not card.select_one('.postit-status-menu, .postit-menu')
+            assert card.select_one('.postit-edit')['href'] == f'/items/{identifier}#edit'
+            assert not card.select_one('.postit-chat')
             assert len(card.select('.postit-work-row')) == 1
-            assert card.select_one('.postit-top-actions > .postit-menu + .pin-form')
+            assert card.select_one('.postit-top-actions > .pin-form')
             assert card.select_one('.postit-pin')['aria-pressed'] == 'true'
             assert not card.select_one('select[name="status"]')
             assert not card.select_one('.card-action')
@@ -305,8 +305,10 @@ async def test_postit_status_click_is_single_request_and_rolls_back_on_error(tmp
             path = route.request.url.split('campusboard.test', 1)[1].split('?',1)[0]
             if path == '/board': await route.fulfill(content_type='text/html', body=html)
             elif path.startswith('/static/'):
-                asset = ROOT/'src'/'studycenter_public'/'core'/'static'/path.split('/')[-1]
-                await route.fulfill(content_type='text/javascript' if asset.suffix=='.js' else 'text/css', body=asset.read_text(encoding='utf-8'))
+                asset = ROOT/'src/studycenter_public/core'/'static'/path.split('/')[-1]
+                await route.fulfill(content_type={'.js':'text/javascript','.css':'text/css','.webp':'image/webp'}.get(asset.suffix,'application/octet-stream'), body=asset.read_bytes())
+            elif path.startswith('/items/') and route.request.method == 'GET':
+                await route.fulfill(content_type='text/html', body=client.get(path).text)
             elif path.startswith('/items/'):
                 requests.append(route.request.post_data)
                 if len(requests) == 1:
@@ -323,7 +325,6 @@ async def test_postit_status_click_is_single_request_and_rolls_back_on_error(tmp
                         saved_card.select_one('input[name="status"]')['value'] = status
                         for choice in saved_card.select('[data-status-choice]'):
                             choice['aria-pressed'] = str(choice['data-status-choice'] == status).lower()
-                        saved_card.select_one('.postit-status-menu summary').string = 'In Arbeit ▾'
                     html = str(dom)
                     await route.fulfill(json={'ok':True, 'revision':len(requests)-1})
             elif path == '/api/voice/command':
@@ -342,23 +343,21 @@ async def test_postit_status_click_is_single_request_and_rolls_back_on_error(tmp
         await page.screenshot(path=str(captures/'D-postit-implemented-dark.png'), full_page=True)
         await page.evaluate('document.documentElement.dataset.theme="light"')
         card = page.locator(f'[data-item-id="{first}"]')
-        await card.locator('.postit-status-menu summary').click()
         await card.locator('[data-status-choice="doing"]').evaluate('(button)=>{button.click();button.click();}')
         await expect(page.locator('#notice')).to_contain_text('Absichtlicher Fehler')
         await expect(card.locator('[data-status-choice="open"]')).to_have_attribute('aria-pressed','true')
         await expect(card.locator('input[name="status"]')).to_have_value('open')
-        await card.locator('.postit-status-menu summary').click()
         await card.locator('[data-status-choice="doing"]').click()
         await expect(card.locator('[data-status-choice="doing"]')).to_have_attribute('aria-pressed','true')
         # A pinned card keeps its top position when its personal status changes.
         assert await card.evaluate('(e)=>e.closest("[data-work-status]").dataset.workStatus') == 'pinned'
         await expect(card.locator('input[name="status"]')).to_have_value('doing')
         assert len(requests)==2 and requests[1].count('name="status"')==1 and '\r\ndoing\r\n' in requests[1]
-        await card.locator('.postit-status-menu summary').click()
         await card.locator('[data-status-choice="doing"]').click()
         assert len(requests)==2
-        await card.locator('.postit-status-menu summary').click()
-        await card.locator('.postit-chat').click()
+        await card.locator('.postit-edit').click()
+        await expect(page.locator('#edit')).to_have_attribute('open', '')
+        await page.locator('.entry-toolbar-buttons [data-voice-item]').click()
         await expect(page.locator('#voice-panel')).to_be_visible()
         assert not voice_requests
         await page.locator('#voice-transcript').fill('Besprechen')
@@ -366,7 +365,8 @@ async def test_postit_status_click_is_single_request_and_rolls_back_on_error(tmp
         await expect(page.locator('#voice-process')).to_have_text('Bereit.')
         assert voice_requests[0]['context_item_id']==first and voice_requests[0]['previous_id'] is None
         await page.locator('#voice-close').click()
-        await page.locator(f'[data-item-id="{second}"] .postit-chat').click()
+        await page.goto(f'https://campusboard.test/items/{second}')
+        await page.locator('.entry-toolbar-buttons [data-voice-item]').click()
         await page.locator('#voice-transcript').fill('Anderer Bezug')
         await page.locator('#voice-send').click()
         await expect(page.locator('#voice-process')).to_have_text('Bereit.')
@@ -377,15 +377,19 @@ async def test_postit_status_click_is_single_request_and_rolls_back_on_error(tmp
         await expect(page.locator('#voice-process')).to_have_text('Bereit.')
         assert 'context_item_id' not in voice_requests[2]
         await page.locator('#voice-close').click()
+        await page.goto('https://campusboard.test/board')
+        await page.locator('.wall-filter-disclosure > summary').click()
+        await page.locator('.page-toolbar h1').click()
+        await expect(page.locator('.wall-filter-disclosure')).not_to_have_attribute('open', '')
         row = card.locator('.postit-work-row')
-        rectangles = await row.locator('.postit-done,.postit-status-menu summary,.postit-chat').evaluate_all('(nodes)=>nodes.map(e=>({y:e.getBoundingClientRect().y,h:e.getBoundingClientRect().height}))')
+        rectangles = await row.locator('[data-status-choice]').evaluate_all('(nodes)=>nodes.map(e=>({y:e.getBoundingClientRect().y,h:e.getBoundingClientRect().height}))')
         assert len(rectangles)==3
         assert max(r['y'] for r in rectangles)-min(r['y'] for r in rectangles) <= 1
         assert max(r['h'] for r in rectangles)-min(r['h'] for r in rectangles) <= 1
         await page.set_viewport_size({'width':390,'height':844})
         await page.screenshot(path=str(captures/'D-postit-implemented-mobile.png'), full_page=True)
         assert await page.locator('.postit-grid').first.evaluate('(e)=>getComputedStyle(e).display') == 'grid'
-        rectangles = await row.locator('.postit-done,.postit-status-menu summary,.postit-chat').evaluate_all('(nodes)=>nodes.map(e=>e.getBoundingClientRect().y)')
+        rectangles = await row.locator('[data-status-choice]').evaluate_all('(nodes)=>nodes.map(e=>e.getBoundingClientRect().y)')
         assert len(rectangles)==3 and max(rectangles)-min(rectangles) <= 1
         await card.locator('[data-status-choice="done"]').click()
         await expect(card).to_have_count(0)

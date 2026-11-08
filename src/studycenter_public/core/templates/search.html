@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% from 'macros.html' import tags,item_when %}
+{% extends 'base.html' %}{% from 'macros.html' import tags,item_when,task_connection %}
 {% block title %}Suche{% endblock %}
 {% block content %}{% set return_target=request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
 
@@ -6,22 +6,22 @@
 <form method="get" action="/search" class="search-form">
 <label class="search-query">Suchbegriff<input type="search" name="q" value="{{ q }}" maxlength="240" placeholder="z. B. AB2, Anmeldeschluss oder 27.10.2026" required></label>
 <button>Suchen</button>
-<div class="filters"><label>Kurs<select name="course"><option value="">Alle Kurse</option>{% for c in courses %}<option value="{{ c.id }}" {% if course==c.id|string %}selected{% endif %}>{{ c.title }}{% if not c.active %} · historisch{% endif %}</option>{% endfor %}</select></label>
+<details class="search-options" {% if course or content or history %}open{% endif %}><summary>Filter{% if course or content or history %} · aktiv{% endif %}</summary><div class="filters"><label>Kurs<select name="course"><option value="">Alle Kurse</option>{% for c in courses %}<option value="{{ c.id }}" {% if course==c.id|string %}selected{% endif %}>{{ c.title }}{% if not c.active %} · historisch{% endif %}</option>{% endfor %}</select></label>
 <label>Inhalt<select name="content">{% for code,label in types.items() %}<option value="{{ code }}" {% if content==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label></div>
-<label class="check"><input type="checkbox" name="history" value="true" {% if history %}checked{% endif %}>Auch historische / inaktive Quellen, Archive, alte Versionen und ignorierte Einträge</label>
+<label class="check"><input type="checkbox" name="history" value="true" {% if history %}checked{% endif %}>Auch ältere und archivierte Inhalte durchsuchen</label><button class="secondary">Filter anwenden</button></details>
 </form>
-<p class="search-help">Mehrere Wörter werden gemeinsam gesucht; Wortanfänge sind möglich. Kennungen und Datumswerte werden gezielt erkannt. Ausschließlich lokale Volltextsuche, ohne KI-Aufruf.</p>
-<p class="search-index" role="status">{{ index_message }}</p>
+<details class="search-guidance"><summary>Tipps zur Suche</summary><p class="search-help">Suche nach Begriffen, Aufgabenkennungen oder einem Datum. Mehrere Wörter werden gemeinsam gesucht. Die Suche durchsucht deine gespeicherten Inhalte, ohne KI-Aufruf.</p><p class="search-index">{{ index_message }}</p></details>
 {% if index_error %}<p class="setup-note warning" role="alert">{{ index_error }}</p>
 {% elif not q %}<div class="empty"><h2>Was suchst du?</h2><p>Suche nach einer Aufgabe, einem Begriff aus den Folien, einem Dokumentnamen oder einem Mailabsender. Standardmäßig werden aktive Kurse und aktuelle Dokumentversionen durchsucht.</p></div>
 {% elif not results %}<div class="empty"><h2>Keine passenden Fundstellen</h2><p>Versuche einen kürzeren Wortanfang oder einen anderen Begriff. Für alte Unterlagen historische Inhalte einblenden; Kurs und Inhalt können die Auswahl weiter einschränken.</p></div>
 {% else %}
-<div class="section-heading"><h2>{{ total }} Treffer</h2><span>Seite {{ page }} von {{ pages }} · höchstens 20 pro Seite</span></div>
+<div class="section-heading"><h2>{{ total }} Treffer</h2><span>Seite {{ page }} von {{ pages }}</span></div>
 {% for r in results %}
 <article class="search-result" data-kind="{{ r.kind }}" style="--course-color:{{ course_color(r.course_id) }}">
 <div class="search-result-top"><div><p class="search-category">{{ r.meta.label }}{% if not r.active %} · historisch / ausgeblendet{% endif %}{% if r.meta.source_state=='cancelled' %} · abgesagt{% endif %}</p>{% if r.kind=='document' %}<h3><a href="{{ r.url }}{% if '?' in r.url %}&amp;{% else %}?{% endif %}back={{ return_target|urlencode }}">{{ r.heading }}</a></h3>{% else %}<h3><a href="{{ r.url }}">{{ item_title(r.entry) if r.entry else r.heading }}</a></h3>{% endif %}</div>
 {% if r.entry and r.entry.task_display %}<small class="search-date">{{ item_when(r.entry) }}</small>{% elif r.meta.date %}<small class="search-date">{{ r.meta.date_label }}<br>{{ r.meta.date|localdate }}</small>{% endif %}</div>
 <p class="search-context"><span class="course-dot"></span>{{ r.meta.course }}{% if r.meta.sender %} · {{ r.meta.sender }}{% endif %}{% if r.meta.status %} · {{ work_states[r.meta.status] }}{% endif %}</p>
+{% if r.entry %}{{ task_connection(r.entry) }}{% endif %}
 <p class="search-excerpt">{{ item_summary(r.entry) if r.entry and r.entry.task_display else r.excerpt }}</p>
 {% if r.entry %}{{ tags(r.entry) }}{% endif %}
 <div class="search-proofs">{% if r.kind=='item' %}<a href="{{ r.url }}">Eintrag & {{ r.meta.proofs }} Belege →</a>{% else %}

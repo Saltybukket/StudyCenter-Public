@@ -4,6 +4,8 @@ import hashlib
 import json
 import re
 import sys
+import sqlite3
+from contextlib import closing
 from datetime import datetime, timedelta, time, timezone
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
@@ -254,9 +256,10 @@ class ReminderService:
                             (p['id'],p['item_id'],p['target_at'],p['due_at'],p['rule'],now()))
                 con.execute("UPDATE reminder_jobs SET state='pending',updated_at=? WHERE id=? AND state='cancelled'",(now(),p['id']))
 
-    def tick(self,current=None):
+    def tick(self,current=None,reconcile=True):
         current=current or datetime.now(VIENNA)
-        self.reconcile(current);settings=self.settings()
+        if reconcile:self.reconcile(current)
+        settings=self.settings()
         clock=current.timetz().replace(tzinfo=None)
         quiet=settings.quiet and (settings.quiet_start<=clock<settings.quiet_end if settings.quiet_start<settings.quiet_end else clock>=settings.quiet_start or clock<settings.quiet_end)
         with self.db.connection() as con:
@@ -297,14 +300,26 @@ class ReminderService:
     async def run(self, can_run=None):
         self.running=True
         try:
-            while not self.stop.is_set():
-                if can_run is None or can_run():
-                    self.busy=True
-                    try:await finish_thread(self.tick)
-                    except Exception as failure:self.error=str(failure)[:500]
-                    finally:self.busy=False
-                try:await asyncio.wait_for(self.stop.wait(),timeout=15)
-                except TimeoutError:pass
+            # data_version is only comparable on the same connection. This
+            # watcher holds no transaction and closes with the worker; it also
+            # detects writes through other Database instances/external SQLite.
+            with closing(sqlite3.connect(self.db.path,timeout=10)) as watch:
+                watch.execute('PRAGMA query_only=ON')
+                seen=None;day=None
+                while not self.stop.is_set():
+                    if can_run is None or can_run():
+                        self.busy=True
+                        try:
+                            version=watch.execute('PRAGMA data_version').fetchone()[0]
+                            current=datetime.now(VIENNA)
+                            await finish_thread(self.tick,current,version!=seen or current.date()!=day)
+                            # Keep the pre-work version: a concurrent write or our
+                            # own dispatch is checked again on the next pass.
+                            seen=version;day=current.date()
+                        except Exception as failure:self.error=str(failure)[:500]
+                        finally:self.busy=False
+                    try:await asyncio.wait_for(self.stop.wait(),timeout=15)
+                    except TimeoutError:pass
         finally:self.running=False
 
     def preview(self,item):

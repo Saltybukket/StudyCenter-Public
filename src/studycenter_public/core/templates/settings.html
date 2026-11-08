@@ -106,12 +106,22 @@
 
 </div>
 <div class="settings-pane" data-settings-pane="display">
-<section class="panel settings-card" id="display">{{ setting_heading('display','Darstellung','Wähle dein Farbschema.') }}
+<section class="panel settings-card" id="display">{{ setting_heading('display','Darstellung','Farbschema und Pinnwand nach deinem Geschmack.') }}
 <p class="settings-caption">Diese Auswahl wird direkt in diesem Browser gespeichert und sofort angewendet.</p>
 <fieldset class="settings-group settings-theme"><legend>Farbschema</legend><div class="theme-choices">
-<label><input type="radio" name="display_theme" value="light" data-theme-choice><span>{{ setting_icon('display') }}<strong>Hell</strong></span></label>
+<label><input type="radio" name="display_theme" value="light" data-theme-choice><span>{{ setting_icon('display') }}<strong>Standard</strong></span></label>
 <label><input type="radio" name="display_theme" value="dark" data-theme-choice><span>{{ setting_icon('display') }}<strong>Dunkel</strong></span></label>
+{% for value,label in [('sand','Sand'),('sage','Salbei'),('lavender','Lavendel')] %}
+<label><input type="radio" name="display_theme" value="{{ value }}" data-theme-choice><span><span class="theme-swatch theme-swatch-{{ value }}" aria-hidden="true"></span><strong>{{ label }}</strong></span></label>
+{% endfor %}
 <label><input type="radio" name="display_theme" value="system" data-theme-choice checked><span>{{ setting_icon('display') }}<strong title="Windows / Browser folgen">System</strong></span></label>
+</div></fieldset>
+<fieldset class="settings-group settings-theme"><legend>Studi-Chat</legend><div class="theme-choices chat-layout-choices">
+<label><input type="radio" name="chat_layout" value="floating" data-chat-layout-choice><span><strong>Schwebendes Fenster</strong><small>Kompakt über der Seite</small></span></label>
+<label><input type="radio" name="chat_layout" value="sidebar" data-chat-layout-choice><span><strong>Rechte Seitenleiste</strong><small>Breite am linken Rand ziehen</small></span></label>
+</div></fieldset>
+<fieldset class="settings-group settings-theme"><legend>Pinnwand</legend><div class="theme-choices wall-style-choices">
+{% for code,label in [('cork','Naturkork'),('slate','Schiefer'),('plain','Schlichter Hintergrund')] %}<label><input type="radio" name="wall_style" value="{{ code }}" data-wall-style-choice><span><span class="wall-swatch wall-swatch-{{ code }}" aria-hidden="true"><i></i><i></i></span><strong>{{ label }}</strong></span></label>{% endfor %}
 </div></fieldset>
 </section>
 </div>

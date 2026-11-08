@@ -10,21 +10,22 @@
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="{{ static_url('theme.css') }}">
   <script src="{{ static_url('app.js') }}" defer></script>
-  <script src="{{ static_url('voice.js') }}" defer></script>
+  <script src="{{ static_url('voice.js') }}" defer></script><script src="{{ static_url('chat-layout.js') }}" defer></script>
   <script src="{{ static_url('notifications.js') }}" defer></script>
   <link rel="stylesheet" href="{{ static_url('notifications.css') }}">
   <link rel="stylesheet" href="{{ static_url('navigation.css') }}">
   <link rel="stylesheet" href="{{ static_url('voice-panel.css') }}">
-{% if path not in ('/board','/pins','/archive') %}<link rel="stylesheet" href="{{ static_url('polish.css') }}"><script src="{{ static_url('polish.js') }}" defer></script>{% endif %}
+<link rel="stylesheet" href="{{ static_url('polish.css') }}"><script src="{{ static_url('polish.js') }}" defer></script>
+{% if path in ('/board','/pins','/settings') %}<link rel="stylesheet" href="{{ static_url('pinwall.css') }}">{% endif %}
 </head>
 <body data-page="{{ page_key }}">
   <a class="skip-link" href="#main">Zum Inhalt</a>
   <header class="masthead"><a class="brand" href="/overview"><span class="brand-mark">sc</span>StudyCenter</a>
     <form action="/search" method="get" class="header-search" id="header-search-form" role="search"><label class="visually-hidden" for="global-search">Alle Studieninformationen durchsuchen</label><input id="global-search" type="search" name="q" placeholder="Studium durchsuchen" maxlength="240" required><button class="secondary" aria-label="Globale Suche">⌕</button></form>
-    <div class="actions">{% if path not in ('/board','/pins','/archive') %}<button type="button" id="mobile-search-toggle" class="secondary mobile-search-toggle" aria-label="Suche öffnen" aria-controls="header-search-form" aria-expanded="false">⌕</button>{% endif %}{% include 'notifications.html' %}<button type="button" id="voice-open" class="secondary" aria-label="Studi öffnen" title="Studi öffnen" aria-controls="voice-panel" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Studi</span></button><details class="login-menu"><summary aria-label="Weitere Aktionen">Mehr</summary><div class="login-actions">{% if path not in ('/board','/pins','/archive') %}<a class="mobile-settings-link" href="/settings">Einstellungen</a>{% endif %}<button type="button" id="sync-button" class="secondary">Quellen aktualisieren ↻</button><button type="button" id="login-button" class="secondary">TU-Anmeldung öffnen</button><button type="button" id="browser-close-button" class="secondary">TU-Browser schließen</button></div></details></div>
+    <div class="actions"><button type="button" id="mobile-search-toggle" class="secondary mobile-search-toggle" aria-label="Suche öffnen" aria-controls="header-search-form" aria-expanded="false">⌕</button>{% include 'notifications.html' %}<button type="button" id="voice-open" class="secondary" aria-label="Studi öffnen" title="Studi öffnen" aria-controls="voice-panel" aria-expanded="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Studi</span></button><details class="login-menu"><summary aria-label="Weitere Aktionen">Mehr</summary><div class="login-actions"><a class="mobile-settings-link" href="/settings">Einstellungen</a><button type="button" id="sync-button" class="secondary">Quellen aktualisieren ↻</button><button type="button" id="login-button" class="secondary">TU-Anmeldung öffnen</button><button type="button" id="browser-close-button" class="secondary">TU-Browser schließen</button></div></details></div>
   </header>
   <div class="layout"><aside>
-    <p class="eyebrow">DEIN STUDIUM</p>
+    <p class="eyebrow">Hauptseiten</p>
     <nav aria-label="Hauptnavigation">
     {% for url,label,icon in [('/overview','Upcoming','◉'),('/board','Aufgaben & Notizen','✓'),('/quests','Quests','⚑'),('/calendar','Kalender','▦'),('/sources','Kurse','⊞')] %}
       <a href="{{ url }}" {% if path==url or (url=='/board' and path in ('/pins','/archive')) or (url=='/calendar' and path=='/') or (url=='/sources' and (path in ('/entries','/documents') or path.startswith('/documents/'))) %}aria-current="page"{% endif %}><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>

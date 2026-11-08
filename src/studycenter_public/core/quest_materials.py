@@ -70,7 +70,7 @@ def collect(db, goal, items, bound_documents, index):
     # warnings continue to describe full worksheet coverage.
     for doc in bound_documents:
         for page in doc['pages']:
-            add(doc['document_id'], page.get('page'), (page.get('text') or '')[:800], page.get('gaps',[]), page.get('truncated',False) or len(page.get('text') or '')>800, original_only=True)
+            add(doc['document_id'], page.get('page'), page.get('text') or '', page.get('gaps',[]), page.get('truncated',False), original_only=True)
     query_text = goal or ' '.join(i['data'].get('title','') for i in items)
     terms = list(dict.fromkeys(t for t in re.findall(r'[^\W_]+', query_text.casefold()) if len(t)>2 and t not in STOP and not t.isdigit()))[:6]
     if items:

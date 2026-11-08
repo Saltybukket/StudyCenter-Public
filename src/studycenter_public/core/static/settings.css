@@ -132,3 +132,6 @@
 .reminder-custom summary{cursor:pointer}
 .reminder-custom label{display:block;margin-top:.4rem}
 .detail-description .text-body{overflow-wrap:anywhere}
+
+.settings-page .chat-layout-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:700px){.settings-page .chat-layout-choices{grid-template-columns:minmax(0,1fr)}}

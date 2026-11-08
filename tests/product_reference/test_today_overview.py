@@ -41,7 +41,7 @@ def test_today_renders_real_quest_appointments_and_uncertain_deadlines(tmp_path,
              'steps':[{'title':'Ein echter Schritt', 'done':False, 'scheduled_date':'2030-10-26', 'minutes':15}],
              'total_count':2, 'completed_count':1, 'warnings':['Quelle bitte prüfen.']}
     later = quest | {'id':'future', 'title':'Später', 'steps':[quest['steps'][0] | {'scheduled_date':'2030-11-01'}]}
-    app.state.quests.dashboard = lambda: {'quests':[later, quest]}
+    app.state.quests.dashboard = lambda current_items=None: {'quests':[later, quest]}
     page = BeautifulSoup(TestClient(app).get('/overview').text, 'html.parser')
     assert 'Eigene Quest' in page.select_one('.today-quest').get_text(' ', strip=True)
     assert 'Ein echter Schritt' in page.select_one('.today-quest').get_text(' ', strip=True)

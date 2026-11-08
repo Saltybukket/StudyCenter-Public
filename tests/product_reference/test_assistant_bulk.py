@@ -141,3 +141,109 @@ async def test_generic_bulk_does_not_inherit_previous_course(env):
     draft=await service.command(command)
     assert {r['id'] for r in draft['preview']['items']}=={a,b}
     adapter.responses.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_direct_weekly_coursework_pin_preserves_lectures_and_undo(env):
+    from studycenter_public.core.db import encode
+    service,db,adapter,course,_=env
+    db.execute("INSERT INTO app_preferences(name,value) VALUES('assistant_mode',?)",(encode({'mode':'direct'}),))
+    task=add(db,'Hausübung abgeben',course,date(2026,11,10),'task')
+    exercise=add(db,'Übung 2',course,date(2026,11,11))
+    excluded=[add(db,'Vorlesung',course,date(2026,11,10)),add(db,'Lehrveranstaltung',course,date(2026,11,10)),add(db,'Später',course,date(2026,11,19),'task')]
+    req,result=await submit(service,adapter,'Hefte alle Übungen und Abgaben vom 9. bis 15. November an',{'action':'bulk_set_pin','item_category':'coursework','date_from':'2026-11-09','date_to':'2026-11-15','pinned':True,'filter_status':'open'})
+    assert result.get('changed') and result.get('direct') and not result.get('preview'),result
+    assert {i['id'] for i in result['items']}=={task,exercise}
+    assert all(not db.one('SELECT pinned FROM items WHERE id=?',(i,))['pinned'] for i in excluded)
+    assert await service.command(req)==result
+    assert (await service.undo(req.request_id,True))['undone']
+    assert not any(r['pinned'] for r in db.rows('SELECT pinned FROM items'))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('action,end', [('bulk_set_pin','2026-12-15'),('bulk_set_status','2026-11-15')])
+async def test_direct_mode_keeps_broad_and_completion_changes_in_preview(env,action,end):
+    from studycenter_public.core.db import encode
+    service,db,adapter,course,_=env
+    db.execute("INSERT INTO app_preferences(name,value) VALUES('assistant_mode',?)",(encode({'mode':'direct'}),))
+    identifier=add(db,'Hausübung',course,date(2026,11,10),'task')
+    _,result=await submit(service,adapter,'Ändere alle Aufgaben im Zeitraum',{'action':action,'kind':'task','date_from':'2026-11-09','date_to':end,'pinned':True,'status':'done'})
+    assert result.get('preview') and not result['changed']
+    assert db.one('SELECT pinned,status FROM items WHERE id=?',(identifier,))=={'pinned':0,'status':'open'}
+
+
+@pytest.mark.parametrize('day,phrase,start,end',[
+    (date(2026,11,8),'diese Woche','2026-11-02','2026-11-08'),
+    (date(2026,11,8),'nächste Woche','2026-11-09','2026-11-15'),
+    (date(2026,11,9),'diese Woche','2026-11-09','2026-11-15'),
+])
+def test_bulk_week_uses_local_calendar_not_model_guess(env,day,phrase,start,end):
+    service,*_=env
+    plan=Action(action='bulk_set_pin',date_from=date(2030,1,1),date_to=date(2030,1,7),pinned=True)
+    fixed=service.normalize_bulk_scope(plan,'Hefte alle Übungen und Abgaben '+phrase+' an. Keine Vorlesungen.',day)
+    assert str(fixed.date_from)==start and str(fixed.date_to)==end
+    assert fixed.item_category=='coursework'
+
+
+def test_bulk_week_does_not_guess_ambiguous_inclusion_or_replace_explicit_dates(env):
+    service,*_=env
+    plan=Action(action='bulk_set_pin',pinned=True)
+    fixed=service.normalize_bulk_scope(plan,'Alle Übungen und Abgaben diese Woche. Vorlesungen zählen mich dazu.',date(2026,11,8))
+    assert fixed.item_category is None and fixed.date_from==date(2026,11,2)
+    assert service.normalize_bulk_scope(plan,'Alle Aufgaben diese oder nächste Woche',date(2026,11,8)).date_from is None
+    assert service.normalize_bulk_scope(plan,'Alle Aufgaben diese Woche bis Freitag',date(2026,11,8)).date_from is None
+
+
+@pytest.mark.asyncio
+async def test_missing_type_message_does_not_claim_week_is_missing(env):
+    service,db,adapter,course,_=env
+    _,result=await submit(service,adapter,'Hefte alle Übungen und Abgaben diese Woche an. Vorlesungen zählen mich dazu.',{'action':'bulk_set_pin','date_from':'2030-01-01','date_to':'2030-01-07','pinned':True})
+    assert result.get('clarify') and 'dazugehören' in result['message']
+    from datetime import datetime, timedelta
+    from studycenter_public.core.config import VIENNA
+    today=datetime.now(VIENNA).date()
+    assert result['pending_action']['date_from']==str(today-timedelta(days=today.weekday()))
+    assert not result['changed']
+
+
+@pytest.mark.asyncio
+async def test_bulk_repairs_own_missing_category_before_asking_user(env):
+    from unittest.mock import AsyncMock
+    from studycenter_public.core.db import encode
+    from datetime import datetime,timedelta
+    from studycenter_public.core.config import VIENNA
+    service,db,adapter,course,_=env
+    today=datetime.now(VIENNA).date()
+    task=add(db,'Hausübung',course,today,'task')
+    db.execute("INSERT INTO app_preferences(name,value) VALUES('assistant_mode',?)",(encode({'mode':'direct'}),))
+    adapter.repair_response=AsyncMock(return_value=encode({'action':'bulk_set_pin','item_category':'coursework','date_from':str(today),'date_to':str(today),'pinned':True}))
+    _,result=await submit(service,adapter,'Hefte alle Häuserungen, Übungen und Abgaben diese Woche an. Vorlesungen zählen mich dazu.',{'action':'bulk_set_pin','pinned':True})
+    assert result.get('changed') and not result.get('clarify'),result
+    assert db.one('SELECT pinned FROM items WHERE id=?',(task,))['pinned']==1
+    assert adapter.repair_response.await_count==1
+    assert 'validation_feedback' in adapter.repair_response.call_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_bulk_repair_cannot_change_action_or_execute_twice(env):
+    from unittest.mock import AsyncMock
+    from studycenter_public.core.db import encode
+    service,db,adapter,course,_=env
+    adapter.repair_response=AsyncMock(return_value=encode({'action':'create_task','title':'Wrong action'}))
+    _,result=await submit(service,adapter,'Hefte alle Einträge an',{'action':'bulk_set_pin','pinned':True})
+    assert result.get('clarify') and not result.get('changed')
+    assert not db.rows('SELECT id FROM items')
+
+
+@pytest.mark.asyncio
+async def test_repair_routes_to_catalog_terra_without_global_model_change(env):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from studycenter_public.core.llm import ModelAdapter
+    service,db,_,_,_=env
+    auth=SimpleNamespace(models=[{'slug':'gpt-6.1-terra'},{'slug':'gpt-6-luna'}])
+    adapter=ModelAdapter(db,service.settings,auth)
+    adapter._responses=AsyncMock(return_value='{}')
+    await adapter.repair_response('instructions','payload')
+    assert adapter._responses.call_args.kwargs['model_override']=='gpt-6.1-terra'
+    assert service.settings.oauth_model=='gpt-6-luna'

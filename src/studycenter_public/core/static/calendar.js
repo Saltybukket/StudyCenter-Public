@@ -308,6 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
       info.el.title = `${info.event.title}${p.status === 'done' ? ' · Erledigt' : ''} · ${(p.tags||[]).map(t=>t.label).join(' · ')} · ${rangeText(info.event)}${p.closingDate ? ' · '+(p.itemKind==='registration' ? 'Anmeldeschluss' : 'Fensterschluss')+': '+label(p.closingDate,true)+(p.closingTime ? ' '+p.closingTime.slice(0,5) : ' · ohne Uhrzeit') : ''}`;
       const color = p.courseColor || '#67836c';
       info.el.classList.add('calendar-entry');
+      if (info.event.allDay) info.el.classList.add('calendar-entry-all-day');
       if(p.status === 'done') info.el.classList.add('calendar-entry-done');
       info.el.style.setProperty('--calendar-course-color',color);
       info.el.style.setProperty('--fc-event-color',color); info.el.style.setProperty('--fc-event-contrast-color','#253e36');

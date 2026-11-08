@@ -353,6 +353,44 @@ async def test_learning_quest_reads_scripts_and_preserves_verified_material_link
 
 
 @pytest.mark.asyncio
+async def test_placeholder_title_gets_one_material_grounded_correction(service):
+    seed_learning_material(service, text='Gegenkopplung am Operationsverstärker: Berechne die Verstärkung der gegebenen Schaltung und überprüfe die Gültigkeit der virtuellen Masse.')
+    calls=[]
+    async def respond(instructions, payload):
+        context=json.loads(payload); calls.append(context)
+        title='Ausgewählten Teil bearbeiten' if len(calls)==1 else 'Verstärkung der OPV-Schaltung berechnen'
+        return json.dumps({'title':'OPV','steps':[{'title':title,'detail':'Verstärkung berechnen und Ergebnis prüfen.',
+            'day_offset':0,'minutes':10,'materials':[{'document_id':91,'page':1}]}]})
+    service.adapter.responses=respond
+    q=(await service.preview(request()|{'goal':'OPV lernen'}))['quest']
+    assert len(calls)==2 and calls[1]['correction']['generic_titles']==['Ausgewählten Teil bearbeiten']
+    assert q['steps'][0]['title']=='Verstärkung der OPV-Schaltung berechnen'
+    assert q['steps'][0]['materials'][0]['document_id']==91
+
+
+@pytest.mark.asyncio
+async def test_placeholder_without_readable_material_is_not_retried(service):
+    calls=[]
+    async def respond(instructions, payload):
+        calls.append(payload)
+        return json.dumps({'title':'Aufgabe','steps':[{'title':'Ausgewählten Teil bearbeiten',
+            'detail':'Eine Teilaufgabe auswählen und bearbeiten.','day_offset':0,'minutes':10}]})
+    service.adapter.responses=respond
+    q=(await service.preview(request()))['quest']
+    assert len(calls)==1 and q['steps'][0]['title']=='Ausgewählten Teil bearbeiten'
+
+
+def test_bound_material_keeps_later_assignment_text(service):
+    from studycenter_public.core.quest_materials import collect
+    body='Einleitung. '*80+'Aufgabe 2: Bestimme die Verstärkung.'
+    seed_learning_material(service,text=body)
+    docs=[{'document_id':91,'pages':[{'page':1,'text':body,'gaps':[],'truncated':False}]}]
+    context,_=collect(service.db,'',[],docs,service.search)
+    assert 'Aufgabe 2: Bestimme die Verstärkung.' in context[0]['text']
+    assert not context[0]['truncated']
+
+
+@pytest.mark.asyncio
 async def test_learning_material_rejects_invented_page_and_changed_reading(service):
     seed_learning_material(service)
     async def respond(instructions,payload):

@@ -1,3 +1,4 @@
+{% macro task_connection(item) %}{% if item.task_origin %}<p class="task-connection"><a href="/items/{{ item.task_origin.id }}#related-work">Zur Originalaufgabe: {{ item.task_origin.title }}</a></p>{% elif item.personal_tasks %}<p class="task-connection"><a href="/items/{{ item.id }}#related-work">{{ item.personal_tasks|length }} eigene {{ 'Teilaufgabe' if item.personal_tasks|length==1 else 'Teilaufgaben' }}</a></p>{% endif %}{% endmacro %}
 {% macro tags(item,omit=[]) %}<div class="tags">{% for tag in item_tags(item) if tag.code not in omit %}<details class="tag tag-{{ tag.dimension }}"><summary title="{{ tag.help }}">{{ 'Quellenhinweis' if tag.code=='specific' else tag.label }}</summary><p>{{ tag.help }}</p></details>{% endfor %}{% if item.pinned %}<span>Angeheftet</span>{% endif %}{% if item.ignored %}<span>Ignoriert</span>{% endif %}</div>{% endmacro %}
 {% macro item_when(item) %}{% set d=item.data %}{% set view=item.task_display|default({}) %}{% set when,clock,closing=item_timing(d) %}
 {% if view.deadline_date %}<strong>{{ view.deadline_label }}: {{ view.deadline_date|localdate }}{% if view.deadline_time %} · {{ view.deadline_time[:5] }}{% else %}<small> · Uhrzeit offen</small>{% endif %}</strong>
@@ -11,31 +12,26 @@
 <article data-item-id="{{ item.id }}" data-pinned="{{ 'true' if item.pinned else 'false' }}" style="--course-color:{{ course_color(item.course_id) }}" class="item-card kind-{{ d.kind }} {% if sticky %}sticky-note note-{{ item.note_color }}{% endif %} {% if item.status=='done' %}done{% endif %}">
   {% if sticky %}
   <div class="postit-top-actions">
-    <details class="postit-menu"><summary class="postit-icon" aria-label="Weitere Optionen für {{ item_title(item) }}" title="Weitere Optionen"><span aria-hidden="true">⋮</span></summary><div class="postit-menu-items">
-      <a href="/items/{{ item.id }}">Details & Belege</a><a href="/items/{{ item.id }}#reminders">Erinnerung</a><a href="/items/{{ item.id }}#my-work">Bearbeiten</a>
-      <div class="postit-source-tags">{{ tags(item,['open','doing','done','time']) }}</div>
-      <form action="/items/{{ item.id }}" method="post" class="quick-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ignore"><input type="hidden" name="expected_revision" value="{{ item.visibility_revision }}"><input type="hidden" name="target" value="{{ 0 if item.ignored else 1 }}"><button type="submit">{{ 'Wieder beachten' if item.ignored else 'Ausblenden' }}</button></form>
-    </div></details>
     <form action="/items/{{ item.id }}" method="post" class="quick-form pin-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="pin"><input type="hidden" name="expected_revision" value="{{ item.pin_revision }}"><input type="hidden" name="target" value="{{ 0 if item.pinned else 1 }}"><button type="submit" class="postit-icon postit-pin" aria-pressed="{{ 'true' if item.pinned else 'false' }}" aria-label="{{ 'Pin lösen' if item.pinned else 'Anheften' }}: {{ item_title(item) }}" title="{{ 'Pin lösen' if item.pinned else 'Anheften' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 6 4 4v2h-5v6l-1 2-1-2v-6H6v-2l4-4z" fill="currentColor"/></svg></button></form>
   </div>
-  {% if item.pin_label %}<strong class="urgent-label">{{ item.pin_label }}</strong>{% elif item.pin_reason %}<span class="pin-reason">{{ item.pin_reason }}</span>{% endif %}
   {% endif %}
   <div class="card-meta"><span>{{ kinds[d.kind] }}</span><span>{{ item.course_title or ('Eigene Notiz' if item.identity.startswith('note:') else 'TU-Mail / Dokument') }}</span></div>
   <h3><a href="/items/{{ item.id }}">{{ item_title(item) }}</a></h3>
-  <p class="item-date">{{ item_when(item) }}</p>
-  {% if sticky %}<div class="postit-source-tags"><div class="tags">{% for tag in item_tags(item) if tag.code in ['submission','attendance','unclear','offered','unassigned','conflict','decision-stale','source','cancelled','specific'] %}<details class="tag tag-{{ tag.dimension }}"><summary title="{{ tag.help }}">{{ 'Quellenhinweis' if tag.code=='specific' else tag.label }}</summary><p>{{ tag.help }}</p></details>{% endfor %}{% if item.ignored %}<span>Ignoriert</span>{% endif %}</div></div>{% endif %}
+  <p class="item-date">{{ item_when(item) }}{% if sticky and item.expired %}<br><strong class="urgent-label">Frist abgelaufen</strong>{% endif %}</p>
+  {{ task_connection(item) }}
+  {% if sticky %}<div class="postit-source-tags"><div class="tags">{% for tag in item_tags(item) if tag.code in ['unclear','offered','unassigned','conflict','decision-stale','source','cancelled','specific'] %}<details class="tag tag-{{ tag.dimension }}"><summary title="{{ tag.help }}">{{ 'Quellenhinweis' if tag.code=='specific' else tag.label }}</summary><p>{{ tag.help }}</p></details>{% endfor %}{% if item.ignored %}<span>Ignoriert</span>{% endif %}</div></div>{% endif %}
   {% if item.available_later %}<p class="task-availability">Noch nicht verfügbar · ab {{ item.task_display.available_from|localdate }}</p>{% endif %}
-  {% if item_summary(item) and item_summary(item)!=item_title(item) %}<p class="task-instructions">{{ item_summary(item) }}</p>{% endif %}
+  {% if not sticky and item_summary(item) and item_summary(item)!=item_title(item) %}<p class="task-instructions">{{ item_summary(item) }}</p>{% endif %}
   {% if sticky %}
   <div class="postit-work-row">
     <form action="/items/{{ item.id }}" method="post" class="quick-form postit-status" data-postit-status>
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="status"><input type="hidden" name="expected_revision" value="{{ item.status_revision }}"><input type="hidden" name="status" value="{{ item.status }}" disabled>
       <button type="submit" class="postit-submit" hidden aria-hidden="true" tabindex="-1">Status speichern</button>
-      <button type="submit" name="status" value="done" data-status-choice="done" class="postit-status-option postit-done" aria-label="Erledigen: {{ item_title(item) }}">✓ Erledigt</button>
-      <details class="postit-status-menu"><summary aria-label="Status ändern: {{ item_title(item) }}">{{ 'In Arbeit' if item.status=='doing' else 'Offen' }} ▾</summary><div>{% for code,label in [('open','Offen'),('doing','In Arbeit')] %}<button type="submit" name="status" value="{{ code }}" data-status-choice="{{ code }}" class="postit-status-option" aria-pressed="{{ 'true' if item.status==code else 'false' }}">{{ label }}</button>{% endfor %}</div></details>
+      {% for code,label in [('open','Offen'),('doing','In Arbeit'),('done','Erledigt')] %}<button type="submit" name="status" value="{{ code }}" data-status-choice="{{ code }}" class="postit-status-option" aria-pressed="{{ 'true' if item.status==code else 'false' }}" aria-label="{{ label }}: {{ item_title(item) }}">{{ label }}</button>{% endfor %}
     </form>
-    <button type="button" class="postit-icon postit-chat" data-voice-item="{{ item.id }}" data-voice-title="{{ item_title(item) }}" aria-label="Eintrag besprechen: {{ item_title(item) }}" title="Eintrag besprechen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 11 11 0 0 1-4.5-1L3 21l1.5-5A8.5 8.5 0 1 1 21 11.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+
   </div>
+  <a class="postit-edit" href="/items/{{ item.id }}#edit">Bearbeiten</a>
   {% else %}
   {{ tags(item,['open','doing','done','time']) }}
   <form action="/items/{{ item.id }}" method="post" class="card-action quick-form">
@@ -60,13 +56,14 @@
 <dl class="change-values">{% for c in change_values(history) if not compact or c.label!='Beschreibung' %}<div><dt>{{ c.label }}</dt><dd><span class="old-value">{{ c.before }}</span><span aria-label="geändert zu"> → </span><strong>{{ c.after }}</strong></dd></div>{% else %}<div><dt>Quellen</dt><dd>Belege oder Widerspruch aktualisiert · Details prüfen</dd></div>{% endfor %}</dl>
 {% endmacro %}
 {% macro wall_views(path,include_inactive,show_ignored,request) %}
-<nav class="overview-filters wall-views" aria-label="Aufgabenansicht">{% for url,label in [('/board','Alle'),('/pins','Fokus'),('/archive','Archiv')] %}{% set target = request.url.replace(path=url).include_query_params(page=1) %}{% if url != '/archive' and request.query_params.get('status') == 'done' %}{% set target = target.remove_query_params('status') %}{% endif %}<a href="{{ target }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+<nav class="overview-filters wall-views" aria-label="Aufgabenansicht">{% for url,label in [('/board','Alle Aufgaben'),('/archive','Erledigt')] %}{% set target = request.url.replace(path=url).include_query_params(page=1) %}{% if url != '/archive' and request.query_params.get('status') == 'done' %}{% set target = target.remove_query_params('status') %}{% endif %}<a href="{{ target }}" {% if path==url %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
 {% endmacro %}
 
 {% macro wall_filter(path,request,courses,course,q,status,include_inactive,show_ignored,personal,due) %}
 <div class="wall-filter-bar">
 <details class="wall-filter-disclosure"><summary>Filter <span aria-hidden="true">⌄</span></summary>
 <form class="wall-filter-form" method="get">
+{% if request.query_params.get('lectures')=='true' %}<input type="hidden" name="lectures" value="true">{% endif %}
 <div class="wall-filter-fields"><label>Suchen<input type="search" name="q" value="{{ q }}" placeholder="Titel, Kurs oder Beschreibung" maxlength="240"></label><label>Kurs<select name="course"><option value="">Alle aktiven Kurse</option>{% for c in courses if c.active or include_inactive %}<option value="{{ c.id }}" {% if course==c.id|string %}selected{% endif %}>{{ c.title }}</option>{% endfor %}</select></label><label>Status<select name="status"><option value="">Offen & in Arbeit</option>{% for code,label in [('open','Offen'),('doing','In Arbeit')] %}<option value="{{ code }}" {% if status==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label></div>
 <fieldset class="postit-personal-filter"><legend>Einträge</legend><input type="hidden" name="personal" value="{{ 'true' if personal else 'false' }}">{% for value,label in [('false','Alle'),('true','Persönlich')] %}<button type="submit" name="personal" value="{{ value }}" class="personal-chip{% if personal==(value=='true') %} selected{% endif %}" aria-pressed="{{ 'true' if personal==(value=='true') else 'false' }}">{{ label }}</button>{% endfor %}</fieldset>
 {{ due_chips(due) }}

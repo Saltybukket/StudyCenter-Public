@@ -112,7 +112,7 @@
     const link = document.createElement('a'); link.href = '/introduction'; link.className = 'intro-replay'; link.textContent = 'Einführung erneut ansehen →';
     document.querySelector('#main')?.append(link);
   }
-  function dismissedInSession() { try { return !!dismissedInSession(); } catch (_) { return false; } }
+  function dismissedInSession() { try { return !!sessionStorage.getItem(sessionKey); } catch (_) { return false; } }
   (async () => {
     try {
       const response = await fetch('/api/introduction', {cache:'no-store'});

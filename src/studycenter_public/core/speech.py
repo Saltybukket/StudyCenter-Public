@@ -17,9 +17,11 @@ class SpeechError(ValueError):
 
 
 class SpeechService:
-    def __init__(self, courses=lambda:[], *, engine=None, name=None, device=None, root=None, model_path=None, ensure_model=None):
+    def __init__(self, courses=lambda:[], *, engine=None, name=None, device=None, root=None, model_path=None, ensure_model=None, vocabulary=lambda:[]):
         self.courses=courses
         self.model_path, self.ensure_model = model_path, ensure_model
+        self.vocabulary=vocabulary
+        self.uncertain=[]
         self.engine=engine or os.getenv('CAMPUSBOARD_STT_ENGINE','whisper')
         if self.engine not in ('whisper','parakeet'):raise ValueError('CAMPUSBOARD_STT_ENGINE muss whisper oder parakeet sein.')
         self.name = name or os.getenv('CAMPUSBOARD_STT_MODEL', 'small')
@@ -113,16 +115,27 @@ class SpeechService:
             return stream.result.text.strip()
         courses=self.courses()
         names=list(dict.fromkeys([a.upper() for c in courses for a in c.get('aliases',[]) if len(a)>1]+[c['title'] for c in courses]))
-        hotwords=', '.join(names)[:1400]
+        terms=['Hausübung','Übungsblatt','Abgabe','anheften','To-do','Pinnwand','Messtechnik','OPV','virtuelle Masse']
+        # Local vocabulary is bounded; no source fetch or model request during recording.
+        try:terms += [str(t)[:100] for t in self.vocabulary()[:20]]
+        except (OSError,ValueError):pass
+        hotwords=', '.join(dict.fromkeys(names+terms))[:1800]
         bindings='; '.join(', '.join(a.upper() for a in c.get('aliases',[]) if len(a)>1)+': '+c['title']
                           if any(len(a)>1 for a in c.get('aliases',[])) else c['title'] for c in courses)[:900]
-        prompt='Deutsch und English im Studium. Vorbereitung, Erinnerung, morgen. Setup Session, lecture, assignment, deadline.'
+        prompt='Österreichisches Deutsch, gelegentlich steirischer Dialekt und English im Studium. Hausübung, Übung, Abgabe, anheften, erledigt, nächste Woche. Setup Session, lecture, assignment, deadline. Verneinungen wie nicht, ned, net sowie Zahlen und Termine genau wiedergeben.'
         if bindings:prompt+=' Kursnamen und Kürzel: '+bindings
         # German is the initial default; detect each segment's spoken language and
         # transcribe rather than translate. Hotwords are hints, not substitutions.
         segments,_=model.transcribe(audio,language='de',multilingual=True,beam_size=5,vad_filter=True,condition_on_previous_text=False,
                                    hotwords=hotwords,initial_prompt=prompt)
-        result=' '.join(segment.text.strip() for segment in segments if not (segment.no_speech_prob>.8 and segment.avg_logprob < -1)).strip()
+        parts=[];self.uncertain=[]
+        for segment in segments:
+            if segment.no_speech_prob>.8 and segment.avg_logprob < -1:continue
+            part=segment.text.strip()
+            if not part:continue
+            parts.append(part)
+            if segment.avg_logprob < -.8 and len(self.uncertain)<3:self.uncertain.append(part[:180])
+        result=' '.join(parts).strip()
         self.measured('recognition_'+self.device,inference_started)
         return result
 
@@ -135,6 +148,7 @@ class SpeechService:
             started=time.perf_counter()
             self.started=started
             self.timings={}
+            self.uncertain=[]
             self.progress('Aufnahme dekodieren')
             import av
             import numpy as np
@@ -177,6 +191,7 @@ class SpeechService:
                 # Release its potentially large CPU/GPU model before loading another.
                 self.model=None
                 active=SpeechService(self.courses,engine='whisper',name=self.name if self.device=='cuda' else 'base',device='cpu',root=self.root,model_path=self.model_path,ensure_model=self.ensure_model)
+                active=SpeechService(self.courses,engine='whisper',name=self.name if self.device=='cuda' else 'base',device='cpu',vocabulary=self.vocabulary)
                 active.root=self.root
                 active._progress_parent=weakref.ref(self)
                 text=active.recognize(audio)
@@ -191,7 +206,7 @@ class SpeechService:
             return {'text': text,'seconds':round(samples/16000,1),'model':active.name if active.engine=='whisper' else 'parakeet-tdt-0.6b-v3',
                     'engine':active.engine,'device':active.device,'latency':round(time.perf_counter()-started,2),'warning':self.warning or active.warning,
                     'configured_engine':self.engine,'configured_model':self.name,'configured_device':self.requested_device,'timings':dict(self.timings),
-                    'course_suggestions':[m.model_dump() for m in candidates(text,self.courses())]}
+                    'uncertain_segments':list(active.uncertain),'course_suggestions':[m.model_dump() for m in candidates(text,self.courses())]}
         except SpeechError:
             self.progress('Spracherkennung fehlgeschlagen')
             raise

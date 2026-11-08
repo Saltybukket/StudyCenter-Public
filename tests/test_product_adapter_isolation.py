@@ -69,15 +69,16 @@ def test_unavailable_session_store_does_not_launch_browser(tmp_path, monkeypatch
         asyncio.run(BrowserService(settings)._ensure())
 
 
-def test_model_http_defaults_to_no_environment_proxy(monkeypatch):
+def test_model_http_never_uses_environment_proxy(monkeypatch):
     seen = []
 
     class Response:
+        status_code = 200
         def raise_for_status(self): pass
         def json(self): return {'choices': [{'message': {'content': 'ok'}}]}
 
     class Client:
-        def __init__(self, **kwargs): seen.append(kwargs['trust_env'])
+        def __init__(self, **kwargs): seen.append((kwargs['trust_env'], kwargs['follow_redirects']))
         async def __aenter__(self): return self
         async def __aexit__(self, *args): pass
         async def post(self, *args, **kwargs): return Response()
@@ -88,4 +89,4 @@ def test_model_http_defaults_to_no_environment_proxy(monkeypatch):
     assert asyncio.run(adapter.chat_completions('test', 'test')) == 'ok'
     settings.llm_trust_env = True
     assert asyncio.run(adapter.chat_completions('test', 'test')) == 'ok'
-    assert seen == [False, True]
+    assert seen == [(False, False), (False, False)]

@@ -8,7 +8,7 @@
 .calendar-arrows{display:flex;gap:.4rem}.calendar-explanation{font-size:.8rem;color:var(--muted);margin:1rem 0 1.3rem}
 .calendar-surface{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:white}
 #calendar{padding:.3rem;--fc-border-color:#dce4e5;--fc-today-bg-color:#eef5fb;--fc-event-bg-color:#426f5b;--fc-event-border-color:#426f5b}
-#calendar[data-view=timeGridWeek]{min-width:760px}#calendar[data-view=dayGridMonth]{min-width:550px}
+#calendar[data-view=timeGridWeek]{min-width:760px}
 .calendar-legend{display:flex;flex-wrap:wrap;gap:.8rem 1.3rem;font-size:.76rem;color:var(--muted);margin-top:1rem}
 .calendar-legend span:before{content:'';display:inline-block;width:9px;height:9px;background:var(--category-task);border-radius:3px;margin-right:.45rem}
 .calendar-legend .legend-exam:before{background:var(--category-exam)}.calendar-legend .legend-registration:before{background:var(--category-registration)}.calendar-legend .legend-event:before{background:var(--category-event)}.calendar-legend span:last-child:before{display:none}
@@ -73,11 +73,10 @@
 .calendar-event-proof p,.calendar-event-proof>a{font-size:.75rem;line-height:1.55}
 @media(max-width:700px){#calendar-abbreviations{grid-template-columns:minmax(0,1fr)}.calendar-event-dialog{padding:1.15rem;max-height:calc(100dvh - 24px)}.calendar-event-dialog h2{font-size:1.2rem}.calendar-abbreviation-legend summary span{display:none}}
 
-/* Keep full-day titles readable instead of forcing them into a single short line. */
-#calendar .fc-timegrid .fc-daygrid-event { white-space: normal; align-items: stretch; }
-#calendar .fc-timegrid .fc-daygrid-event .fc-event-main { width: 100%; }
-#calendar .fc-timegrid .fc-daygrid-event .schedule-event { padding: .3rem .2rem; }
-#calendar .fc-timegrid .fc-daygrid-event .schedule-event strong { display: block; line-height: 1.35; overflow-wrap: anywhere; }
+/* A day cell is a summary; the event dialog retains the complete details. */
+#calendar[data-view=dayGridMonth] .schedule-event, #calendar[data-view=timeGridWeek] .calendar-entry-all-day .schedule-event { padding: .2rem; min-width: 0; }
+#calendar[data-view=dayGridMonth] .schedule-event strong, #calendar[data-view=timeGridWeek] .calendar-entry-all-day .schedule-event strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#calendar[data-view=dayGridMonth] .schedule-event small, #calendar[data-view=timeGridWeek] .calendar-entry-all-day .schedule-event small { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* An open menu floats above the calendar and never stretches the view buttons. */
 .calendar-views>button,.calendar-more-views>summary,#calendar-export-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;line-height:1.2;white-space:nowrap;font-size:.85rem}
 #calendar-export-link{padding:.6rem .8rem;border-radius:8px;color:var(--muted);margin-left:auto}

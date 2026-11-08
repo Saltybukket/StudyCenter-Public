@@ -319,6 +319,11 @@ CREATE TABLE IF NOT EXISTS quests (
  state TEXT NOT NULL DEFAULT 'draft', sources TEXT NOT NULL DEFAULT '[]',
  steps TEXT NOT NULL DEFAULT '[]', version INTEGER NOT NULL DEFAULT 1,
  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, planning TEXT NOT NULL DEFAULT 'paced');
+CREATE TABLE IF NOT EXISTS quest_revisions (
+ id TEXT PRIMARY KEY, quest_id TEXT NOT NULL REFERENCES quests(id) ON DELETE CASCADE,
+ base_version INTEGER NOT NULL, kind TEXT NOT NULL, created_at TEXT NOT NULL,
+ payload TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'pending', applied_version INTEGER);
+CREATE INDEX IF NOT EXISTS quest_revisions_quest ON quest_revisions(quest_id,created_at);
 CREATE TRIGGER IF NOT EXISTS class_completion_reopened
 AFTER UPDATE OF status ON items
 WHEN OLD.status='done' AND NEW.status!='done'
@@ -599,6 +604,8 @@ class Database:
         if display:
             from .task_presentation import attach_task_displays
             attach_task_displays(result)
+            from .task_relationships import attach_task_relationships
+            attach_task_relationships(result)
         if active_only:
             result = [i for i in result if i['course_id'] is None or (i['course_active'] and
                       (not i['course_semester'] or not i['data'].get('semester') or i['course_semester'] == i['data']['semester']))]

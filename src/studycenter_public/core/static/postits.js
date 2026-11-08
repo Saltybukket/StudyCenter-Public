@@ -20,9 +20,6 @@ document.querySelectorAll('[data-postit-status]').forEach(form => {
   form.addEventListener('quick-form-result', event => {
     if (event.detail.ok) saved = status.value;
     else status.value = saved;
-    const summary = form.querySelector('.postit-status-menu summary');
-    if (summary) summary.textContent = (saved === 'doing' ? 'In Arbeit' : 'Offen') + ' ▾';
-    form.querySelector('.postit-status-menu')?.removeAttribute('open');
     busy = false;
     form.removeAttribute('aria-busy');
     choices.forEach(choice => {
@@ -44,3 +41,21 @@ document.querySelectorAll('.wall-filter-disclosure').forEach(disclosure => {
     if (disclosure.open && !disclosure.contains(event.target)) disclosure.open = false;
   });
 });
+
+// Lightweight disclosures close outside; composing text is deliberately excluded.
+document.addEventListener('click', event => {
+  document.querySelectorAll('.sticky-note .tag[open], .login-menu[open]').forEach(panel => {
+    if (!panel.contains(event.target)) panel.open = false;
+  });
+});
+function revealEntrySection() {
+  const target = document.getElementById(location.hash.slice(1));
+  if (!target || !['edit', 'reminders'].includes(target.id)) return;
+  for (let parent = target; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
+  if (target.id === 'reminders') target.querySelector('details').open = true;
+  target.scrollIntoView({block:'start'});
+}
+window.addEventListener('hashchange', revealEntrySection);
+revealEntrySection();

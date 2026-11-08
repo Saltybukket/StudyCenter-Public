@@ -16,6 +16,23 @@ _IDENTIFIER = re.compile(r'\b(arbeitsblatt|ab|quiz|einheit|lab|assignment)\s*[-�
 _ACTION = re.compile(r'\b(?:bearbeiten|vorbereiten|üben|prüfen|einreichen|abgeben|lesen|lernen|lösen|implementieren|konfigurieren|ankreuzen|hochladen|erstellen|durchführen|teilnehmen|wiederholen|ansehen)\b', re.I)
 
 
+def original_item_ids(description):
+    """Read local references defensively: descriptions are user/source input."""
+    ids = set()
+    for url in _LINK.findall(description or ''):
+        try:
+            parsed = urlsplit(url.rstrip('.:'))
+            match = re.fullmatch(r'/items/(\d+)', parsed.path)
+            if (parsed.hostname in ('127.0.0.1', 'localhost') and not parsed.query
+                    and not parsed.fragment and not parsed.username and not parsed.password and match):
+                # Access validates a malformed/out-of-range port, too.
+                parsed.port
+                ids.add(int(match.group(1)))
+        except ValueError:
+            continue
+    return ids
+
+
 def _identifiers(text):
     result = set()
     for kind, number in _IDENTIFIER.findall(text):
@@ -62,7 +79,7 @@ def _title(item):
     return title
 
 
-def _summary(item, title, *, task=True, linked_deadline=False):
+def _summary(item, title, *, task=True, linked_deadline=False, linked_deadline_time=None):
     description = (item.get('data', {}).get('description') or '').strip()
     # Remove known provenance scaffolding while retaining the user's instructions.
     description = re.sub(
@@ -75,6 +92,19 @@ def _summary(item, title, *, task=True, linked_deadline=False):
     # here can be stale and must never be presented as the current deadline.
     if linked_deadline:
         description = re.sub(r'Abgabe\s+laut\s+https?://(?:127\.0\.0\.1|localhost)(?::\d+)?/items/\d+:\s*\d{4}-\d{2}-\d{2}\s+um\s+\d{2}:\d{2}\s+Europe/Vienna\.\s*Originalfrist bleibt bestehen\.', '', description, flags=re.I)
+    if linked_deadline_time:
+        # Retain a personal note about a whole series, while making clear that
+        # the current linked deadline provides a time for this one task.
+        own_worksheets = {number for kind, number in _identifiers(title) if kind == 'ab'}
+        def qualify_series(match):
+            first, last = int(match.group(2)), int(match.group(3))
+            if not any(first <= number <= last for number in own_worksheets):
+                return match.group(0)
+            return f'Deine Notiz hält fest: „{match.group(1)}“ Die verknüpfte Frist für diese Aufgabe nennt eine Uhrzeit.'
+        description = re.sub(
+            r'(Für\s+AB\s*(\d+)\s*[-–]\s*(\d+)\s+ist\s+keine\s+Abgabeuhrzeit\s+belegt\.)',
+            qualify_series,
+            description, flags=re.I)
     if task and re.search(r'^Persönlich vorgeschlagener Start mit einer Woche Puffer\.', description, re.I):
         description = re.sub(r'^Persönlich vorgeschlagener Start mit einer Woche Puffer\.', f'{title}. Geplant ist ein Start mit einer Woche Puffer.', description, flags=re.I)
     # Links can be submission instructions. Only remove explicitly marked provenance.
@@ -150,13 +180,7 @@ def task_display(item, items=(), now=None, *, _by_id=None):
     planned = data.get('date') if data.get('date_meaning') == 'start' and item.get('identity', '').startswith('note:') else None
     quiz_source = item if (data.get('kind') == 'exam' and data.get('date_meaning') == 'window' and re.search(r'\bquiz\b', data.get('title', ''), re.I)) else None
     if not date and planned and item.get('course_id') is not None:
-        urls = _LINK.findall(data.get('description') or '')
-        ids = set()
-        for url in urls:
-            parsed = urlsplit(url.rstrip('.:'))
-            match = re.fullmatch(r'/items/(\d+)', parsed.path)
-            if parsed.hostname in ('127.0.0.1', 'localhost') and not parsed.query and not parsed.fragment and match:
-                ids.add(int(match.group(1)))
+        ids = original_item_ids(data.get('description'))
         if len(ids) == 1:
             source = (_by_id.get(next(iter(ids))) if _by_id is not None
                       else next((candidate for candidate in items if candidate.get('id') in ids), None))
@@ -176,7 +200,8 @@ def task_display(item, items=(), now=None, *, _by_id=None):
                                  else next((i for i in items if i.get('id') == source_id and i.get('data', {}).get('kind') == 'exam'), None))
     label = ('Quiz schließt' if is_quiz or linked_quiz else 'Fällig') if date else None
     opening, opening_time, available = _availability(quiz_source, now)
-    return {'title': title, 'summary': _summary(item, title, linked_deadline=bool(source_id and source_id != item.get('id'))), 'available_from': opening,
+    linked = bool(source_id and source_id != item.get('id'))
+    return {'title': title, 'summary': _summary(item, title, linked_deadline=linked, linked_deadline_time=clock if linked else None), 'available_from': opening,
             'available_time': opening_time, 'available_now': available, 'deadline_date': date,
             'deadline_time': clock, 'deadline_label': label,
             'deadline_source_id': source_id, 'planned_date': planned}

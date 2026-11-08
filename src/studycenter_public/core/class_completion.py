@@ -2,6 +2,8 @@
 import asyncio
 import json
 import re
+import sqlite3
+from contextlib import closing
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -68,20 +70,27 @@ class ClassCompletionService:
     async def run(self, can_run=None):
         self.running = True
         try:
-            while not self.stop.is_set():
-                if can_run is None or can_run():
+            with closing(sqlite3.connect(self.db.path,timeout=10)) as watch:
+                watch.execute('PRAGMA query_only=ON')
+                seen=None;day=None
+                while not self.stop.is_set():
+                    if can_run is None or can_run():
+                        try:
+                            version=watch.execute('PRAGMA data_version').fetchone()[0]
+                            current=datetime.now(VIENNA).date()
+                            if version!=seen or current!=day:
+                                self.busy = True
+                                await finish_thread(self.tick)
+                                seen=version;day=current
+                                self.error = ''
+                        except Exception as exc:
+                            self.error = str(exc)
+                        finally:
+                            self.busy = False
                     try:
-                        self.busy = True
-                        await finish_thread(self.tick)
-                        self.error = ''
-                    except Exception as exc:
-                        self.error = str(exc)
-                    finally:
-                        self.busy = False
-                try:
-                    await asyncio.wait_for(self.stop.wait(), timeout=30)
-                except TimeoutError:
-                    pass
+                        await asyncio.wait_for(self.stop.wait(), timeout=30)
+                    except TimeoutError:
+                        pass
         finally:
             self.running = False
 

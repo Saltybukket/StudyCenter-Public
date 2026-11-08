@@ -1,0 +1,105 @@
+/* A restrained cork pinboard. Separate stylesheet keeps this design reversible. */
+body:is([data-page=board],[data-page=pins]){--wall-surface:#d5b58a;--wall-dot:#9d774c45}
+body:is([data-page=board],[data-page=pins]) .page-toolbar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;min-height:42px}
+body:is([data-page=board],[data-page=pins]) .page-toolbar h1{font-family:inherit;font-size:1.15rem;margin:0 auto 0 0}
+body:is([data-page=board],[data-page=pins]) .toolbar-tools{margin:0}
+body:is([data-page=board],[data-page=pins]) .page-toolbar .note-compose{margin:0}
+body:is([data-page=board],[data-page=pins]) .page-toolbar .note-compose>summary{border-radius:10px;font-size:.95rem;min-height:40px;display:flex;align-items:center;padding:.45rem .85rem}
+.wall-views{margin:0;gap:.3rem;border:0}
+.wall-views a{font-size:.95rem;padding:.45rem .9rem;border-radius:10px;min-height:40px}
+.wall-filter-bar{margin:.55rem 0;align-items:center}
+.wall-controls{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.wall-controls .wall-filter-bar{margin:0;gap:.5rem}
+.wall-filter-disclosure>summary{font-size:.9rem;min-height:38px;padding:.4rem .75rem}
+.wall-context{display:flex;justify-content:space-between;align-items:center;gap:.7rem;flex-wrap:wrap;margin:.6rem 0 1rem}
+.wall-context .wall-rule{margin:0;font-size:.9rem}
+.wall-context .wall-rule span{margin:0 .3rem;color:var(--muted)}
+.wall-calendar-link{font-size:.9rem;color:var(--muted);text-underline-offset:3px}
+.wall-calendar-link span{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 .3rem;margin-left:.15rem;font-size:.85rem}
+body:is([data-page=board],[data-page=pins]) :is(.postit-board,.magnet-wall){background-color:var(--wall-surface);background-image:linear-gradient(#e4cda24d,#e4cda24d),url("cork-fine.webp");background-size:auto,480px 480px;background-blend-mode:normal;border:6px solid color-mix(in srgb,var(--wall-surface),#705134 25%);border-radius:16px;padding:1.25rem;box-shadow:inset 0 1px 4px #173d3910;min-height:180px}
+body:is([data-page=board],[data-page=pins]) :is(.postit-grid,.magnet-wall.card-grid){grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:1.25rem;align-items:start}
+.postit-board .work-section+.work-section{margin-top:1.6rem;padding-top:.5rem}
+.postit-board .section-heading{margin:0 0 .85rem;gap:.5rem;justify-content:flex-start}
+.postit-board .section-heading h2{font-size:1rem;font-weight:650;letter-spacing:0}
+.postit-board .section-heading>[data-work-count]{font-size:.85rem;background:color-mix(in srgb,var(--paper) 65%,transparent);border-radius:6px;padding:.1rem .4rem}
+body:is([data-page=board],[data-page=pins]) .sticky-note{--note-paper:#f4f4d9;background:var(--note-paper);border:0;border-radius:3px 3px 12px 3px;box-shadow:0 2px 3px #183c3912,1px 7px 13px -8px #183c3950;padding:1rem 1rem .65rem;position:relative;transform:none;transition:box-shadow .16s ease;color:#243d3a}
+body:is([data-page=board],[data-page=pins]) .sticky-note.note-green{--note-paper:#e7efdc;background:var(--note-paper)}
+body:is([data-page=board],[data-page=pins]) .sticky-note.note-blue{--note-paper:#e0edf2;background:var(--note-paper)}
+body:is([data-page=board],[data-page=pins]) .sticky-note.note-yellow{--note-paper:#fbf0c6;background:var(--note-paper)}
+body:is([data-page=board],[data-page=pins]) .sticky-note.note-orange{--note-paper:#f7e5d3;background:var(--note-paper)}
+body:is([data-page=board],[data-page=pins]) .sticky-note.note-red{--note-paper:#f4dedb;background:var(--note-paper)}
+body:is([data-page=board],[data-page=pins]) .sticky-note::after{content:'';position:absolute;bottom:0;right:0;width:12px;height:12px;background:linear-gradient(135deg,transparent 50%,#47625612 51%);border-radius:0 0 12px 0;pointer-events:none}
+body:is([data-page=board],[data-page=pins]) .sticky-note:hover{box-shadow:0 3px 6px #183c3915,1px 9px 15px -8px #183c3955}
+.sticky-note .postit-top-actions .postit-icon{width:32px;min-height:32px;height:32px;background:transparent;border:0;box-shadow:none;color:#4d6760;border-radius:8px}
+.sticky-note .postit-top-actions .postit-icon:hover{background:#ffffff90}
+body:is([data-page=board],[data-page=pins]) .sticky-note .card-meta{display:block;font-size:.85rem;line-height:1.4;margin-bottom:.6rem;color:#52675c;padding-right:2.5rem;min-height:24px}
+body:is([data-page=board],[data-page=pins]) .sticky-note .card-meta>span+span:before{content:none}
+body:is([data-page=board],[data-page=pins]) .sticky-note .card-meta>span:first-child{display:none}
+body:is([data-page=board],[data-page=pins]) .sticky-note .card-meta>span:last-child{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;text-align:left}
+body:is([data-page=board],[data-page=pins]) .sticky-note h3{font-family:inherit;font-size:1rem;line-height:1.4;margin:.3rem 0 .5rem;font-weight:650}
+body:is([data-page=board],[data-page=pins]) .sticky-note h3 a{color:#203e36}
+body:is([data-page=board],[data-page=pins]) .sticky-note .item-date{font-size:.9rem;color:#3c584f;margin:.4rem 0 .6rem}
+body:is([data-page=board],[data-page=pins]) .sticky-note .task-instructions{font-size:.9rem;line-height:1.5;color:#415b52;margin:.7rem 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sticky-note .postit-source-tags:has(.tags:empty){display:none}
+.sticky-note>.postit-source-tags{padding:0;border:0;margin:.3rem 0}
+.sticky-note>.postit-source-tags .tags{gap:.3rem;margin:0}
+.sticky-note>.postit-source-tags .tag>summary{font-size:.8rem;padding:.15rem .35rem}
+.sticky-note .urgent-label,.sticky-note .pin-reason{font-size:.85rem;color:#476d57;margin:0 0 .5rem;background:transparent;border:0;padding:0}
+.sticky-note .postit-work-row{margin-top:.6rem;padding-top:.55rem;border-top:1px solid #59725d25}
+.sticky-note .postit-status-option{height:36px;font-size:.88rem;border-radius:8px;box-shadow:none}
+.sticky-note :is(button,summary,a):focus-visible{outline:3px solid #226e62;outline-offset:3px}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note{--note-paper:#39473d;background:var(--note-paper);color:#e1e9e2}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note.note-green{--note-paper:#39473d}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note.note-blue{--note-paper:#35474f}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note.note-yellow{--note-paper:#4d4935}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note.note-orange{--note-paper:#514237}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note.note-red{--note-paper:#503c3c}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note :is(h3 a,small,.card-meta,.item-date,.task-instructions,.pin-reason,.urgent-label,.postit-icon){color:#e0e9e3}
+html[data-theme=dark] .sticky-note .postit-work-row{border-color:#b3c6b733}
+html[data-theme=dark] body:is([data-page=board],[data-page=pins]) .sticky-note:is(.note-green,.note-blue,.note-yellow,.note-orange,.note-red){background:var(--note-paper)}
+/* The magnet itself is the existing pin control, not a second decorative icon. */
+.sticky-note .postit-top-actions{top:.25rem;left:0;right:0;height:44px;pointer-events:none}
+.sticky-note .postit-top-actions .pin-form{position:absolute;right:.4rem;left:auto;transform:none;pointer-events:auto}
+.sticky-note .postit-top-actions .postit-pin{width:44px;height:44px;min-height:44px;background:transparent!important;border:0;box-shadow:none}
+.sticky-note .postit-top-actions .postit-pin svg{display:block;width:21px;height:21px;transform:rotate(25deg)}
+/* One visible pin control, always in the upper right. */
+.sticky-note .postit-top-actions .postit-pin{color:#6b7068}
+.sticky-note .postit-top-actions .postit-pin[aria-pressed=true]{color:#126452;background:#ffffffa0!important}
+.sticky-note .postit-status-option{background:#ffffff70;color:#29463b;border:1px solid #5c705344;min-height:40px}
+.sticky-note .postit-status-option[aria-pressed=true]{background:#216b5e;color:#fff;border-color:#216b5e}
+.sticky-note .postit-edit{display:block;width:fit-content;margin:.3rem 0 0 auto;font-size:.85rem;color:#435d50;text-underline-offset:3px;padding:.25rem 0}
+html[data-theme=dark] .sticky-note .postit-status-option{background:#ffffff0c;color:#e1e9e2;border-color:#b2c9b850}
+html[data-theme=dark] .sticky-note .postit-status-option[aria-pressed=true]{background:#216b5e;color:#fff}
+html[data-theme=dark] body .sticky-note .postit-edit{color:#cbd9cf}
+html[data-theme=dark] .sticky-note .postit-top-actions .postit-pin[aria-pressed=true]{background:#205e50!important;color:#fff}
+@media(max-width:700px){body:is([data-page=board],[data-page=pins]) :is(.postit-board,.magnet-wall){padding:.85rem;border-radius:12px}.wall-context{align-items:flex-start}.wall-views a{padding:.4rem .75rem}.postit-board .work-section+.work-section{margin-top:1.3rem}}
+@media(prefers-reduced-motion:reduce){body:is([data-page=board],[data-page=pins]) .sticky-note{transition:none}}
+
+/* Cork retains its natural material color regardless of the app theme. */
+html[data-wall-style=cork] .postit-board .section-heading{color:#243d3a}
+html[data-wall-style=cork] .postit-board .section-heading>[data-work-count]{background:#f3eadbcc;color:#243d3a}
+
+/* Board materials are independent of the application's light/dark palette. */
+html[data-wall-style=slate] body:is([data-page=board],[data-page=pins]) :is(.postit-board,.magnet-wall){background:#292c2d url("slate-crisp.webp") repeat;background-size:600px;border:6px solid #6e513d;box-shadow:inset 0 1px 5px #0008,0 2px 4px #0002}
+html[data-wall-style=slate] .postit-board .section-heading{color:#fafafa}
+html[data-wall-style=slate] .postit-board .section-heading>[data-work-count]{background:#f1f3f1;color:#26342d}
+html[data-wall-style=plain] body:is([data-page=board],[data-page=pins]) :is(.postit-board,.magnet-wall){background:#fff;border:2px solid color-mix(in srgb,var(--ink) 30%,var(--line));box-shadow:none;border-radius:10px}
+html[data-wall-style=plain] .postit-board .section-heading{color:#243d3a}
+html[data-wall-style=plain] .postit-board .section-heading>[data-work-count]{background:#eef1ee;color:#243d3a}
+html[data-wall-style=plain] body:is([data-page=board],[data-page=pins]) .sticky-note{box-shadow:none;border:1px solid #a6b2a24d;transition:none}
+html[data-wall-style=plain] .sticky-note::after{display:none}
+.settings-page .wall-style-choices label>span{width:100%;display:flex;flex-direction:column;align-items:stretch;gap:.6rem}
+.wall-swatch{display:flex;gap:10px;align-items:center;padding:12px;height:72px;border-radius:6px;border:3px solid #d6b181;background:#dfb78b url("cork-fine.webp") center/180px}
+.wall-swatch-slate{background:#292c2d url("slate-crisp.webp") center/200px;border-color:#6e513d}
+.wall-swatch-plain{background:#fff;border:2px solid color-mix(in srgb,var(--ink) 30%,var(--line));border-radius:6px}
+.wall-swatch i{display:block;background:#edf0de;width:38%;height:36px;border-radius:2px;box-shadow:0 2px 3px #0002}
+.wall-swatch-plain i{box-shadow:none;border:1px solid #d8ded9}
+
+/* The board filter lives at the right edge of the toolbar. Open inward. */
+@media(min-width:701px){.wall-controls .wall-filter-form{left:auto;right:0}}
+
+/* The plain wall has no texture and follows the selected light/dark appearance. */
+html[data-theme=dark][data-wall-style=plain] body:is([data-page=board],[data-page=pins]) :is(.postit-board,.magnet-wall){background:var(--paper)}
+html[data-theme=dark][data-wall-style=plain] .postit-board .section-heading{color:var(--ink)}
+html[data-theme=dark][data-wall-style=plain] .postit-board .section-heading>[data-work-count]{background:var(--soft);color:var(--ink)}
+html[data-theme=dark] .wall-swatch-plain{background:var(--paper)}

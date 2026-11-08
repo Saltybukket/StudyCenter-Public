@@ -122,9 +122,9 @@ def test_completed_classes_leave_board_but_remain_calendar(tmp_path):
     task=make_item(db,title='Offene Vorbereitung',day='2026-10-20',kind='task',date_meaning='deadline')
     today=make_item(db,title='Heutige Übung',day='2026-10-21')
     client=TestClient(app)
-    assert 'Vergangene Vorlesung' in client.get('/board').text
+    assert 'Vergangene Vorlesung' in client.get('/board?lectures=true').text
     assert app.state.class_completion.tick(datetime(2026,10,21,23,59,tzinfo=VIENNA))==[old]
-    board=client.get('/board').text
+    board=client.get('/board?lectures=true').text
     assert 'Vergangene Vorlesung' not in board
     assert 'Offene Vorbereitung' in board and 'Heutige Übung' in board
     event=next(e for e in client.get('/api/calendar').json() if e['id']==str(old))

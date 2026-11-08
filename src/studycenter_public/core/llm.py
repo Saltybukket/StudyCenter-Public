@@ -216,32 +216,38 @@ class ModelAdapter:
                 instructions += "\nErzeuge die gesamte Extraktion erneut. Kopiere Zitate exakt aus dem gegebenen Text, einschließlich Tabellen-Trennzeichen; nichts umformulieren. Korrigiere die Schemafehler."
 
     async def chat_completions(self, instructions, payload):
-        headers = {"Authorization": f"Bearer {self.settings.llm_api_key}"} if self.settings.llm_api_key else {}
-        # Only document text and course metadata cross this boundary. No browser state or HTTP headers.
-        body = {"model": self.settings.llm_model,
-                "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": payload}],
-                "response_format": {"type": "json_object"}}
-        async with httpx.AsyncClient(timeout=120, trust_env=getattr(self.settings, 'llm_trust_env', False)) as client:
-            response = await client.post(self.settings.llm_base_url + "/chat/completions", headers=headers, json=body)
-            response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+        from .providers import completion
+        return await completion(self.settings, instructions, payload)
 
     async def responses(self, instructions, payload):
         try:
+            if self.settings.model_provider != "chatgpt":
+                return await self.chat_completions(instructions, payload)
             return await self._responses(instructions,payload)
         except (ChatGPTError,httpx.HTTPError,OSError):
             self.gotchas.record('all','technical')
             raise
 
-    async def _responses(self, instructions, payload):
+    async def repair_response(self, instructions, payload):
+        """Use an available Terra for one interpretation repair, without changing global settings."""
+        if self.settings.model_provider != "chatgpt":
+            return await self.chat_completions(instructions, payload)
+        if self.auth and not self.auth.models:
+            await self.auth.list_models()
+        available={m['slug'] for m in self.auth.models} if self.auth else set()
+        model=next((m for m in ('gpt-6.1-terra','gpt-6-terra') if m in available),self.settings.oauth_model)
+        return await self._responses(instructions,payload,model_override=model)
+
+    async def _responses(self, instructions, payload, model_override=None):
         if not self.auth:
             raise ChatGPTError("chatgpt_login_required")
         if not self.auth.models:
             await self.auth.list_models()
-        if self.settings.oauth_model not in {m["slug"] for m in self.auth.models}:
+        selected_model=model_override or self.settings.oauth_model
+        if selected_model not in {m["slug"] for m in self.auth.models}:
             raise ChatGPTError("model_not_in_account_catalog")
         token = await self.auth.access_token()
-        body = {"model": self.settings.oauth_model, "instructions": instructions,
+        body = {"model": selected_model, "instructions": instructions,
                 "input": [{"role": "user", "content": payload}], "store": False, "stream": True}
         # No tools, uploaded files, conversation, generation limits or sampling overrides.
         async with httpx.AsyncClient(timeout=180) as client:

@@ -178,11 +178,11 @@ async def test_transcription_progress_uses_reported_phase_and_stops_after_result
     await record(page)
     await expect(page.locator('#voice-process')).to_contain_text('Sprache erkennen (GPU)')
     await reply(page, 0, 'Probe fertig')
-    await expect(page.locator('#voice-process')).to_contain_text('Transkript bereit')
+    await expect(page.locator('#voice-process')).to_contain_text('Text erkannt.')
     count = len(phases)
     await page.wait_for_timeout(2200)
     assert len(phases) == count
-    await expect(page.locator('#voice-process')).to_contain_text('Transkript bereit')
+    await expect(page.locator('#voice-process')).to_contain_text('Text erkannt.')
 
 @pytest.mark.asyncio
 async def test_native_hide_releases_capture_without_sending_command(voice_page):
@@ -274,11 +274,11 @@ async def test_followup_chips_reload_capture_and_cancel_share_context(voice_page
     await page.route('**/api/voice/command',command)
     await page.locator('#voice-transcript').fill('Lerntermin morgen')
     await page.locator('#voice-send').click()
-    await expect(page.locator('#voice-send')).to_have_text('Antwort an Studi senden')
+    await expect(page.locator('#voice-send')).to_have_text('Senden')
     await expect(page.locator('#voice-context')).to_contain_text('2030-10-14')
     await expect(page.locator('#voice-transcript')).to_have_value('')
     await page.reload();await page.locator('#voice-open').click()
-    await expect(page.locator('#voice-question-text')).to_have_text('Um wie viel Uhr?')
+    await expect(page.locator('#voice-question-text')).to_have_text('Antworte unten im Nachrichtenfeld.')
     await page.locator('#voice-other-answer').click()
     await expect(page.locator('#voice-transcript')).to_be_focused()
     await record(page);await reply(page,0,'14 Uhr')
@@ -291,7 +291,7 @@ async def test_followup_chips_reload_capture_and_cancel_share_context(voice_page
     assert requests[2]['option_id']=='time:none' and requests[2]['previous_id']==requests[1]['request_id']
     await page.locator('#voice-cancel').click()
     await expect(page.locator('#voice-question')).to_be_hidden()
-    await expect(page.locator('#voice-send')).to_have_text('Mit Studi senden')
+    await expect(page.locator('#voice-send')).to_have_text('Senden')
     assert requests[3]['cancel'] and requests[3]['previous_id']==requests[2]['request_id']
     await page.locator('#voice-transcript').fill('Neuer eigener Termin')
     await page.locator('#voice-send').click()
@@ -452,3 +452,45 @@ async def test_document_context_is_explicit_persistent_and_resettable(voice_page
     await page.locator('#voice-send').click()
     await expect(page.locator('#voice-send')).to_be_enabled()
     assert requests[-1]['previous_id'] is None and 'context_document_id' not in requests[-1]
+
+
+async def test_simple_yes_button_preserves_pending_request_context(voice_page):
+    page=voice_page;requests=[]
+    async def respond(route):
+        data=route.request.post_data_json;requests.append(data)
+        if len(requests)==1:
+            await route.fulfill(json={'request_id':data['request_id'],'changed':False,'message':'Soll ich die Aufgaben anheften?',
+                'dialog':{'waiting':True,'action':{'action':'clarify'},'options':[]}})
+        else:
+            await route.fulfill(json={'request_id':data['request_id'],'changed':False,'message':'Keine passenden Aufgaben.'})
+    await page.route('**/api/voice/command',respond)
+    await page.locator('#voice-transcript').fill('Aufgaben anheften')
+    await page.locator('#voice-send').click()
+    await expect(page.locator('#voice-yes')).to_be_visible()
+    assert await page.get_by_text('Soll ich die Aufgaben anheften?',exact=True).count()==1
+    await page.locator('#voice-yes').click()
+    await expect(page.locator('#voice-chat')).to_contain_text('Keine passenden Aufgaben.')
+    assert requests[1]['text']=='Ja' and requests[1]['previous_id']==requests[0]['request_id']
+
+async def test_chat_preserves_header_in_both_layouts(voice_page):
+    page = voice_page
+    await page.add_style_tag(content=(ROOT/'src/studycenter_public/core/static/voice-panel.css').read_text(encoding='utf-8'))
+    await page.evaluate("""() => {
+      document.body.style.margin = '0';
+      const header = document.createElement('header'); header.className = 'masthead';
+      header.style.cssText = 'height:120px;background:white';
+      header.append(document.getElementById('voice-open'));
+      document.body.prepend(header);
+    }""")
+    await page.add_script_tag(content=(ROOT/'src/studycenter_public/core/static/chat-layout.js').read_text(encoding='utf-8'))
+    for width in (1280, 390):
+        await page.set_viewport_size({'width':width,'height':800})
+        for layout in ('sidebar', 'floating'):
+            await page.evaluate('(layout)=>document.documentElement.dataset.chatLayout=layout',layout)
+            await expect(page.locator('.masthead')).to_have_css('width', f'{width}px')
+            await page.wait_for_function("document.querySelector('#voice-panel').getBoundingClientRect().top >= document.querySelector('.masthead').getBoundingClientRect().bottom")
+            box = await page.locator('#voice-panel').bounding_box()
+            assert box['y'] + box['height'] <= 800
+            await page.locator('#voice-open').click()
+    await page.locator('.masthead').evaluate("el=>el.style.height='180px'")
+    await page.wait_for_function("document.querySelector('#voice-panel').getBoundingClientRect().top >= 180")

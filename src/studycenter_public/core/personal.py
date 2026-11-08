@@ -187,10 +187,10 @@ def group_context(db, connection=None):
     return result
 
 
-def coverage(db, course_id=None):
+def coverage(db, course_id=None, *, items=None):
     """Coverage from saved facts only; fetch health and personal assignment are separate."""
     from .presentation import personal_state
-    groups=group_context(db);items=db.items(active_only=True);sources=db.sources();result=[]
+    groups=group_context(db);items=db.items(active_only=True) if items is None else items;sources=db.sources();result=[]
     def deferred_source(s):
         return s['kind']=='public' and urlsplit(s['url']).hostname in ('apkpure.com','apkmirror.com','tube.tugraz.at','youtube.com','www.youtube.com','youtu.be')
     for course in db.rows('SELECT * FROM courses WHERE active=1 ORDER BY title'):

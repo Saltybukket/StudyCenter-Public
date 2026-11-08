@@ -1,5 +1,6 @@
 from copy import deepcopy
 from studycenter_public.core.task_presentation import attach_task_displays, task_display
+from studycenter_public.core.presentation import item_tags
 
 
 def row(id, title, *, kind='task', course=1, identity='source', meaning='none', date=None, end=None, time=None, end_time=None, description='', conflict=False):
@@ -202,3 +203,30 @@ def test_personal_plan_does_not_promote_a_previous_semester_deadline():
     assert task_display(note, [source])['deadline_date'] == '2026-11-12'
     source['data']['semester'] = '2025W'
     assert task_display(note, [source])['deadline_date'] is None
+
+
+def test_linked_deadline_and_planned_day_have_distinct_time_labels():
+    note = row(1, 'AB2 vorbereiten', identity='note:1', meaning='start', date='2026-11-01',
+               description='Originaleintrag http://localhost/items/2. Für AB2-5 ist keine Abgabeuhrzeit belegt.')
+    source = row(2, 'Arbeitsblatt 2', meaning='deadline', date='2026-11-10', time='23:59')
+    original = deepcopy(note['data'])
+    attach_task_displays([note, source])
+    tags = {tag['code']: tag['label'] for tag in item_tags(note)}
+    assert tags['planned-time'] == 'Planung ohne Uhrzeit'
+    assert 'time' not in tags
+    summary = note['task_display']['summary']
+    assert 'Deine Notiz hält fest' in summary and 'keine Abgabeuhrzeit belegt' in summary
+    assert 'verknüpfte Frist für diese Aufgabe nennt eine Uhrzeit' in summary
+    assert note['data'] == original
+
+    # A personal correction already applied to the source is the effective value.
+    source['data'].update(date='2026-11-11', time=None)
+    attach_task_displays([note, source])
+    assert note['task_display']['deadline_date'] == '2026-11-11'
+    tags = {tag['code']: tag['label'] for tag in item_tags(note)}
+    assert tags['time'] == 'Frist ohne Uhrzeit' and tags['planned-time'] == 'Planung ohne Uhrzeit'
+    assert 'verknüpfte Frist für diese Aufgabe nennt eine Uhrzeit' not in note['task_display']['summary']
+    source['date_conflict'] = True
+    attach_task_displays([note, source])
+    assert note['task_display']['deadline_date'] is None
+    assert 'time' in {tag['code'] for tag in item_tags(note)}

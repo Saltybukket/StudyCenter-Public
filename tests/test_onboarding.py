@@ -66,3 +66,45 @@ def test_public_core_rejects_cross_origin_and_requires_csrf(tmp_path):
         })
         assert response.status_code == 200
         assert client.get('/api/introduction').json()['step'] == 1
+
+
+def test_failed_dismissal_stays_hidden_for_session_and_returns_in_new_session(tmp_path):
+    from pathlib import Path
+    from urllib.parse import urlsplit
+    import pytest
+    playwright = pytest.importorskip('playwright.sync_api')
+    from studycenter_public.platform.paths import AppPaths
+    from studycenter_public.platform.secrets import SecretStore
+    from studycenter_public.product import create_app
+
+    paths = AppPaths.create(tmp_path / 'public')
+    app = create_app(paths, SecretStore(paths.instance_id, session_only=True))
+    client = TestClient(app)
+    with playwright.sync_playwright() as driver:
+        if not Path(driver.chromium.executable_path).exists():
+            pytest.skip('Public test Chromium is not installed')
+        browser = driver.chromium.launch()
+        def route_request(route):
+            url = urlsplit(route.request.url)
+            assert url.hostname == 'public.test'
+            if url.path == '/api/introduction' and route.request.method == 'POST':
+                return route.fulfill(status=500, body='synthetic failure')
+            response = client.get(url.path + ('?' + url.query if url.query else ''))
+            route.fulfill(status=response.status_code, body=response.content,
+                          content_type=response.headers.get('content-type', 'application/octet-stream'))
+        context = browser.new_context()
+        page = context.new_page()
+        page.route('**/*', route_request)
+        page.goto('http://public.test/overview')
+        playwright.expect(page.locator('#introduction')).to_be_visible()
+        page.locator('.intro-skip').click()
+        playwright.expect(page.locator('#introduction')).to_be_hidden()
+        page.goto('http://public.test/board')
+        playwright.expect(page.locator('#introduction')).to_be_hidden()
+        context.close()
+        context = browser.new_context()
+        page = context.new_page()
+        page.route('**/*', route_request)
+        page.goto('http://public.test/overview')
+        playwright.expect(page.locator('#introduction')).to_be_visible()
+        browser.close()

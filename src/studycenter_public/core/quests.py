@@ -59,6 +59,14 @@ class Plan(BaseModel):
     steps: list[Step] = Field(min_length=1, max_length=42)
 
 
+def generic_material_titles(steps, material_context):
+    """Identify a narrow placeholder worth asking the model to reconsider once."""
+    if not any(len((p.get('text') or '').strip()) >= 80 for p in material_context):
+        return []
+    placeholder = re.compile(r'\b(?:ausgewähl\w*|gewähl\w*)\s+(?:teil(?:aufgabe)?|aufgabe)\b', re.I)
+    return [s['title'] for s in steps if placeholder.search(s['title'])]
+
+
 def local_now():
     return datetime.now(ZoneInfo('Europe/Vienna'))
 
@@ -112,6 +120,8 @@ class QuestService:
         self.db, self.settings, self.adapter = db, settings, adapter
         self.lock = asyncio.Lock()
         self.search = search if search is not None else SearchIndex(db)
+        from .quest_revisions import QuestRevisions
+        self.revisions = QuestRevisions(self)
 
     def _items(self, con=None):
         return self.db._items(True, con) if con else self.db.items(active_only=True)
@@ -130,7 +140,7 @@ class QuestService:
                 'end_date': d.get('end_date'), 'end_time': d.get('end_time'), 'date_meaning': d.get('date_meaning'), 'evidence': proofs})
         return output
 
-    def _document_context(self, items, con=None):
+    def _document_context(self, items, con=None, follow_latest=False):
         """Read only documents explicitly bound to this item; never crawl."""
         snapshots, outbound = {}, []
         for item in items:
@@ -158,6 +168,10 @@ class QuestService:
                 rows = self.db.rows('SELECT id FROM documents WHERE url=? ORDER BY fetched_at DESC,id DESC LIMIT 1', (url,), connection=con)
                 if rows: ids.add(rows[0]['id'])
                 else: missing.append(url)
+            if follow_latest:
+                ids = {row['id'] if (row := self.db.one('''SELECT n.id FROM documents d JOIN documents n
+                    ON n.source_id=d.source_id AND n.url=d.url WHERE d.id=?
+                    ORDER BY n.fetched_at DESC,n.id DESC LIMIT 1''', (old_id,), connection=con)) else old_id for old_id in ids}
             # Only follow explicit file links in already bound assignment/resource
             # pages, to an exact URL in the same local source. No network access.
             for doc_id in list(sorted(ids)):
@@ -181,6 +195,17 @@ class QuestService:
                     pass
             docs = []
             blocked_material = blocked_linked
+            if follow_latest:
+                # A reviewed update follows the same source URL to its newest
+                # locally stored version; it never fetches the network.
+                refreshed = set()
+                for old_id in ids:
+                    current = self.db.one('''SELECT n.id FROM documents d JOIN documents n
+                        ON n.source_id=d.source_id AND n.url=d.url WHERE d.id=?
+                        ORDER BY n.fetched_at DESC,n.id DESC LIMIT 1''', (old_id,), connection=con)
+                    refreshed.add(current['id'] if current else old_id)
+                    if old_id in linked_pdf_ids and current: linked_pdf_ids.add(current['id'])
+                ids = refreshed
             for doc_id in sorted(ids):
                 if not quest_materials.document_model_allowed(self.db,doc_id,con):
                     blocked_material = True
@@ -259,7 +284,7 @@ class QuestService:
                 snapshots[item['id']]['warnings'].append('Alle Seiten wurden berücksichtigt; lange Seitentexte wurden für die Planung gekürzt.')
         return snapshots, outbound
 
-    def _snapshot_changed(self, items, stored, con=None):
+    def _snapshot_changed(self, items, stored, con=None, current_items=None):
         extra = {'documents', 'evidence_document_ids', 'evidence_hash', 'linked_item_ids', 'missing_urls', 'warnings'}
         if self._sources(items, con) != [{k:v for k,v in source.items() if k not in extra} for source in stored]: return True
         for source, item in zip(stored, items):
@@ -267,7 +292,8 @@ class QuestService:
             if 'documents' not in source: continue
             linked_ids = source.get('linked_item_ids', [])
             if linked_ids:
-                current = {i['id']:i for i in self._items(con)}
+                if current_items is None: current_items = {i['id']:i for i in self._items(con)}
+                current = current_items
                 if any(not quest_materials.item_model_allowed(self.db,i,con) or i not in current or current[i].get('course_id') != item.get('course_id') or not eligible(current[i],today()) for i in linked_ids): return True
             evidence_ids, proofs = set(), []
             for iid in [item['id'], *linked_ids]:
@@ -301,12 +327,22 @@ class QuestService:
         start = date.fromisoformat(q['start_date'])
         for step in q['steps']:
             step.setdefault('topic', '')
-            step['scheduled_date'] = None if q.get('planning', 'paced') == 'checklist' else (start + timedelta(days=step['day_offset'])).isoformat()
+            step['scheduled_date'] = None if q.get('planning', 'paced') == 'checklist' else step.get('planned_date') or (start + timedelta(days=step['day_offset'])).isoformat()
         q['completed_count'] = sum(bool(s['done']) for s in q['steps'])
         q['total_count'] = len(q['steps'])
         q['progress'] = round(100*q['completed_count']/q['total_count']) if q['total_count'] else 0
         q['total_minutes'] = sum(s['minutes'] for s in q['steps'])
+        dates = [s['scheduled_date'] for s in q['steps'] if not s['done'] and s['scheduled_date']]
+        q['schedule_start'] = min(dates) if dates else q['start_date']
+        q['schedule_end'] = max(dates) if dates else q['end_date']
         q['warnings'] = []
+        q['can_replan'] = q['planning']=='paced' and q['state']=='active' and any(not s['done'] for s in q['steps'])
+        q['needs_replan'] = q['can_replan'] and any(not s['done'] and s['scheduled_date'] < today().isoformat() for s in q['steps'])
+        due = {s['id']:s.get('deadline') for s in q['sources'] if not s.get('date_conflict')}
+        if q['can_replan'] and any(not s['done'] and due.get(s.get('item_id')) and s['scheduled_date']>due[s['item_id']] for s in q['steps']):
+            q['needs_replan'] = True
+            q['warnings'].append('Offene Schritte liegen nach einer Abgabefrist. Bitte die Tagesplanung anpassen.')
+        q['sources_changed'] = False
         q['material_note'] = ('Mit gespeicherten Unterlagen geplant' if any(s.get('material_snapshot') or s.get('materials') for s in q['steps']) else 'Allgemeiner Lernvorschlag ohne verknüpfte Skriptstellen' if q['mode']=='custom' else '')
         if q['state'] == 'draft' and q['planning'] == 'paced' and q['start_date'] != today().isoformat():
             q['warnings'].append('Dieser Entwurf stammt von einem anderen Tag. Bitte einen neuen Plan ab heute erstellen.')
@@ -314,7 +350,7 @@ class QuestService:
             q['warnings'].append('Eine Quellenfrist ist widersprüchlich. Bitte die ursprüngliche Aufgabe prüfen; die Quest ist nur dein persönlicher Plan.')
         for source in q['sources']:
             q['warnings'].extend(source.get('warnings', []))
-        if any(s.get('deadline') and s['deadline'] < q['start_date'] for s in q['sources']):
+        if any(s.get('deadline') and s['deadline'] < today().isoformat() for s in q['sources']) and any(not s['done'] for s in q['steps']):
             q['warnings'].append('Eine Frist liegt bereits in der Vergangenheit; bitte die Quelle prüfen.')
         daily = {}
         for step in q['steps']:
@@ -323,19 +359,27 @@ class QuestService:
             q['warnings'].append('Der geplante Tagesumfang wird an mindestens einem Tag überschritten.')
         return q
 
-    def dashboard(self):
+    def dashboard(self, current_items=None):
         quests = [self._serialized(r) for r in self.db.rows('SELECT * FROM quests ORDER BY created_at DESC')]
+        pending = {r['quest_id']:r for r in self.db.rows("SELECT quest_id,id,kind,base_version FROM quest_revisions WHERE state='pending' AND json_extract(payload,'$.today')=?", (today().isoformat(),))}
+        for q in quests:
+            proposal=pending.get(q['id'])
+            q['pending_revision'] = {'id':proposal['id'],'kind':proposal['kind']} if proposal and proposal['base_version']==q['version'] and q['state']=='active' else None
         if any(q['state'] == 'active' and q['sources'] for q in quests):
-            current = {item['id']: item for item in self._items()}
+            current = {item['id']: item for item in (self._items() if current_items is None else current_items)}
             for q in quests:
                 if q['state'] != 'active' or not q['sources']: continue
-                ids = [s['id'] for s in q['sources']]
+                used = {s.get('item_id') for s in q['steps'] if s.get('item_id') is not None}
+                sources = [s for s in q['sources'] if s['id'] in used]
+                ids = [s['id'] for s in sources]
                 if (any(i not in current or not eligible(current[i], today()) for i in ids)
-                    or self._snapshot_changed([current[i] for i in ids],q['sources'])):
+                    or self._snapshot_changed([current[i] for i in ids],sources,current_items=current)):
                     q['warnings'].append('Ein zugehöriger Eintrag oder seine Quelle hat sich geändert. Bitte prüfen.')
+                    q['sources_changed'] = True
         for q in quests:
             if q['state']=='active' and quest_materials.changed(self.db,q['steps']):
                 q['warnings'].append('Verknüpfte Unterlagen haben sich geändert. Die gespeicherten Schritte bleiben erhalten; bitte die neue Fassung prüfen.')
+                q['sources_changed'] = True
         loads = {}
         for q in quests:
             if q['state'] == 'active' and q['planning'] == 'paced':
@@ -456,6 +500,8 @@ class QuestService:
             instructions += ('\nMATERIALGESTÜTZTE PLANUNG: Prüfe zuerst die gespeicherten Aufgabenblätter und learning_materials. '
                 'Bei Arbeitsblättern gliedere die tatsächlich genannten Teilaufgaben in fachlich sinnvolle Themenblöcke, '
                 'erhalte vorhandene Aufgabennummern und Abgabeanforderungen; keine generische Vorbereitungskette. '
+                'Benenne lesbare Aufgaben und Teilaufgaben im Schritttitel mit ihrer Nummer oder ihrem tatsächlichen Inhalt; '
+                '„Ausgewählten Teil bearbeiten“ ist dafür kein aussagekräftiger Titel. Wenn der Inhalt fehlt, bleibe bei der Unsicherheit. '
                 'Bei Lernzielen leite Themen, Reihenfolge und Tiefe vorrangig aus passenden Skriptstellen ab. '
                 'Die Fundstellen sind eine Auswahl und kein Beweis für vollständigen Prüfungsstoff. '
                 'Ergänzendes Fachwissen darf erklären und Übungsbeispiele liefern, aber keine Kursanforderungen erfinden. '
@@ -510,11 +556,13 @@ class QuestService:
                 overload = [{'day_offset':offset, 'date':(day+timedelta(days=offset)).isoformat(), 'minutes':minutes, 'limit':v.daily_minutes}
                     for offset, minutes in sorted(daily.items()) if minutes > v.daily_minutes]
                 if v.planning == 'checklist': overload = []
-                if not overload: break
+                generic = generic_material_titles(normalized, material_context)
+                if not overload and (not generic or attempt): break
                 if attempt: raise QuestError(502, 'Das Modell konnte das Tagesbudget auch nach einer Korrektur nicht einhalten. Bitte erneut planen.')
                 context = context | {'correction': {'overloaded_days':overload, 'previous_plan':{'title':plan.title, 'steps':[step | {'materials':[{k:ref[k] for k in ('document_id','page')} for ref in step.get('materials',[])]} for step in normalized]},
-                    'instruction':'Korrigiere den vollständigen Plan unter Beachtung der Fristen. Wähle einen fachlich sinnvollen Einstieg innerhalb des Budgets; senke Zeitschätzungen nicht willkürlich und erfinde oder lösche keine unbekannten Abgabeanforderungen.'}}
-            steps = [step | {'id':str(uuid.uuid4()), 'done':False, 'completed_at':None} for step in normalized]
+                    'generic_titles':generic,
+                    'instruction':'Korrigiere den vollständigen Plan unter Beachtung der Fristen. Benenne bei den markierten Platzhaltern die konkrete Aufgabe oder den fachlichen Inhalt, soweit die gelesenen Quellen dies erlauben; bei fehlenden Angaben keine Inhalte erfinden. Wähle einen fachlich sinnvollen Einstieg innerhalb des Budgets; senke Zeitschätzungen nicht willkürlich und erfinde oder lösche keine unbekannten Abgabeanforderungen.'}}
+            steps = [step | {'id':str(uuid.uuid4()), 'done':False, 'completed_at':None, 'edited_fields':[]} for step in normalized]
             steps[0]['material_snapshot'] = list(material_allowlist.values())
             with self.db.connection() as con:
                 con.execute('BEGIN IMMEDIATE')
@@ -556,7 +604,9 @@ class QuestService:
                     if q['planning']=='checklist' and val.day_offset!=0: raise QuestError(422,'Checklisten haben keine Tagesverteilung.')
                     due=next((s['deadline'] for s in q['sources'] if s['id']==val.item_id),None)
                     if due and due>=q['start_date'] and (date.fromisoformat(q['start_date'])+timedelta(days=val.day_offset)).isoformat()>due: raise QuestError(422,'Schritt liegt nach der Frist.')
-                    changed.append(val.model_dump() | {'id':old['id'],'done':False,'completed_at':None,'materials':old.get('materials',[]),'material_snapshot':old.get('material_snapshot',old.get('materials',[]))})
+                    from .quest_revisions import protected, CONTENT_FIELDS
+                    edited = protected(old) | {k for k in CONTENT_FIELDS if getattr(val,k)!=old.get(k,'')}
+                    changed.append(val.model_dump() | {'id':old['id'],'done':False,'completed_at':None,'edited_fields':sorted(edited),'materials':old.get('materials',[]),'material_snapshot':old.get('material_snapshot',old.get('materials',[]))})
                 q['steps']=changed
             con.execute("UPDATE quests SET state='active',title=?,steps=?,version=version+1,updated_at=? WHERE id=?",(title,encode(q['steps']),now(),qid))
             return {'quest':self._serialized(con.execute('SELECT * FROM quests WHERE id=?',(qid,)).fetchone())}

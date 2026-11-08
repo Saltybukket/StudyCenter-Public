@@ -19,6 +19,7 @@ TAGS = {
     'decision-stale': ('Neue Quelle – Entscheidung prüfen', 'information', 'Die bisherige persönliche Entscheidung bleibt wirksam; aktuelle Fundstellen erneut vergleichen.'),
     'date': ('Datum offen', 'information', 'Kein eindeutiges Datum gespeichert.'),
     'time': ('Uhrzeit nicht genannt', 'information', 'Nur ein Datum bekannt; keine präzise Vorwarnzeit berechenbar.'),
+    'planned-time': ('Planung ohne Uhrzeit', 'information', 'Für den persönlichen Planungstag ist keine Uhrzeit gespeichert.'),
     'source': ('Quellenangabe unklar', 'information', 'Der aktuelle Quellenstatus ist unklar; den konkreten Hinweis öffnen.'),
     'cancelled': ('Abgesagt / aufgehoben', 'information', 'Keine aktive Verpflichtung oder Erinnerung.'),
     'open': ('Offen', 'work', 'Dein persönlicher Bearbeitungsstand, unabhängig von der Buchung.'),
@@ -85,10 +86,20 @@ def item_tags(item):
     elif value.get('source_state') == 'unclear': codes.append('source')
     when = value.get('end_date') if value.get('date_meaning') in ('window','deadline') and value.get('end_date') else value.get('date')
     clock = value.get('end_time') if value.get('date_meaning') in ('window','deadline') and value.get('end_date') else value.get('time')
+    display = item.get('task_display') or {}
+    linked_deadline = display.get('deadline_date') and display.get('deadline_source_id') != item.get('id')
+    if linked_deadline:
+        if display.get('planned_date') and not value.get('time'):
+            codes.append('planned-time')
+        when, clock = display['deadline_date'], display.get('deadline_time')
     if not when: codes.append('date')
     elif not clock: codes.append('time')
     codes.append(item.get('status','open'))
     result = [{'code': c, 'label': TAGS[c][0], 'dimension': TAGS[c][1], 'help': TAGS[c][2]} for c in dict.fromkeys(codes) if c in TAGS]
+    if linked_deadline and not clock:
+        for tag in result:
+            if tag['code'] == 'time':
+                tag.update(label='Frist ohne Uhrzeit', help='Für die verknüpfte Frist ist keine Uhrzeit gespeichert.')
     uncertainty = value.get('uncertainty') or ''
     # A generic document-reading gap is coverage information, not evidence that every date is wrong.
     if uncertainty and not own and not re.search(r'OCR|Grafik|Bild|Leselücke|nicht geles|unread', uncertainty, re.I):

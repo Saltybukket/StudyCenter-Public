@@ -129,3 +129,33 @@ async def test_repeated_vague_alternative_stays_bounded(env):
         assert result['clarify'] and result['message'].count('Bitte wähle')==1
         assert len(result['message'])<=500
     assert not db.rows('SELECT * FROM items')
+
+
+@pytest.mark.asyncio
+async def test_yes_to_category_enumeration_does_not_repeat_question(env):
+    service,db,adapter,course,_=env
+    adapter.responses.side_effect=[
+        encode({'action':'clarify','question':'Soll ich alle offenen Einträge anpinnen, die eine Übung, Hausübung oder Abgabe betreffen?'}),
+        encode({'action':'bulk_set_pin','item_category':'coursework','date_from':'2026-11-09','date_to':'2026-11-15','filter_status':'open','pinned':True}),
+    ]
+    req,question=await ask(service,'Hefte alle Übungen, Hausübungen und Abgaben vom 9. bis 15. November an. Keine Vorlesungen.')
+    assert question.get('clarify')
+    _,answer=await ask(service,'Ja',req.request_id)
+    assert not answer.get('clarify') and not answer.get('failed'),answer
+    assert adapter.responses.await_count==2
+
+
+@pytest.mark.asyncio
+async def test_conversation_tail_keeps_only_selected_chain_and_is_bounded(env):
+    service,db,adapter,_,_=env
+    adapter.responses.return_value=encode({'action':'clarify','question':'Welchen Kurs meinst du?'})
+    req,_=await ask(service,'Erstes Thema')
+    unrelated,_=await ask(service,'Unabhängige Unterhaltung')
+    current=req
+    for n in range(5):
+        current,_=await ask(service,'Anschluss '+str(n),current.request_id)
+    tail=service.conversation_tail(current.request_id)
+    assert len(tail)==4
+    assert [r['user'] for r in tail]==['Anschluss 1','Anschluss 2','Anschluss 3','Anschluss 4']
+    assert all('Unabhängige' not in r['user'] for r in tail)
+    assert service.conversation_tail(None)==[]

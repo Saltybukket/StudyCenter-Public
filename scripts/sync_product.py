@@ -28,7 +28,10 @@ HASH = re.compile(r"[0-9a-f]{64}\Z")
 OBJECT = {"sha1": re.compile(r"[0-9a-f]{40}\Z"), "sha256": HASH}
 FORBIDDEN = {".local", ".env", ".venv", "browser-profiles", "profiles", "data", "logs"}
 TEXT = {".py", ".html", ".css", ".js", ".txt", ".json"}
-ASSETS = {"static/quest-journey.webp", "static/studycenter.ico"}
+ASSETS = {
+    "static/quest-journey.webp", "static/studycenter.ico", "static/cork-grain.svg",
+    "static/cork-natural.webp", "static/cork-fine.webp", "static/slate.webp", "static/slate-crisp.webp",
+}
 
 
 def valid_name(name: str) -> bool:
