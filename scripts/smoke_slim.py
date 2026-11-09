@@ -90,6 +90,31 @@ def wait_http(process, data, expected_version):
     raise RuntimeError('Slim application readiness timed out')
 
 
+def check_core_pages(url):
+    for path in ('/board', '/settings', '/overview'):
+        with urllib.request.urlopen(url+path) as response:
+            assert response.status == 200
+            response.read()
+
+
+def shutdown_diagnostic(process, data, stop_result):
+    """Describe only this synthetic fixture after its stop deadline."""
+    diagnostic = {'launcher_pid': process.pid, 'launcher_exit': process.poll(),
+                  'runtime_file_exists': (data/'runtime.json').exists(),
+                  'shutdown_request_exists': (data/'shutdown.request').exists(),
+                  'stop_returncode': stop_result.returncode,
+                  'stop_stdout': stop_result.stdout, 'stop_stderr': stop_result.stderr}
+    try:
+        runtime = json.loads((data/'runtime.json').read_text(encoding='utf-8'))
+        diagnostic['runtime_pid'] = runtime.get('pid')
+        with urllib.request.urlopen(runtime['url']+'/api/health', timeout=2) as response:
+            response.read()
+            diagnostic['health_status'] = response.status
+    except (OSError, ValueError, KeyError) as error:
+        diagnostic['health_error'] = type(error).__name__
+    return diagnostic
+
+
 def probe_app(program, data, env, result, expect_legacy_note=False, *, create_note=False, expect_manual_note=False, check_update_support=False):
     log = (program/'.local/app-smoke.log').open('w', encoding='utf-8')
     process = subprocess.Popen(starter(program, '--no-browser', '--port', '0', '--data-dir', str(data)), env=env, stdout=log, stderr=subprocess.STDOUT,
@@ -97,9 +122,7 @@ def probe_app(program, data, env, result, expect_legacy_note=False, *, create_no
     try:
         expected_version = json.loads((program/'slim-manifest.json').read_text())['version']
         url = wait_http(process, data, expected_version)
-        for path in ('/board', '/settings', '/overview'):
-            with urllib.request.urlopen(url+path) as response:
-                assert response.status == 200
+        check_core_pages(url)
         if check_update_support:
             with urllib.request.urlopen(url+'/api/updates') as response:
                 update = json.load(response)
@@ -141,9 +164,18 @@ def probe_app(program, data, env, result, expect_legacy_note=False, *, create_no
                 result['previous_task_quest_progress_and_settings_after_start'] = True
         result['real_http_core'] = True
     finally:
-        run_command(starter(program, '--data-dir', str(data), '--stop'), env)
+        stop_command = starter(program, '--data-dir', str(data), '--stop')
+        print('Run:', ' '.join(map(str, stop_command[:4])), flush=True)
+        stop = subprocess.run(list(map(str, stop_command)), env=env, capture_output=True,
+                              encoding='utf-8', errors='replace', timeout=300,
+                              creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        stop.check_returncode()
         try:
-            assert process.wait(timeout=30) == 0, 'Prepared app did not stop cleanly'
+            try:
+                assert process.wait(timeout=30) == 0, 'Prepared app did not stop cleanly'
+            except subprocess.TimeoutExpired:
+                print(json.dumps({'owned_shutdown_diagnostic': shutdown_diagnostic(process, data, stop)}), flush=True)
+                raise
         finally:
             log.close()
             print((program/'.local/app-smoke.log').read_text(errors='replace')[-4000:], flush=True)

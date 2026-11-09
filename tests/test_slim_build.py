@@ -19,6 +19,44 @@ def test_slim_diagnostics_do_not_fail_on_unicode_with_legacy_console():
     assert b'\\u5b66\\u7fd2' in result.stdout
 
 
+def test_slim_page_probe_consumes_complete_http_responses():
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from scripts.smoke_slim import check_core_pages
+
+    completed = []
+    all_completed = threading.Event()
+    body = b'synthetic-page' * 131072
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            completed.append(self.path)
+            if len(completed) == 3:
+                all_completed.set()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        check_core_pages('http://127.0.0.1:'+str(server.server_port))
+        assert all_completed.wait(5)
+        assert completed == ['/board', '/settings', '/overview']
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
 @pytest.mark.parametrize('actual,accepted', [('0.1.0b4', True), ('0.1.0b3', False)])
 def test_package_readiness_is_bound_to_candidate_version(tmp_path, monkeypatch, actual, accepted):
     from scripts import smoke_slim
