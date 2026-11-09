@@ -1,5 +1,33 @@
 # Delivery plan
 
+## Veroeffentlichte beta.6 (2026-11-09)
+
+[Release](https://github.com/Saltybukket/StudyCenter-Public/releases/tag/v0.1.0-beta.6)
+aus `8fa67e72fbbf12285a38587271961ef9d6201f8a`, mit 13 geprueften Assets.
+Der [native Build](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42546558807)
+bestand auf Windows Server 2022 (1205 Tests) und Ubuntu 24.04 (1200 Tests).
+Der [exakte Windows-Download](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42596879291)
+bestand erneut Installation, beta.5-Upgrade, Unicode-Pfade, Reparatur und
+datenbewahrende Deinstallation. GUI-Abbruch vor Vorbereitung sowie durch
+Dateisperren ausgeloeste Abbrueche vor und nach bereits ersetzten Programmdateien
+erhielten alte Dateien, Umgebungspfade, Registrierung, Verknuepfungen und
+synthetische Nutzerdaten; Wiederstart, persoenliche Korrekturen, Aufgaben- und
+Quest-Fortschritte sowie regulaeres Beenden wurden geprueft. Ein Abbruchklick
+waehrend der Vorbereitung selbst oder Stromausfall wurde nicht getestet.
+
+Der [exakte Linux-Download](https://github.com/Saltybukket/StudyCenter-Public/actions/runs/42597244772)
+bestand Installation, PDF-, HTTP- und Offline-Pruefungen. Die separate Systembrowser-
+und UI-Probe bleibt wegen der Browser-Dateirechte im Testsystem BLOCKED;
+ein gruener Workflow ist dafuer kein UI-Pass. Echte TU-Konten und eine native
+Windows-11-Sitzung wurden nicht getestet. Alle Release-Pruefsummen und Quellbindungen
+wurden unabhaengig verglichen, entpackte Pakete ohne Datenschutzbefund gescannt.
+
+Ein vorheriger beta.5-Shutdown-Timeout war lokal in zehn isolierten Starts nicht
+reproduzierbar; seine Ursache ist unbestaetigt. Der Testclient liest HTTP-Antworten
+nun vollstaendig. Die unveraenderte 30-Sekunden-Abbruchbedingung bestand in beiden
+finalen nativen Durchlaeufen. Die folgenden Abschnitte enthalten historische
+Zwischenstaende; dieser Release-Stand ersetzt deren offene Paketpruefungen.
+
 ## Aktive Umsetzung: gemeinsame Grundlage (2026-11-06)
 
 Ziel: dieselbe versionierte Produktfunktion fuer Private und Public, ein nachvollziehbarer
@@ -317,11 +345,13 @@ Unterstuetzt werden verwaltete x64-Slim-Installationen fuer Windows und Linux.
 Quellcheckouts und alte Pakete ohne Capability-Metadaten bleiben beim manuellen
 Update. Linux behaelt die vorherige Umgebung und ein Recovery-Journal.
 Windows verwendet den interaktiven Installer mit gesperrtem Programm-/Datenpfad;
-ein vollstaendiger Rollback teilweise ersetzter Inno-Dateien ist nicht belegt.
-Native Windows-Installation und Inno-Kompilierung stehen noch aus.
+die Wiederherstellung bereits teilweise ersetzter Dateien ist in zwei nativen
+Durchlaeufen belegt. Der Installer behaelt Wiederherstellungsdateien im eigenen
+Datenordner und meldet fehlgeschlagene Wiederherstellung sichtbar.
 
 Release-Builds erzeugen zum Installer/Archiv ein plattformspezifisches
 `*-update.json`, gebunden an die Artefakt-Pruefsumme. Dieses und SHA256SUMS
 muessen gemeinsam als GitHub-Release-Assets veroeffentlicht werden. Der interne
 Metadaten-Schritt wird nur nach erfolgreichem Bootstrap-Build aufgerufen.
-Keine automatische Installation und kein Release durch diese Codeaenderung.
+Keine automatische Installation. Mit beta.6 veroeffentlicht; beta.5 und aeltere
+Installationen wechseln einmal manuell auf das neue Paket.
